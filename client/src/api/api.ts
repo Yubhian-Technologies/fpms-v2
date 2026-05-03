@@ -1,11 +1,11 @@
 import axios, { AxiosHeaders } from "axios";
 
-// Use environment variable or fall back to local backend in development.
+// In production (Vercel), VITE_BACKEND_URL is empty → use relative paths so
+// Vercel's /api/* rewrite forwards requests to the serverless function on the
+// same domain. In local dev, fall back to the local Express server.
 const backendUrl =
   import.meta.env.VITE_BACKEND_URL ||
-  (import.meta.env.DEV
-    ? "http://localhost:5000"
-    : "https://truthful-tranquility-production.up.railway.app");
+  (import.meta.env.DEV ? "http://localhost:5000" : "");
 
 console.log("[API Config] Backend URL:", backendUrl);
 
