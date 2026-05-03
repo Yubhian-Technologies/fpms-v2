@@ -393,6 +393,73 @@ export default function Dashboard() {
     setFilteredData(subs);
   };
 
+  const exportFilteredExcel = () => {
+    if (filteredData.length === 0) return;
+
+    // Build a lookup: submissionId → staff record
+    const subToStaff: Record<string, any> = {};
+    staffList.forEach((staff: any) => {
+      (staff.submissions || []).forEach((sub: any) => {
+        if (sub.id) subToStaff[sub.id] = staff;
+      });
+    });
+
+    const rows = filteredData.map((sub: any) => {
+      const staff = subToStaff[sub.id] || {};
+      const finalScore =
+        sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? "";
+      const submittedAt = sub.createdAt?.seconds
+        ? new Date(sub.createdAt.seconds * 1000).toLocaleDateString("en-IN")
+        : "";
+      const reviewedAt = sub.updatedAt?.seconds
+        ? new Date(sub.updatedAt.seconds * 1000).toLocaleDateString("en-IN")
+        : "";
+
+      return {
+        "Staff Name": staff.name || sub.userName || "",
+        "Email": staff.email || sub.userEmail || "",
+        "Role": staff.role || sub.userRole || "",
+        "Department": staff.department || sub.department || "",
+        "College": staff.college || sub.college || "",
+        "Designation": staff.designation || "",
+        "Form": sub.formTitle || "",
+        "Criteria": sub.criteriaName || "",
+        "Module": sub.moduleName || "",
+        "Task": sub.taskName || "",
+        "Claimed Score": sub.claimedScore ?? "",
+        "Reviewer Score": sub.reviewerScore ?? "",
+        "Final Score": finalScore,
+        "Max Marks": sub.maxMarks ?? "",
+        "Status": sub.status || "",
+        "Appealed": sub.isAppealed ? "Yes" : "No",
+        "Appeal Reason": sub.appealReason || "",
+        "Requested Score": sub.appealRequestedScore ?? "",
+        "Appealer Score": sub.appealerScore ?? "",
+        "Description": sub.description || "",
+        "Evidence URL": sub.evidence || "",
+        "Submitted On": submittedAt,
+        "Last Updated": reviewedAt,
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // Auto-width columns
+    const colWidths = Object.keys(rows[0] || {}).map((key) => ({
+      wch: Math.max(
+        key.length,
+        ...rows.map((r: any) => String(r[key] || "").length),
+      ),
+    }));
+    worksheet["!cols"] = colWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Submissions");
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `fpms-filtered-submissions-${dateStr}.xlsx`);
+  };
+
   if (loading) {
     return (
       <DashboardLayout title="Dashboard">
@@ -1717,13 +1784,22 @@ export default function Dashboard() {
                 </select>
               </div>
 
-              {/* Apply Button */}
-              <button
-                onClick={applyFilter}
-                className="w-full mt-3 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
-              >
-                Apply Filters
-              </button>
+              {/* Apply + Export Buttons */}
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={applyFilter}
+                  className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
+                >
+                  Apply Filters
+                </button>
+                <button
+                  onClick={exportFilteredExcel}
+                  disabled={filteredData.length === 0}
+                  className="flex-1 py-2.5 px-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg shadow transition-colors focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-1"
+                >
+                  Export Excel
+                </button>
+              </div>
             </div>
           </div>
         )}
