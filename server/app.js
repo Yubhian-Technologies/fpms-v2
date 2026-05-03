@@ -58,6 +58,12 @@ app.get("/api", (req, res) => {
   res.json({ status: "API working", version: "2.0.0" });
 });
 
+// Lightweight warmup endpoint — called by the frontend on tab focus to
+// prevent cold-start delays when the user returns after an idle period
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
+});
+
 app.use("/api/auth", authRouter);
 app.use("/api/committee", authRouter);
 app.use("/api/admin", adminRouter);

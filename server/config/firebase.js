@@ -1,25 +1,48 @@
 import admin from 'firebase-admin';
 
-try {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      type: "service_account",
-      project_id: process.env.FIREBASE_PROJECT_ID,
-      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      // dotenv / Vercel store \n as literal \\n — restore real newlines
-      private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: process.env.FIREBASE_CLIENT_ID,
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-    }),
-  });
-
-  console.log("FIREBASE CONNECTED SUCCESSFULLY");
-} catch (error) {
-  console.error("FIREBASE CONNECTION FAILED");
-  console.error(error);
+function parsePrivateKey(raw) {
+  if (!raw) return undefined;
+  const s = String(raw);
+  // Vercel UI / copy-paste from .env stores literal \n — convert to real newlines
+  return s.includes('\\n') ? s.replace(/\\n/g, '\n') : s;
 }
 
-export const auth = admin.auth();
-export const db = admin.firestore();
+let _auth;
+let _db;
+
+try {
+  // Guard against re-initialization on serverless warm restarts
+  if (admin.apps.length === 0) {
+    const projectId   = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey  = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+
+    console.log('[Firebase] Init — project:', projectId || 'MISSING',
+      '| email:', clientEmail ? 'set' : 'MISSING',
+      '| key:', privateKey ? `${privateKey.length} chars` : 'MISSING');
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        type: 'service_account',
+        project_id:     projectId,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key:    privateKey,
+        client_email:   clientEmail,
+        client_id:      process.env.FIREBASE_CLIENT_ID,
+        auth_uri:  'https://accounts.google.com/o/oauth2/auth',
+        token_uri: 'https://oauth2.googleapis.com/token',
+      }),
+    });
+  } else {
+    console.log('[Firebase] Reusing existing app');
+  }
+
+  _auth = admin.auth();
+  _db   = admin.firestore();
+  console.log('FIREBASE CONNECTED SUCCESSFULLY');
+} catch (error) {
+  console.error('FIREBASE CONNECTION FAILED:', error.message);
+}
+
+export const auth = _auth;
+export const db   = _db;

@@ -13,6 +13,30 @@ export const api = axios.create({
   baseURL: backendUrl,
 });
 
+// ── Warmup ping ──────────────────────────────────────────────────────────────
+// Vercel serverless functions go cold after ~5 min of inactivity.
+// When the user returns to the tab, ping /api/health to wake the function
+// before real data requests are fired, preventing cold-start 5xx failures.
+let warmupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleWarmup() {
+  if (warmupTimer) clearTimeout(warmupTimer);
+  // Small delay so the ping fires after the browser tab regains focus
+  warmupTimer = setTimeout(() => {
+    axios.get(`${backendUrl}/api/health`).catch(() => {});
+    warmupTimer = null;
+  }, 300);
+}
+
+// Ping once on initial load and again every time the user returns to the tab
+scheduleWarmup();
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") scheduleWarmup();
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   const userStr = localStorage.getItem("user");
@@ -24,13 +48,8 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
-    console.log("[API Request] Token found, setting Authorization header");
   } else {
     console.warn("[API Request] ⚠️ NO TOKEN FOUND in localStorage");
-    console.log(
-      "[API Request] Available localStorage keys:",
-      Object.keys(localStorage),
-    );
   }
 
   // Add user info to headers for simplified auth
@@ -43,30 +62,32 @@ api.interceptors.request.use((config) => {
       headers.set("x-user-role", user.role || "faculty");
       headers.set("x-college", user.college || "");
       headers.set("x-department", user.department || "");
-      console.log("[API Request] User headers set:", {
-        role: user.role,
-        email: user.email,
-        id: user.uid || user.id,
-      });
     } catch (e) {
       console.error("Failed to parse user data:", e);
     }
-  } else {
-    console.warn("[API Request] ⚠️ NO USER found in localStorage");
   }
 
-  console.log("[API Request] Final headers:", config.headers);
   return config;
 });
 
+// Retry once on network errors / 5xx — catches cold-start transient failures
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.error("🔴 [API] 401 Unauthorized - Auth failed");
-      console.log("Token in localStorage:", !!localStorage.getItem("token"));
-      console.log("User in localStorage:", !!localStorage.getItem("user"));
+  async (error) => {
+    const config = error.config as typeof error.config & { _retried?: boolean };
+    const status = error.response?.status;
+
+    // Retry once on 502/503/504 (gateway errors during cold start) or no response
+    if (!config._retried && (!error.response || status === 502 || status === 503 || status === 504)) {
+      config._retried = true;
+      await new Promise((r) => setTimeout(r, 1500));
+      return api(config);
     }
+
+    if (status === 401) {
+      console.error("[API] 401 Unauthorized — token invalid or backend cold-started");
+    }
+
     return Promise.reject(error);
   },
 );
