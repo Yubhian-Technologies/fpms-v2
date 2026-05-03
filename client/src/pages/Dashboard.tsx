@@ -78,6 +78,7 @@ export default function Dashboard() {
   // ─── FILTER STATES ───
   const [selectedCollege, setSelectedCollege] = useState<string>("All");
   const [selectedRole, setSelectedRole] = useState<string>("All");
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
   const [selectedStaff, setSelectedStaff] = useState<string>("All");
   const [selectedCriteria, setSelectedCriteria] = useState<string>("All");
   const [selectedModule, setSelectedModule] = useState<string>("All");
@@ -377,6 +378,8 @@ export default function Dashboard() {
 
     if (selectedRole !== "All")
       filteredStaff = filteredStaff.filter((s) => s.role === selectedRole);
+    if (selectedDepartment !== "All")
+      filteredStaff = filteredStaff.filter((s) => s.department === selectedDepartment);
     if (selectedStaff !== "All")
       filteredStaff = filteredStaff.filter((s) => s.name === selectedStaff);
 
@@ -1551,6 +1554,7 @@ export default function Dashboard() {
                   value={selectedRole}
                   onChange={(e) => {
                     setSelectedRole(e.target.value);
+                    setSelectedDepartment("All");
                     setSelectedStaff("All");
                     setSelectedCriteria("All");
                     setSelectedModule("All");
@@ -1569,6 +1573,40 @@ export default function Dashboard() {
                     .map((role) => (
                       <option key={role} value={role}>
                         {role}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Department */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Department
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition-colors"
+                  value={selectedDepartment}
+                  onChange={(e) => {
+                    setSelectedDepartment(e.target.value);
+                    setSelectedStaff("All");
+                    setSelectedCriteria("All");
+                    setSelectedModule("All");
+                  }}
+                >
+                  <option value="All">All Departments</option>
+                  {staffList
+                    .filter(
+                      (s) =>
+                        (selectedCollege === "All" ||
+                          s.college === selectedCollege) &&
+                        (selectedRole === "All" || s.role === selectedRole),
+                    )
+                    .map((s) => s.department)
+                    .filter((v: string, i: number, a: string[]) => v && a.indexOf(v) === i)
+                    .sort()
+                    .map((dept: string) => (
+                      <option key={dept} value={dept}>
+                        {dept}
                       </option>
                     ))}
                 </select>
@@ -1594,7 +1632,9 @@ export default function Dashboard() {
                       (s) =>
                         (selectedCollege === "All" ||
                           s.college === selectedCollege) &&
-                        (selectedRole === "All" || s.role === selectedRole),
+                        (selectedRole === "All" || s.role === selectedRole) &&
+                        (selectedDepartment === "All" ||
+                          s.department === selectedDepartment),
                     )
                     .map((s) => s.name)
                     .filter((v, i, a) => a.indexOf(v) === i)
