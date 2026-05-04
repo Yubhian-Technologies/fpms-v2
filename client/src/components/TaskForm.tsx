@@ -18,10 +18,20 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
 
   const handleMarksTypeChange = (type: "fixed" | "range") => {
     if (type === "fixed") {
+      // Switch to fixed: clear minMarks, keep existing marks value
       onChange({ marksType: "fixed", minMarks: undefined });
     } else {
-      onChange({ marksType: "range", minMarks: task.minMarks ?? 0 });
+      // Switch to range: minMarks becomes the marks value (used for totals),
+      // clear the fixed marks since there's no upper cap
+      const currentMarks = task.marks ?? 0;
+      onChange({ marksType: "range", minMarks: currentMarks, marks: currentMarks });
     }
+  };
+
+  const handleMinMarksChange = (value: number) => {
+    const min = Math.max(0, value);
+    // For range tasks, minMarks IS the marks used for totals
+    onChange({ minMarks: min, marks: min });
   };
 
   return (
@@ -126,49 +136,34 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
           </div>
         </div>
 
-        {/* Marks inputs */}
-        <div className={`grid gap-4 ${isRange ? "md:grid-cols-2" : "md:grid-cols-1 max-w-xs"}`}>
-          {isRange && (
-            <div className="space-y-2">
-              <Label>Min Marks *</Label>
-              <Input
-                type="number"
-                min={0}
-                value={task.minMarks ?? 0}
-                onChange={(e) =>
-                  onChange({
-                    minMarks: Math.max(0, Number(e.target.value) || 0),
-                  })
-                }
-                placeholder="0"
-              />
-              <p className="text-xs text-muted-foreground">
-                Minimum a faculty can claim
-              </p>
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>{isRange ? "Max Marks *" : "Task Marks *"}</Label>
+        {/* Marks input — single field regardless of type */}
+        <div className="max-w-xs space-y-2">
+          <Label>{isRange ? "Min Marks *" : "Task Marks *"}</Label>
+          {isRange ? (
             <Input
               type="number"
-              min={isRange ? (task.minMarks ?? 0) : 0}
+              min={0}
+              value={task.minMarks ?? 0}
+              onChange={(e) => handleMinMarksChange(Number(e.target.value) || 0)}
+              placeholder="0"
+            />
+          ) : (
+            <Input
+              type="number"
+              min={0}
               value={task.marks}
               onChange={(e) =>
                 onChange({ marks: Math.max(0, Number(e.target.value) || 0) })
               }
               placeholder="0"
             />
-            {isRange && (
-              <p className="text-xs text-muted-foreground">
-                Maximum a faculty can claim
-              </p>
-            )}
-          </div>
+          )}
         </div>
 
         {isRange && (
           <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-3 py-2">
-            Faculty can claim any value from <strong>{task.minMarks ?? 0}</strong> to <strong>{task.marks}</strong> marks.
+            Faculty can claim any marks ≥ <strong>{task.minMarks ?? 0}</strong> with no upper limit.
+            This task counts as <strong>{task.minMarks ?? 0}</strong> marks in the total.
           </p>
         )}
       </CardContent>

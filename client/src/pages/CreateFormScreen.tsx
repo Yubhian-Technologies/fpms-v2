@@ -464,24 +464,6 @@ export default function CreateFormScreen() {
       return false;
     }
 
-    const hasInvalidRange = draft.criteria.some((criteriaItem) =>
-      criteriaItem.modules.some((moduleItem) =>
-        moduleItem.tasks.some(
-          (task) =>
-            task.marksType === "range" &&
-            (task.minMarks ?? 0) > task.marks,
-        ),
-      ),
-    );
-
-    if (hasInvalidRange) {
-      toast({
-        title: "Validation Error",
-        description: "Min marks cannot be greater than max marks in a range task.",
-        variant: "destructive",
-      });
-      return false;
-    }
 
     return true;
   };
