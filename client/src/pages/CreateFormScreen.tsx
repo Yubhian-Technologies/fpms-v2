@@ -37,6 +37,7 @@ const createTask = (): Task => ({
   evidence: "",
   reference: "",
   marks: 0,
+  marksType: "fixed",
 });
 
 const createModule = (): Module => ({
@@ -458,6 +459,25 @@ export default function CreateFormScreen() {
       toast({
         title: "Validation Error",
         description: "Task marks are required and must be 0 or positive.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const hasInvalidRange = draft.criteria.some((criteriaItem) =>
+      criteriaItem.modules.some((moduleItem) =>
+        moduleItem.tasks.some(
+          (task) =>
+            task.marksType === "range" &&
+            (task.minMarks ?? 0) > task.marks,
+        ),
+      ),
+    );
+
+    if (hasInvalidRange) {
+      toast({
+        title: "Validation Error",
+        description: "Min marks cannot be greater than max marks in a range task.",
         variant: "destructive",
       });
       return false;

@@ -13,6 +13,17 @@ interface TaskFormProps {
 }
 
 export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
+  const marksType = task.marksType ?? "fixed";
+  const isRange = marksType === "range";
+
+  const handleMarksTypeChange = (type: "fixed" | "range") => {
+    if (type === "fixed") {
+      onChange({ marksType: "fixed", minMarks: undefined });
+    } else {
+      onChange({ marksType: "range", minMarks: task.minMarks ?? 0 });
+    }
+  };
+
   return (
     <Card className="border-l-4 border-l-violet-500">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
@@ -84,19 +95,82 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
               placeholder="Reference links / docs"
             />
           </div>
+
+          {/* Marks Type Toggle */}
           <div className="space-y-2">
-            <Label>Task Marks *</Label>
+            <Label>Marks Type</Label>
+            <div className="flex rounded-md border overflow-hidden text-sm">
+              <button
+                type="button"
+                onClick={() => handleMarksTypeChange("fixed")}
+                className={`flex-1 py-2 font-medium transition-colors ${
+                  !isRange
+                    ? "bg-violet-600 text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                Fixed
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMarksTypeChange("range")}
+                className={`flex-1 py-2 font-medium transition-colors ${
+                  isRange
+                    ? "bg-violet-600 text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                Range
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Marks inputs */}
+        <div className={`grid gap-4 ${isRange ? "md:grid-cols-2" : "md:grid-cols-1 max-w-xs"}`}>
+          {isRange && (
+            <div className="space-y-2">
+              <Label>Min Marks *</Label>
+              <Input
+                type="number"
+                min={0}
+                value={task.minMarks ?? 0}
+                onChange={(e) =>
+                  onChange({
+                    minMarks: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum a faculty can claim
+              </p>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>{isRange ? "Max Marks *" : "Task Marks *"}</Label>
             <Input
               type="number"
-              min={0}
+              min={isRange ? (task.minMarks ?? 0) : 0}
               value={task.marks}
               onChange={(e) =>
                 onChange({ marks: Math.max(0, Number(e.target.value) || 0) })
               }
               placeholder="0"
             />
+            {isRange && (
+              <p className="text-xs text-muted-foreground">
+                Maximum a faculty can claim
+              </p>
+            )}
           </div>
         </div>
+
+        {isRange && (
+          <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+            Faculty can claim any value from <strong>{task.minMarks ?? 0}</strong> to <strong>{task.marks}</strong> marks.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

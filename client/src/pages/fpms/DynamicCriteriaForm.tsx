@@ -35,7 +35,9 @@ interface TaskItem {
   assessmentCriteria: string;
   evidence: string;
   reference: string;
-  marks: number;
+  marks: number;       // max marks
+  marksType?: "fixed" | "range";
+  minMarks?: number;   // lower bound when marksType === "range"
   order: number;
 }
 
@@ -379,7 +381,7 @@ export default function DynamicCriteriaForm() {
   const totalClaimedMarks = useMemo(() => {
     return allTasks.reduce((sum, task) => {
       const value = Number(taskProgress[task.id]?.claimedScore || 0);
-      const bounded = Math.max(0, Math.min(value, Number(task.marks || 0)));
+      const bounded = clampClaimedScore(value, task);
       return sum + bounded;
     }, 0);
   }, [allTasks, taskProgress]);
@@ -495,9 +497,16 @@ export default function DynamicCriteriaForm() {
     }));
   };
 
-  const clampClaimedScore = (value: number, maxMarks: number) => {
+  const clampClaimedScore = (value: number, task: TaskItem) => {
     if (!Number.isFinite(value)) return 0;
-    return Math.max(0, Math.min(value, Number(maxMarks || 0)));
+    const max = Number(task.marks || 0);
+    const clamped = Math.max(0, Math.min(value, max));
+    // For range tasks: if user entered something > 0, also enforce minMarks
+    if (task.marksType === "range" && clamped > 0) {
+      const min = Number(task.minMarks ?? 0);
+      return Math.max(min, clamped);
+    }
+    return clamped;
   };
 
   const saveProgress = async () => {
@@ -1092,7 +1101,9 @@ export default function DynamicCriteriaForm() {
                               <Badge variant="outline">Pending</Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              Max: {task.marks}
+                              {task.marksType === "range"
+                                ? `Range: ${task.minMarks ?? 0} – ${task.marks}`
+                                : `Max: ${task.marks}`}
                             </span>
                             {Array.isArray(taskSubmittedRoles[task.id]) &&
                             taskSubmittedRoles[task.id].length > 0 ? (
@@ -1157,6 +1168,11 @@ export default function DynamicCriteriaForm() {
                           <div>
                             <label className="text-sm font-medium block mb-1.5">
                               Claimed Score
+                              {task.marksType === "range" && (
+                                <span className="ml-2 text-xs text-blue-600 font-normal">
+                                  (min {task.minMarks ?? 0} – max {task.marks})
+                                </span>
+                              )}
                             </label>
                             {taskFrozen ? (
                               <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
@@ -1165,7 +1181,7 @@ export default function DynamicCriteriaForm() {
                             ) : (
                               <Input
                                 type="number"
-                                min={0}
+                                min={task.marksType === "range" ? (task.minMarks ?? 0) : 0}
                                 max={task.marks}
                                 value={progress.claimedScore}
                                 className="w-full"
@@ -1173,7 +1189,7 @@ export default function DynamicCriteriaForm() {
                                   updateTaskProgress(task.id, {
                                     claimedScore: clampClaimedScore(
                                       Number(e.target.value || 0),
-                                      task.marks,
+                                      task,
                                     ),
                                   })
                                 }

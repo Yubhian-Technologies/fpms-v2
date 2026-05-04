@@ -6,7 +6,9 @@ export interface Task {
   assessmentCriteria?: string;
   evidence?: string;
   reference?: string;
-  marks: number;
+  marks: number;          // max marks (used for module/criteria totals)
+  marksType?: "fixed" | "range"; // fixed = single max; range = min–max
+  minMarks?: number;      // lower bound when marksType === "range"
 }
 
 export interface Module {
