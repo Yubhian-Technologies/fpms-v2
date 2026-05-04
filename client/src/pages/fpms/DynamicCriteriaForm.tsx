@@ -500,9 +500,7 @@ export default function DynamicCriteriaForm() {
     if (!Number.isFinite(value)) return 0;
     const v = Math.max(0, value);
     if (task.marksType === "range") {
-      // No upper cap — only enforce minimum when a non-zero value is entered
-      const min = Number(task.minMarks ?? 0);
-      return v > 0 ? Math.max(min, v) : 0;
+      return v; // no upper cap, no mid-typing min enforcement
     }
     // Fixed: clamp to [0, maxMarks]
     return Math.min(v, Number(task.marks || 0));
@@ -539,7 +537,22 @@ export default function DynamicCriteriaForm() {
 
       const existingSubmissionId = taskSubmissionIds[task.id];
 
-      if (Number(progress.claimedScore || 0) > 0 && !progress.evidenceUrl) {
+      const claimedNum = Number(progress.claimedScore || 0);
+
+      // For range tasks: claimed must be 0 (not claiming) or ≥ minMarks
+      if (task.marksType === "range" && claimedNum > 0) {
+        const minRequired = Number(task.minMarks ?? 0);
+        if (claimedNum < minRequired) {
+          toast({
+            title: "Score below minimum",
+            description: `Claim either 0 (not applicable) or at least ${minRequired} marks for this task.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
+
+      if (claimedNum > 0 && !progress.evidenceUrl) {
         toast({
           title: "Evidence required",
           description:
