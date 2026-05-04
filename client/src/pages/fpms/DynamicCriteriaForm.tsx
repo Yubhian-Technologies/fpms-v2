@@ -106,6 +106,15 @@ type TaskWorkflowStatus =
   | "appealed"
   | "appeal-resolved";
 
+function clampClaimedScore(value: number, task: TaskItem): number {
+  if (!Number.isFinite(value)) return 0;
+  const v = Math.max(0, value);
+  if (task.marksType === "range") {
+    return v; // no upper cap, no mid-typing min enforcement
+  }
+  return Math.min(v, Number(task.marks || 0));
+}
+
 export default function DynamicCriteriaForm() {
   const { formId, criteriaId } = useParams();
   const { user } = useAuth();
@@ -494,16 +503,6 @@ export default function DynamicCriteriaForm() {
         ...patch,
       },
     }));
-  };
-
-  const clampClaimedScore = (value: number, task: TaskItem) => {
-    if (!Number.isFinite(value)) return 0;
-    const v = Math.max(0, value);
-    if (task.marksType === "range") {
-      return v; // no upper cap, no mid-typing min enforcement
-    }
-    // Fixed: clamp to [0, maxMarks]
-    return Math.min(v, Number(task.marks || 0));
   };
 
   const saveProgress = async () => {
