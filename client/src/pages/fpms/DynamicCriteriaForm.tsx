@@ -106,13 +106,9 @@ type TaskWorkflowStatus =
   | "appealed"
   | "appeal-resolved";
 
-function clampClaimedScore(value: number, task: TaskItem): number {
+function clampClaimedScore(value: number, _task: TaskItem): number {
   if (!Number.isFinite(value)) return 0;
-  const v = Math.max(0, value);
-  if (task.marksType === "range") {
-    return v; // no upper cap, no mid-typing min enforcement
-  }
-  return Math.min(v, Number(task.marks || 0));
+  return Math.max(0, value); // only prevent negatives; no upper cap for any task type
 }
 
 export default function DynamicCriteriaForm() {
@@ -1190,13 +1186,11 @@ export default function DynamicCriteriaForm() {
                             {taskFrozen ? (
                               <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
                                 {progress.claimedScore}
-                                {task.marksType !== "range" && ` / ${task.marks}`}
                               </div>
                             ) : (
                               <Input
                                 type="number"
-                                min={task.marksType === "range" ? (task.minMarks ?? 0) : 0}
-                                {...(task.marksType !== "range" ? { max: task.marks } : {})}
+                                min={0}
                                 value={progress.claimedScore}
                                 className="w-full"
                                 onChange={(e) =>

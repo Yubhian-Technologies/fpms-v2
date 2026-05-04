@@ -311,8 +311,6 @@ export default function AppealReview() {
     submissionId: string,
     field: "appealerScore" | "appealerReason",
     value: string,
-    maxMarks?: number,
-    marksType?: string,
   ) => {
     const clamped =
       field === "appealerScore"
@@ -321,9 +319,7 @@ export default function AppealReview() {
             if (!trimmed) return "";
             const num = Number(trimmed);
             if (!Number.isFinite(num)) return "";
-            if (marksType === "range") return String(Math.max(0, num));
-            const max = Number(maxMarks || 0);
-            return String(Math.max(0, Math.min(num, max)));
+            return String(Math.max(0, num)); // no upper cap for any task type
           })()
         : value;
 
@@ -345,19 +341,11 @@ export default function AppealReview() {
       appealerReason: "",
     };
     const numericScore = Number(input.appealerScore);
-    const isRange = item.marksType === "range";
-    const maxMarks = Number(item.maxMarks || 0);
 
-    if (
-      !Number.isFinite(numericScore) ||
-      numericScore < 0 ||
-      (!isRange && numericScore > maxMarks)
-    ) {
+    if (!Number.isFinite(numericScore) || numericScore < 0) {
       toast({
         title: "Invalid score",
-        description: isRange
-          ? "Score must be 0 or greater."
-          : `Score must be between 0 and ${maxMarks}.`,
+        description: "Score must be 0 or greater.",
         variant: "destructive",
       });
       return;
@@ -450,7 +438,8 @@ export default function AppealReview() {
           <div className="flex items-center gap-6 text-sm bg-muted/40 rounded px-3 py-2">
             <span>
               <span className="font-medium">Claimed:</span>{" "}
-              {Number(item.claimedScore || 0)} / {max}
+              {Number(item.claimedScore || 0)}
+              <span className="text-muted-foreground ml-1">(ref: {max})</span>
             </span>
             {item.reviewerScore != null && (
               <span>
@@ -485,7 +474,7 @@ export default function AppealReview() {
                 Reviewer Evaluation
               </p>
               <p className="text-blue-700">
-                <strong>Score:</strong> {item.reviewerScore} / {max}
+                <strong>Score:</strong> {item.reviewerScore}
               </p>
               <p className="text-blue-700 mt-0.5">
                 <strong>Remarks:</strong> {item.reviewerReason}
@@ -513,14 +502,13 @@ export default function AppealReview() {
               <Input
                 type="number"
                 min={0}
-                {...(item.marksType !== "range" ? { max } : {})}
                 value={
                   type === "pending"
                     ? input.appealerScore
                     : (item.appealerScore ?? "")
                 }
                 onChange={(e) =>
-                  updateAppealInput(id, "appealerScore", e.target.value, max, item.marksType ?? undefined)
+                  updateAppealInput(id, "appealerScore", e.target.value)
                 }
                 disabled={type === "resolved"}
                 className={type === "resolved" ? "bg-muted" : ""}

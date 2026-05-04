@@ -577,8 +577,6 @@ export default function Review() {
     submissionId: string,
     field: "verifiedScore" | "remarks",
     value: string,
-    maxMarks?: number,
-    marksType?: string,
   ) => {
     const clamp = () => {
       if (field !== "verifiedScore") return value;
@@ -586,9 +584,7 @@ export default function Review() {
       if (!trimmed) return "";
       const num = Number(trimmed);
       if (!Number.isFinite(num)) return "";
-      if (marksType === "range") return String(Math.max(0, num));
-      const max = Number(maxMarks || 0);
-      return String(Math.max(0, Math.min(num, max)));
+      return String(Math.max(0, num)); // no upper cap for any task type
     };
 
     setReviewInputs((prev) => ({
@@ -606,15 +602,11 @@ export default function Review() {
 
     const input = reviewInputs[id] || { verifiedScore: "", remarks: "" };
     const score = Number(input.verifiedScore);
-    const isRange = item.marksType === "range";
-    const max = Number(item.maxMarks || 0);
 
-    if (!Number.isFinite(score) || score < 0 || (!isRange && score > max)) {
+    if (!Number.isFinite(score) || score < 0) {
       toast({
         title: "Invalid score",
-        description: isRange
-          ? "Score must be 0 or greater."
-          : `Score must be between 0 and ${max}.`,
+        description: "Score must be 0 or greater.",
         variant: "destructive",
       });
       return;
@@ -703,7 +695,8 @@ export default function Review() {
           <div className="flex justify-between items-center text-sm bg-muted/50 rounded px-3 py-2.5">
             <div>
               <span className="font-medium">Claimed:</span>{" "}
-              {item.claimedScore ?? 0} / {max}
+              {item.claimedScore ?? 0}
+              <span className="text-muted-foreground ml-1">(ref: {max})</span>
             </div>
             {item.reviewerScore != null && (
               <div className="font-medium">
@@ -756,7 +749,6 @@ export default function Review() {
               <Input
                 type="number"
                 min={0}
-                {...(item.marksType !== "range" ? { max } : {})}
                 value={
                   type === "pending"
                     ? input.verifiedScore
@@ -764,7 +756,7 @@ export default function Review() {
                 }
                 onChange={(e) =>
                   type === "pending" &&
-                  updateReviewInput(id, "verifiedScore", e.target.value, max, item.marksType ?? undefined)
+                  updateReviewInput(id, "verifiedScore", e.target.value)
                 }
                 disabled={type === "reviewed" || isReviewing}
                 className={type === "reviewed" ? "bg-muted" : ""}
