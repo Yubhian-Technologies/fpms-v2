@@ -1046,7 +1046,9 @@ export default function DynamicCriteriaForm() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
-                      Points: {moduleItem.totalMarks}
+                      {moduleItem.tasks.some((t) => t.marksType === "range")
+                        ? `points: ${moduleItem.totalMarks}`
+                        : `max points: ${moduleItem.totalMarks}`}
                     </span>
                     {getModuleStatus(moduleItem) === "completed" ? (
                       <Badge className="bg-blue-800 text-white">
