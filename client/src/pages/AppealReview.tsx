@@ -36,6 +36,8 @@ interface SubmissionItem {
   evidence: string | null;
   description: string | null;
   maxMarks: number | null;
+  marksType: string | null;
+  minMarks: number | null;
   reviewerScore: number | null;
   reviewerReason: string | null;
   reviewerId: string | null;
@@ -310,6 +312,7 @@ export default function AppealReview() {
     field: "appealerScore" | "appealerReason",
     value: string,
     maxMarks?: number,
+    marksType?: string,
   ) => {
     const clamped =
       field === "appealerScore"
@@ -317,8 +320,9 @@ export default function AppealReview() {
             const trimmed = value.trim();
             if (!trimmed) return "";
             const num = Number(trimmed);
-            const max = Number(maxMarks || 0);
             if (!Number.isFinite(num)) return "";
+            if (marksType === "range") return String(Math.max(0, num));
+            const max = Number(maxMarks || 0);
             return String(Math.max(0, Math.min(num, max)));
           })()
         : value;
@@ -341,16 +345,19 @@ export default function AppealReview() {
       appealerReason: "",
     };
     const numericScore = Number(input.appealerScore);
+    const isRange = item.marksType === "range";
     const maxMarks = Number(item.maxMarks || 0);
 
     if (
       !Number.isFinite(numericScore) ||
       numericScore < 0 ||
-      numericScore > maxMarks
+      (!isRange && numericScore > maxMarks)
     ) {
       toast({
         title: "Invalid score",
-        description: `Score must be between 0 and ${maxMarks}.`,
+        description: isRange
+          ? "Score must be 0 or greater."
+          : `Score must be between 0 and ${maxMarks}.`,
         variant: "destructive",
       });
       return;
@@ -506,14 +513,14 @@ export default function AppealReview() {
               <Input
                 type="number"
                 min={0}
-                max={max}
+                {...(item.marksType !== "range" ? { max } : {})}
                 value={
                   type === "pending"
                     ? input.appealerScore
                     : (item.appealerScore ?? "")
                 }
                 onChange={(e) =>
-                  updateAppealInput(id, "appealerScore", e.target.value, max)
+                  updateAppealInput(id, "appealerScore", e.target.value, max, item.marksType ?? undefined)
                 }
                 disabled={type === "resolved"}
                 className={type === "resolved" ? "bg-muted" : ""}

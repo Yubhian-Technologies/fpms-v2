@@ -43,6 +43,8 @@ interface SubmissionItem {
   evidence: string | null;
   description: string | null;
   maxMarks: number | null;
+  marksType: string | null;
+  minMarks: number | null;
   reviewerScore: number | null;
   reviewerReason: string | null;
   reviewerId: string | null;
@@ -576,14 +578,16 @@ export default function Review() {
     field: "verifiedScore" | "remarks",
     value: string,
     maxMarks?: number,
+    marksType?: string,
   ) => {
     const clamp = () => {
       if (field !== "verifiedScore") return value;
       const trimmed = value.trim();
       if (!trimmed) return "";
       const num = Number(trimmed);
-      const max = Number(maxMarks || 0);
       if (!Number.isFinite(num)) return "";
+      if (marksType === "range") return String(Math.max(0, num));
+      const max = Number(maxMarks || 0);
       return String(Math.max(0, Math.min(num, max)));
     };
 
@@ -602,12 +606,15 @@ export default function Review() {
 
     const input = reviewInputs[id] || { verifiedScore: "", remarks: "" };
     const score = Number(input.verifiedScore);
+    const isRange = item.marksType === "range";
     const max = Number(item.maxMarks || 0);
 
-    if (!Number.isFinite(score) || score < 0 || score > max) {
+    if (!Number.isFinite(score) || score < 0 || (!isRange && score > max)) {
       toast({
         title: "Invalid score",
-        description: `Score must be between 0 and ${max}.`,
+        description: isRange
+          ? "Score must be 0 or greater."
+          : `Score must be between 0 and ${max}.`,
         variant: "destructive",
       });
       return;
@@ -749,7 +756,7 @@ export default function Review() {
               <Input
                 type="number"
                 min={0}
-                max={max}
+                {...(item.marksType !== "range" ? { max } : {})}
                 value={
                   type === "pending"
                     ? input.verifiedScore
@@ -757,7 +764,7 @@ export default function Review() {
                 }
                 onChange={(e) =>
                   type === "pending" &&
-                  updateReviewInput(id, "verifiedScore", e.target.value, max)
+                  updateReviewInput(id, "verifiedScore", e.target.value, max, item.marksType ?? undefined)
                 }
                 disabled={type === "reviewed" || isReviewing}
                 className={type === "reviewed" ? "bg-muted" : ""}

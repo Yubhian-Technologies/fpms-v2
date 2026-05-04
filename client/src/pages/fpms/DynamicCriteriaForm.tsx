@@ -465,8 +465,7 @@ export default function DynamicCriteriaForm() {
   const getModuleClaimed = (moduleItem: ModuleItem) =>
     moduleItem.tasks.reduce((sum, task) => {
       const value = Number(taskProgress[task.id]?.claimedScore || 0);
-      const bounded = Math.max(0, Math.min(value, Number(task.marks || 0)));
-      return sum + bounded;
+      return sum + clampClaimedScore(value, task);
     }, 0);
 
   const getModuleStatus = (moduleItem: ModuleItem) => {
@@ -571,6 +570,8 @@ export default function DynamicCriteriaForm() {
       formData.append("taskId", task.id);
       formData.append("taskName", task.title);
       formData.append("maxMarks", String(task.marks || 0));
+      formData.append("marksType", task.marksType || "fixed");
+      formData.append("minMarks", String(task.minMarks ?? 0));
       formData.append("claimedScore", String(progress.claimedScore));
       formData.append("description", progress.description || "");
 
@@ -1294,8 +1295,8 @@ export default function DynamicCriteriaForm() {
                                   Verified Score
                                 </label>
                                 <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900">
-                                  {taskReviewData[task.id].reviewerScore} /{" "}
-                                  {task.marks}
+                                  {taskReviewData[task.id].reviewerScore}
+                                  {task.marksType !== "range" && ` / ${task.marks}`}
                                 </div>
                               </div>
                               <div className="md:col-span-1">
@@ -1319,8 +1320,8 @@ export default function DynamicCriteriaForm() {
                                   Final Appeal Score
                                 </label>
                                 <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
-                                  {taskAppealData[task.id].appealerScore} /{" "}
-                                  {task.marks}
+                                  {taskAppealData[task.id].appealerScore}
+                                  {task.marksType !== "range" && ` / ${task.marks}`}
                                 </div>
                               </div>
                               <div className="md:col-span-1">
