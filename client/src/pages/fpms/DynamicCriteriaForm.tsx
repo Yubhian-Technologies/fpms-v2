@@ -1114,8 +1114,8 @@ export default function DynamicCriteriaForm() {
                             )}
                             <span className="text-xs text-muted-foreground">
                               {task.marksType === "range"
-                                ? `Ref (points: ${task.minMarks ?? 0})`
-                                : `Max (points: ${task.marks})`}
+                                ? `points: ${task.minMarks ?? 0}`
+                                : `max points: ${task.marks}`}
                             </span>
                             {Array.isArray(taskSubmittedRoles[task.id]) &&
                             taskSubmittedRoles[task.id].length > 0 ? (
