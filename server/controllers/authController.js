@@ -2132,6 +2132,8 @@ export const getCriteriaModulesTasks = async (req, res) => {
         evidence: String(data.evidence || "").trim(),
         reference: String(data.reference || "").trim(),
         marks: Number(data.marks || 0),
+        marksType: String(data.marksType || "fixed"),
+        minMarks: data.minMarks !== undefined ? Number(data.minMarks) : null,
         order: Number(data.order || 0),
       });
       return acc;
