@@ -184,6 +184,8 @@ const normalizeFormPayload = (payload) => {
         evidence: String(taskItem?.evidence || "").trim(),
         reference: String(taskItem?.reference || "").trim(),
         marks: normalizeMarks(taskItem?.marks),
+        marksType: String(taskItem?.marksType || "fixed"),
+        minMarks: normalizeMarks(taskItem?.minMarks),
       }));
 
       const totalMarks = tasks.reduce((sum, task) => sum + task.marks, 0);
@@ -258,6 +260,8 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       evidence: task.evidence || "",
       reference: task.reference || "",
       marks: normalizeMarks(task.marks),
+      marksType: task.marksType || "fixed",
+      minMarks: normalizeMarks(task.minMarks),
       order: Number(task.order || 0),
     });
     return acc;
@@ -281,6 +285,8 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       evidence: task.evidence,
       reference: task.reference,
       marks: task.marks,
+      marksType: task.marksType || "fixed",
+      minMarks: task.minMarks,
     }));
 
     acc[criteriaId].push({
@@ -414,6 +420,8 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
             evidence: taskItem.evidence,
             reference: taskItem.reference,
             marks: taskItem.marks,
+            marksType: taskItem.marksType || "fixed",
+            minMarks: taskItem.minMarks || 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
