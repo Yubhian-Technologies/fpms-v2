@@ -1114,8 +1114,8 @@ export default function DynamicCriteriaForm() {
                             )}
                             <span className="text-xs text-muted-foreground">
                               {task.marksType === "range"
-                                ? `Ref: ${task.minMarks ?? 0} (no upper limit)`
-                                : `Max: ${task.marks}`}
+                                ? `Ref (points: ${task.minMarks ?? 0})`
+                                : `Max (points: ${task.marks})`}
                             </span>
                             {Array.isArray(taskSubmittedRoles[task.id]) &&
                             taskSubmittedRoles[task.id].length > 0 ? (
@@ -1182,7 +1182,7 @@ export default function DynamicCriteriaForm() {
                               Claimed Score
                               {task.marksType === "range" && (
                                 <span className="ml-2 text-xs text-blue-600 font-normal">
-                                  (ref {task.minMarks ?? 0}, no upper limit)
+                                  (points: {task.minMarks ?? 0})
                                 </span>
                               )}
                             </label>
