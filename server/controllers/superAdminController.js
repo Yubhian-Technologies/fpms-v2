@@ -1279,3 +1279,84 @@ export const registerSuperAdmin = async (req, res) => {
     });
   }
 };
+
+export const updateSuperAdminCredentials = async (req, res) => {
+  try {
+    const { currentEmail, currentPassword, newEmail, newPassword, newName } =
+      req.body;
+
+    if (!currentEmail || !currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current email and password are required",
+      });
+    }
+
+    const apiKey = process.env.FIREBASE_WEB_API_KEY;
+    if (!apiKey) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Server configuration error" });
+    }
+
+    // Verify current credentials via Firebase REST API
+    const verifyRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: String(currentEmail).trim().toLowerCase(),
+          password: String(currentPassword),
+          returnSecureToken: true,
+        }),
+      },
+    );
+
+    const verifyData = await verifyRes.json();
+    if (!verifyRes.ok || !verifyData.idToken) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Current credentials are incorrect" });
+    }
+
+    // Confirm account has superadmin claims
+    const decoded = await auth.verifyIdToken(verifyData.idToken);
+    if (!decoded.superadmin && decoded.role !== "superadmin") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Account is not a superadmin" });
+    }
+
+    const updateData = {};
+    if (newEmail) updateData.email = String(newEmail).trim().toLowerCase();
+    if (newPassword) {
+      if (String(newPassword).length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "New password must be at least 6 characters",
+        });
+      }
+      updateData.password = String(newPassword);
+    }
+    if (newName) updateData.displayName = String(newName).trim();
+
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No changes provided" });
+    }
+
+    await auth.updateUser(decoded.uid, updateData);
+
+    return res.status(200).json({
+      success: true,
+      message: "Superadmin credentials updated successfully",
+    });
+  } catch (error) {
+    console.error("Update superadmin credentials error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: error.message || "Server error" });
+  }
+};
