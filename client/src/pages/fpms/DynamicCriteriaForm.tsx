@@ -537,16 +537,6 @@ export default function DynamicCriteriaForm() {
 
       const claimedNum = Number(progress.claimedScore || 0);
 
-      // Max task: hard cap
-      if (task.marksType !== "range" && claimedNum > Number(task.marks || 0)) {
-        toast({
-          title: "Score exceeds maximum",
-          description: `Cannot claim more than ${task.marks} marks for this task.`,
-          variant: "destructive",
-        });
-        return false;
-      }
-
       // Ref task: claimed must be 0 (not claiming) or ≥ minMarks
       if (task.marksType === "range" && claimedNum > 0) {
         const minRequired = Number(task.minMarks ?? 0);
