@@ -122,6 +122,12 @@ const getNavItems = (
       roles: ["superadmin"],
     },
     {
+      icon: UserCheck,
+      label: "Committee Member",
+      href: "/superadmin/committee-member",
+      roles: ["superadmin"],
+    },
+    {
       icon: FileText,
       label: "FPMS Form",
       roles: ["faculty", "hod", "dean", "principle", "vice principle"],

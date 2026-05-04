@@ -50,6 +50,7 @@ import WorkflowRules from "./pages/WorkflowRules";
 import MyAppeals from "./pages/MyAppeals";
 import ChangePassword from "./pages/ChangePassword";
 import AddReviewer from "./pages/AddReviewer";
+import CommitteeMember from "./pages/CommitteeMember";
 
 const queryClient = new QueryClient();
 
@@ -312,6 +313,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["superadmin"]}>
             <ManageColleges />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/superadmin/committee-member"
+        element={
+          <ProtectedRoute allowedRoles={["superadmin"]}>
+            <CommitteeMember />
           </ProtectedRoute>
         }
       />
