@@ -119,7 +119,7 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                Fixed
+                Max
               </button>
               <button
                 type="button"
@@ -130,7 +130,7 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
                     : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
               >
-                Range
+                Ref
               </button>
             </div>
           </div>
@@ -138,7 +138,7 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
 
         {/* Marks input — single field regardless of type */}
         <div className="max-w-xs space-y-2">
-          <Label>{isRange ? "Min Marks *" : "Task Marks *"}</Label>
+          <Label>{isRange ? "Ref Marks *" : "Max Marks *"}</Label>
           {isRange ? (
             <Input
               type="number"
@@ -160,10 +160,14 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
           )}
         </div>
 
-        {isRange && (
+        {isRange ? (
           <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-3 py-2">
-            Faculty can claim any marks ≥ <strong>{task.minMarks ?? 0}</strong> with no upper limit.
-            This task counts as <strong>{task.minMarks ?? 0}</strong> marks in the total.
+            <strong>Ref:</strong> Faculty can claim any marks ≥ <strong>{task.minMarks ?? 0}</strong> with no upper limit.
+            This task contributes <strong>{task.minMarks ?? 0}</strong> marks to the criteria total.
+          </p>
+        ) : (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            <strong>Max:</strong> Faculty cannot claim more than <strong>{task.marks ?? 0}</strong> marks for this task.
           </p>
         )}
       </CardContent>

@@ -106,9 +106,12 @@ type TaskWorkflowStatus =
   | "appealed"
   | "appeal-resolved";
 
-function clampClaimedScore(value: number, _task: TaskItem): number {
+function clampClaimedScore(value: number, task: TaskItem): number {
   if (!Number.isFinite(value)) return 0;
-  return Math.max(0, value); // only prevent negatives; no upper cap for any task type
+  const v = Math.max(0, value);
+  // "range" = Ref: no upper cap; "fixed" = Max: hard cap at task.marks
+  if (task.marksType === "range") return v;
+  return Math.min(v, Number(task.marks || 0));
 }
 
 export default function DynamicCriteriaForm() {
@@ -1111,7 +1114,7 @@ export default function DynamicCriteriaForm() {
                             )}
                             <span className="text-xs text-muted-foreground">
                               {task.marksType === "range"
-                                ? `Min: ${task.minMarks ?? 0} (no upper limit)`
+                                ? `Ref: ${task.minMarks ?? 0} (no upper limit)`
                                 : `Max: ${task.marks}`}
                             </span>
                             {Array.isArray(taskSubmittedRoles[task.id]) &&
@@ -1179,18 +1182,20 @@ export default function DynamicCriteriaForm() {
                               Claimed Score
                               {task.marksType === "range" && (
                                 <span className="ml-2 text-xs text-blue-600 font-normal">
-                                  (min {task.minMarks ?? 0})
+                                  (ref {task.minMarks ?? 0}, no upper limit)
                                 </span>
                               )}
                             </label>
                             {taskFrozen ? (
                               <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
                                 {progress.claimedScore}
+                                {task.marksType !== "range" && ` / ${task.marks}`}
                               </div>
                             ) : (
                               <Input
                                 type="number"
                                 min={0}
+                                {...(task.marksType !== "range" ? { max: task.marks } : {})}
                                 value={progress.claimedScore}
                                 className="w-full"
                                 onChange={(e) =>
