@@ -38,6 +38,7 @@ interface TaskItem {
   marks: number;       // max marks
   marksType?: "fixed" | "range";
   minMarks?: number;   // lower bound when marksType === "range"
+  note?: string;
   order: number;
 }
 
@@ -1177,6 +1178,12 @@ export default function DynamicCriteriaForm() {
                             </div>
                           ) : null}
                         </div>
+
+                        {task.note && (
+                          <div className="rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
+                            <span className="font-semibold">Note: </span>{task.note}
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                           <div>

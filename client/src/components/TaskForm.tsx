@@ -88,6 +88,16 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <Label>Note (shown to faculty above claimed score)</Label>
+          <Textarea
+            rows={2}
+            value={task.note || ""}
+            onChange={(e) => onChange({ note: e.target.value })}
+            placeholder="Optional note or instruction for faculty"
+          />
+        </div>
+
         <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
             <Label>Evidence</Label>

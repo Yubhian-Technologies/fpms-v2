@@ -9,6 +9,7 @@ export interface Task {
   marks: number;          // max marks (used for module/criteria totals)
   marksType?: "fixed" | "range"; // fixed = single max; range = min–max
   minMarks?: number;      // lower bound when marksType === "range"
+  note?: string;          // optional note shown to faculty above claimed score
 }
 
 export interface Module {
