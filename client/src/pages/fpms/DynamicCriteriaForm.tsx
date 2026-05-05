@@ -107,6 +107,27 @@ type TaskWorkflowStatus =
   | "appealed"
   | "appeal-resolved";
 
+const COLLAPSE_LIMIT = 120;
+
+function CollapsibleText({ text, className }: { text: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > COLLAPSE_LIMIT;
+  return (
+    <p className={className}>
+      {isLong && !expanded ? text.slice(0, COLLAPSE_LIMIT).trimEnd() + "…" : text}
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((p) => !p)}
+          className="ml-1 text-xs font-medium underline underline-offset-2 opacity-70 hover:opacity-100"
+        >
+          {expanded ? "less" : "more"}
+        </button>
+      )}
+    </p>
+  );
+}
+
 function clampClaimedScore(value: number, task: TaskItem): number {
   if (!Number.isFinite(value)) return 0;
   const v = Math.max(0, value);
@@ -1139,9 +1160,7 @@ export default function DynamicCriteriaForm() {
                               <h5 className="font-medium text-blue-900 text-sm mb-1">
                                 Description
                               </h5>
-                              <p className="text-sm text-gray-700 whitespace-pre-line">
-                                {task.description}
-                              </p>
+                              <CollapsibleText text={task.description} className="text-sm text-gray-700 whitespace-pre-line" />
                             </div>
                           ) : null}
 
@@ -1150,9 +1169,7 @@ export default function DynamicCriteriaForm() {
                               <h5 className="font-medium text-green-900 text-sm mb-1">
                                 Assessment Criteria
                               </h5>
-                              <p className="text-sm text-gray-700 whitespace-pre-line">
-                                {task.assessmentCriteria}
-                              </p>
+                              <CollapsibleText text={task.assessmentCriteria} className="text-sm text-gray-700 whitespace-pre-line" />
                             </div>
                           ) : null}
 
@@ -1161,9 +1178,7 @@ export default function DynamicCriteriaForm() {
                               <h5 className="font-medium text-amber-900 text-sm mb-1">
                                 Required Evidence
                               </h5>
-                              <p className="text-sm text-gray-700 whitespace-pre-line">
-                                {task.evidence}
-                              </p>
+                              <CollapsibleText text={task.evidence} className="text-sm text-gray-700 whitespace-pre-line" />
                             </div>
                           ) : null}
 
@@ -1172,9 +1187,7 @@ export default function DynamicCriteriaForm() {
                               <h5 className="font-medium text-purple-900 text-sm mb-1">
                                 Reference
                               </h5>
-                              <p className="text-sm text-gray-700 whitespace-pre-line">
-                                {task.reference}
-                              </p>
+                              <CollapsibleText text={task.reference} className="text-sm text-gray-700 whitespace-pre-line" />
                             </div>
                           ) : null}
                         </div>
