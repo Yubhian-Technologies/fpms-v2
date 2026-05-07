@@ -591,6 +591,8 @@ export const createCollege = async (req, res) => {
       isActive = true,
       branches = [],
       deadline,
+      assessmentStart,
+      assessmentEnd,
     } = req.body;
 
     if (!name || !location || !code) {
@@ -610,6 +612,8 @@ export const createCollege = async (req, res) => {
       isActive: Boolean(isActive),
       branches: toStringArray(branches),
       deadline: deadline ? new Date(deadline).toISOString() : null,
+      assessmentStart: assessmentStart ? new Date(assessmentStart).toISOString() : null,
+      assessmentEnd: assessmentEnd ? new Date(assessmentEnd).toISOString() : null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -636,7 +640,7 @@ export const createCollege = async (req, res) => {
 export const updateCollege = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, location, code, isActive, branches, deadline } = req.body;
+    const { name, location, code, isActive, branches, deadline, assessmentStart, assessmentEnd } = req.body;
 
     const { docRef, colleges } = await getSuperadminData();
     const index = colleges.findIndex((item) => item.id === id);
@@ -656,6 +660,10 @@ export const updateCollege = async (req, res) => {
     if (branches !== undefined) updates.branches = toStringArray(branches);
     if (deadline !== undefined)
       updates.deadline = deadline ? new Date(deadline).toISOString() : null;
+    if (assessmentStart !== undefined)
+      updates.assessmentStart = assessmentStart ? new Date(assessmentStart).toISOString() : null;
+    if (assessmentEnd !== undefined)
+      updates.assessmentEnd = assessmentEnd ? new Date(assessmentEnd).toISOString() : null;
 
     const nextColleges = [...colleges];
     nextColleges[index] = {

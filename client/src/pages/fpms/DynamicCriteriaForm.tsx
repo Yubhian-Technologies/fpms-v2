@@ -183,6 +183,8 @@ export default function DynamicCriteriaForm() {
   const [deadline, setDeadline] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
+  const [assessmentStart, setAssessmentStart] = useState<string | null>(null);
+  const [assessmentEnd, setAssessmentEnd] = useState<string | null>(null);
 
   const storageKey = useMemo(() => {
     const userId = user?.id || "anonymous";
@@ -257,6 +259,10 @@ export default function DynamicCriteriaForm() {
 
         setDaysRemaining(diffDays);
         setIsDeadlinePassed(diffDays < 0);
+      }
+      if (res.data.success) {
+        setAssessmentStart(res.data.data.assessmentStart || null);
+        setAssessmentEnd(res.data.data.assessmentEnd || null);
       }
     } catch (err) {
       console.error("Deadline fetch error:", err);
@@ -976,6 +982,38 @@ export default function DynamicCriteriaForm() {
                       : `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining`}
                   </div>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {(assessmentStart || assessmentEnd) && (
+          <Card className="border-l-4 border-l-blue-400 bg-blue-50">
+            <CardContent className="p-4 flex items-center gap-4">
+              <Clock className="h-5 w-5 text-blue-600 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Assessment Period
+                </p>
+                <p className="text-sm font-semibold text-blue-900">
+                  {assessmentStart
+                    ? new Date(assessmentStart).toLocaleDateString("en-IN", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "—"}
+                  {" – "}
+                  {assessmentEnd
+                    ? new Date(assessmentEnd).toLocaleDateString("en-IN", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "—"}
+                </p>
               </div>
             </CardContent>
           </Card>

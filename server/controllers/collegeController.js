@@ -117,6 +117,8 @@ export const getUserCollegeDeadline = async (req, res) => {
       data: {
         name: collegeData.name,
         deadline: collegeData.deadline || null,
+        assessmentStart: collegeData.assessmentStart || null,
+        assessmentEnd: collegeData.assessmentEnd || null,
       },
     });
   } catch (error) {
