@@ -48,6 +48,9 @@ interface College {
   code: string;
   isActive: boolean;
   branches: string[];
+  deadline?: string;
+  assessmentStart?: string;
+  assessmentEnd?: string;
 }
 
 interface CommitteeMember {
@@ -104,6 +107,9 @@ export default function ManageColleges() {
     code: "",
     isActive: true,
     branches: [],
+    deadline: "",
+    assessmentStart: "",
+    assessmentEnd: "",
   });
 
   // Edit college state
@@ -504,6 +510,9 @@ export default function ManageColleges() {
         code: newCollege.code,
         isActive: newCollege.isActive ?? true,
         branches: newCollege.branches ?? [],
+        deadline: newCollege.deadline || null,
+        assessmentStart: newCollege.assessmentStart || null,
+        assessmentEnd: newCollege.assessmentEnd || null,
       });
 
       await fetchColleges(true);
@@ -514,6 +523,9 @@ export default function ManageColleges() {
         code: "",
         isActive: true,
         branches: [],
+        deadline: "",
+        assessmentStart: "",
+        assessmentEnd: "",
       });
       setNewBranchInput("");
 
@@ -583,6 +595,9 @@ export default function ManageColleges() {
         location: editForm.location,
         code: editForm.code,
         branches: editForm.branches ?? [],
+        deadline: editForm.deadline || null,
+        assessmentStart: editForm.assessmentStart || null,
+        assessmentEnd: editForm.assessmentEnd || null,
       });
 
       await fetchColleges(true);
@@ -638,6 +653,15 @@ export default function ManageColleges() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "-";
+    return new Date(value).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const formatRegisteredDate = (value: any) => {
@@ -816,6 +840,39 @@ export default function ManageColleges() {
                   </div>
                 </div>
 
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Submission Deadline</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.deadline ? newCollege.deadline.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        setNewCollege({ ...newCollege, deadline: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Assessment Period Start</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.assessmentStart ? newCollege.assessmentStart.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        setNewCollege({ ...newCollege, assessmentStart: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Assessment Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.assessmentEnd ? newCollege.assessmentEnd.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        setNewCollege({ ...newCollege, assessmentEnd: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
                     <div className="flex items-center justify-between">
@@ -905,6 +962,7 @@ export default function ManageColleges() {
                     <TableHead>Location</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Branches</TableHead>
+                    <TableHead>Schedule</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -1029,6 +1087,49 @@ export default function ManageColleges() {
                                 No branches
                               </span>
                             )}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingCollege === college.id ? (
+                          <div className="space-y-2 min-w-[180px]">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Deadline</p>
+                              <Input
+                                type="date"
+                                value={editForm.deadline ? editForm.deadline.slice(0, 10) : ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, deadline: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Assessment Start</p>
+                              <Input
+                                type="date"
+                                value={editForm.assessmentStart ? editForm.assessmentStart.slice(0, 10) : ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, assessmentStart: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Assessment End</p>
+                              <Input
+                                type="date"
+                                value={editForm.assessmentEnd ? editForm.assessmentEnd.slice(0, 10) : ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, assessmentEnd: e.target.value })
+                                }
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm space-y-1">
+                            <p className="text-muted-foreground text-xs">Deadline</p>
+                            <p>{formatDate(college.deadline)}</p>
+                            <p className="text-muted-foreground text-xs mt-1">Assessment</p>
+                            <p>{formatDate(college.assessmentStart)} – {formatDate(college.assessmentEnd)}</p>
                           </div>
                         )}
                       </TableCell>
