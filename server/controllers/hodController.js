@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
+import { getSuperadminConfig } from "../config/superadminCache.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const USERS_COLLECTION = "users";
@@ -15,16 +16,9 @@ const normDesig = (s) =>
 const getDesignationTarget = async (college, designation, hasPhd) => {
   if (!college || !designation) return "";
   try {
-    const saDoc = await db
-      .collection("superadmin")
-      .doc(SUPERADMIN_DOC_ID)
-      .get();
-    if (!saDoc.exists) return "";
-    const col = (saDoc.data()?.colleges || []).find(
-      (c) =>
-        String(c?.name || "")
-          .trim()
-          .toLowerCase() === college.toLowerCase(),
+    const data = await getSuperadminConfig();
+    const col = (data.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === college.toLowerCase(),
     );
     if (!col) return "";
     const candidates = (col.designations || []).filter(

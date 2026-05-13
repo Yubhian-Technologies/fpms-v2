@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { db } from "../config/firebase.js";
+import { getSuperadminConfig } from "../config/superadminCache.js";
 
 const normalizeRoleForWorkflow = (value) => {
   const role = String(value || "")
@@ -163,131 +164,11 @@ const resolveReviewerScope = async (req) => {
 };
 
 const loadWorkflowRules = async () => {
-  let superAdminDoc = await db.collection("superadmin").doc("config").get();
-
-  if (!superAdminDoc.exists) {
-    superAdminDoc = await db.collection("superadmin").doc("root").get();
-  }
-
-  if (!superAdminDoc.exists) {
-    const snapshot = await db.collection("superadmin").limit(1).get();
-    if (!snapshot.empty) {
-      superAdminDoc = snapshot.docs[0];
-    }
-  }
-
-  if (!superAdminDoc.exists) return [];
-  return Array.isArray(superAdminDoc.data()?.workflowRules)
-    ? superAdminDoc.data().workflowRules
-    : [];
+  const data = await getSuperadminConfig();
+  return Array.isArray(data.workflowRules) ? data.workflowRules : [];
 };
 
-const getCollegeDeadlineByName = async (collegeName) => {
-  const normalizedCollege = String(collegeName || "")
-    .trim()
-    .toLowerCase();
-  if (!normalizedCollege) return null;
 
-  let superAdminDoc = await db.collection("superadmin").doc("config").get();
-
-  if (!superAdminDoc.exists) {
-    superAdminDoc = await db.collection("superadmin").doc("root").get();
-  }
-
-  if (!superAdminDoc.exists) {
-    const snapshot = await db.collection("superadmin").limit(1).get();
-    if (!snapshot.empty) superAdminDoc = snapshot.docs[0];
-  }
-
-  if (!superAdminDoc.exists) return null;
-
-  const data = superAdminDoc.data() || {};
-  const colleges = Array.isArray(data.colleges) ? data.colleges : [];
-  const college = colleges.find(
-    (item) =>
-      String(item?.name || "")
-        .trim()
-        .toLowerCase() === normalizedCollege,
-  );
-
-  const rawDeadline = college?.deadline;
-  if (!rawDeadline) return null;
-
-  const deadlineDate = new Date(rawDeadline);
-  if (Number.isNaN(deadlineDate.getTime())) return null;
-
-  return deadlineDate;
-};
-
-const autoAcceptOverdueReviewedSubmissions = async ({ userId, college }) => {
-  const resolvedUserId = String(userId || "").trim();
-  const resolvedCollege = String(college || "").trim();
-
-  if (!resolvedUserId || !resolvedCollege) {
-    return { updatedCount: 0 };
-  }
-
-  const deadlineDate = await getCollegeDeadlineByName(resolvedCollege);
-  if (!deadlineDate) {
-    return { updatedCount: 0 };
-  }
-
-  const now = new Date();
-  if (now.getTime() <= deadlineDate.getTime()) {
-    return { updatedCount: 0 };
-  }
-
-  const userSubmissionsSnapshot = await db
-    .collection("submissions")
-    .where("userId", "==", resolvedUserId)
-    .get();
-
-  const overdueReviewedDocs = userSubmissionsSnapshot.docs.filter((doc) => {
-    const data = doc.data() || {};
-    return String(data.status || "").toLowerCase() === "reviewed";
-  });
-
-  if (overdueReviewedDocs.length === 0) {
-    return { updatedCount: 0 };
-  }
-
-  const batch = db.batch();
-  let totalAutoAcceptedScore = 0;
-
-  overdueReviewedDocs.forEach((doc) => {
-    const data = doc.data() || {};
-    const reviewerScore = Number(data.reviewerScore);
-    const safeScore = Number.isFinite(reviewerScore) ? reviewerScore : 0;
-    totalAutoAcceptedScore += safeScore;
-
-    batch.update(doc.ref, {
-      status: "accepted",
-      finalScore: safeScore,
-      autoAccepted: true,
-      autoAcceptedAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  });
-
-  await batch.commit();
-
-  if (totalAutoAcceptedScore > 0) {
-    await db
-      .collection("users")
-      .doc(resolvedUserId)
-      .set(
-        {
-          totalScore: admin.firestore.FieldValue.increment(
-            totalAutoAcceptedScore,
-          ),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-  }
-
-  return { updatedCount: overdueReviewedDocs.length };
-};
 
 const getEffectiveAppealRoleIds = (submission, workflowRules = []) => {
   const submitterRole = normalizeRoleForWorkflow(submission?.userRole || "");
@@ -356,15 +237,6 @@ export const submitTask = async (req, res) => {
       }
     }
 
-    console.log("Submit task - User info:", {
-      userId,
-      userEmail,
-      userName,
-      userRole,
-      college,
-      department,
-      rawRole: req.user?.role || req.headers["x-user-role"],
-    });
 
     if (
       !userId ||
@@ -386,39 +258,13 @@ export const submitTask = async (req, res) => {
       finalEvidence = evidence || "";
     }
 
-    // Get workflow rules for this user role
-    let workflowRules = [];
-    let superAdminDoc = await db.collection("superadmin").doc("config").get();
-
-    if (!superAdminDoc.exists) {
-      superAdminDoc = await db.collection("superadmin").doc("root").get();
-    }
-
-    if (!superAdminDoc.exists) {
-      const snapshot = await db.collection("superadmin").limit(1).get();
-      if (!snapshot.empty) {
-        superAdminDoc = snapshot.docs[0];
-      }
-    }
-
-    if (!superAdminDoc.exists) {
+    const workflowRules = await loadWorkflowRules();
+    if (!workflowRules.length) {
       return res.status(400).json({
         success: false,
         message: "Superadmin configuration not found",
       });
     }
-
-    workflowRules = superAdminDoc.data()?.workflowRules || [];
-
-    console.log("User role:", userRole);
-    console.log(
-      "Available workflow rules:",
-      workflowRules.map((r) => r.role),
-    );
-    console.log(
-      "Workflow rules details:",
-      JSON.stringify(workflowRules, null, 2),
-    );
 
     const userRule = workflowRules.find(
       (r) => (r.role || "").toLowerCase().trim() === userRole.trim(),
@@ -453,13 +299,8 @@ export const submitTask = async (req, res) => {
       .limit(1)
       .get();
 
-    console.log(
-      `Checking existing submission for user ${userId}, form ${formId}, criteria ${criteriaId}, module ${moduleId}, task ${taskId}: ${!existingSnapshot.empty ? "FOUND" : "NOT FOUND"}`,
-    );
-
     if (!existingSnapshot.empty) {
       const existing = existingSnapshot.docs[0];
-      console.log("Returning existing submission:", existing.id);
       return res.status(200).json({
         success: true,
         message: "Submission already exists",
@@ -471,8 +312,6 @@ export const submitTask = async (req, res) => {
         },
       });
     }
-
-    console.log("Creating new submission for task:", taskId);
 
     // Create new submission
     const submission = {
@@ -514,7 +353,6 @@ export const submitTask = async (req, res) => {
     };
 
     const docRef = await db.collection("submissions").add(submission);
-    console.log("Submission created with ID:", docRef.id);
 
     return res.status(201).json({
       success: true,
@@ -613,23 +451,14 @@ export const getMySubmissions = async (req, res) => {
         .json({ success: false, message: "User not authenticated" });
     }
 
-    console.log("Fetching submissions for userId:", userId);
-
     if (!userCollege && userId) {
       try {
         const userDoc = await db.collection("users").doc(String(userId)).get();
         if (userDoc.exists) {
           userCollege = String(userDoc.data()?.college || "").trim();
         }
-      } catch (error) {
-        console.warn("getMySubmissions: failed to resolve user college", error);
-      }
+      } catch (_) {}
     }
-
-    await autoAcceptOverdueReviewedSubmissions({
-      userId: String(userId || ""),
-      college: userCollege,
-    });
 
     let query = db.collection("submissions").where("userId", "==", userId);
 
@@ -686,9 +515,6 @@ export const getMySubmissions = async (req, res) => {
         updatedAt: data.updatedAt || null,
       };
     });
-
-    console.log(`Found ${submissions.length} submissions for user ${userId}`);
-    console.log("Submissions data:", JSON.stringify(submissions, null, 2));
 
     return res.status(200).json({
       success: true,
@@ -845,14 +671,6 @@ export const getReviewedSubmissions = async (req, res) => {
       id: doc.id,
       ...doc.data(),
     }));
-
-    console.log(
-      `getReviewedSubmissions: Found ${submissions.length} submissions reviewed by user ${userId}`,
-    );
-    console.log(
-      "Reviewed submission statuses:",
-      submissions.map((s) => ({ id: s.id, status: s.status })),
-    );
 
     return res.status(200).json({
       success: true,
@@ -1046,10 +864,6 @@ export const getAppealQueue = async (req, res) => {
   try {
     const { userRole, college, department } = await resolveReviewerScope(req);
 
-    console.log(
-      `[getAppealQueue] User role: ${userRole}, College: ${college}, Department: ${department}`,
-    );
-
     if (!userRole) {
       return res
         .status(401)
@@ -1122,16 +936,6 @@ export const getAppealQueue = async (req, res) => {
           });
         }),
     );
-
-    console.log(
-      `[getAppealQueue] Found ${appeals.length} appeals for role: ${userRole}`,
-    );
-    if (appeals.length > 0) {
-      console.log(
-        `[getAppealQueue] First appeal appealToRoleIds:`,
-        appeals[0].appealToRoleIds,
-      );
-    }
 
     return res.status(200).json({
       success: true,
@@ -1257,10 +1061,6 @@ export const getResolvedAppeals = async (req, res) => {
     const college = req.user?.college || req.headers["x-college"];
     const department = req.user?.department || req.headers["x-department"];
 
-    console.log(
-      `[getResolvedAppeals] Appealer ID: ${appealerId}, College: ${college}, Department: ${department}`,
-    );
-
     if (!appealerId) {
       return res
         .status(401)
@@ -1279,10 +1079,6 @@ export const getResolvedAppeals = async (req, res) => {
       id: doc.id,
       ...doc.data(),
     }));
-
-    console.log(
-      `[getResolvedAppeals] Found ${resolved.length} resolved appeals for appealer: ${appealerId}`,
-    );
 
     return res.status(200).json({
       success: true,

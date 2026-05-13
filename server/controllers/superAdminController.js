@@ -1,5 +1,6 @@
 import admin from "firebase-admin";
 import { auth, db } from "../config/firebase.js";
+import { invalidateSuperadminCache } from "../config/superadminCache.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 
@@ -483,6 +484,8 @@ export const createRole = async (req, res) => {
       { merge: true },
     );
 
+    invalidateSuperadminCache();
+
     return res.status(201).json({
       success: true,
       message: "Role created successfully",
@@ -528,6 +531,8 @@ export const updateRole = async (req, res) => {
       { merge: true },
     );
 
+    invalidateSuperadminCache();
+
     return res
       .status(200)
       .json({ success: true, message: "Role updated successfully" });
@@ -557,6 +562,8 @@ export const deleteRole = async (req, res) => {
       },
       { merge: true },
     );
+
+    invalidateSuperadminCache();
 
     return res
       .status(200)
@@ -626,6 +633,8 @@ export const createCollege = async (req, res) => {
       { merge: true },
     );
 
+    invalidateSuperadminCache();
+
     return res.status(201).json({
       success: true,
       message: "College created successfully",
@@ -680,6 +689,8 @@ export const updateCollege = async (req, res) => {
       { merge: true },
     );
 
+    invalidateSuperadminCache();
+
     return res
       .status(200)
       .json({ success: true, message: "College updated successfully" });
@@ -705,12 +716,6 @@ export const deleteCollege = async (req, res) => {
     const collegeName = String(targetCollege.name || "").trim();
 
     const matchedUserDocs = await findUsersByCollege(targetCollege);
-    console.log("[deleteCollege] target college:", {
-      id: targetCollege.id,
-      name: targetCollege.name,
-      code: targetCollege.code,
-      matchedUsers: matchedUserDocs.length,
-    });
     let deletedAuthCount = 0;
     let authUserNotFoundCount = 0;
     let missingUidCount = 0;
@@ -748,13 +753,7 @@ export const deleteCollege = async (req, res) => {
       await applyBatchOps(deleteUserOps);
     }
 
-    console.log("[deleteCollege] user cleanup summary:", {
-      usersDeleted: matchedUserDocs.length,
-      authUsersDeleted: deletedAuthCount,
-      authUsersNotFound: authUserNotFoundCount,
-      usersMissingUid: missingUidCount,
-      authDeleteFailures: failedAuthDeletes.length,
-    });
+
 
     await docRef.set(
       {
@@ -763,6 +762,8 @@ export const deleteCollege = async (req, res) => {
       },
       { merge: true },
     );
+
+    invalidateSuperadminCache();
 
     return res.status(200).json({
       success: true,
@@ -1226,6 +1227,18 @@ export const deleteForm = async (req, res) => {
 
 export const registerSuperAdmin = async (req, res) => {
   try {
+    // One-time setup guard — permanently block once a superadmin exists.
+    // This prevents anyone from creating a second superadmin account via
+    // this public endpoint after initial setup is complete.
+    const saDocRef = superadminDocRef();
+    const saDoc = await saDocRef.get();
+    if (saDoc.exists && saDoc.data()?.superadminRegistered === true) {
+      return res.status(403).json({
+        success: false,
+        message: "Super admin setup is already complete",
+      });
+    }
+
     const { email, password, name } = req.body;
 
     // Validate inputs
@@ -1277,6 +1290,10 @@ export const registerSuperAdmin = async (req, res) => {
 
     // Note: Superadmin does NOT get a document in the users collection
     // It's only authenticated via Firebase Auth with custom claims
+
+    // Mark setup as complete so the one-time guard permanently blocks future attempts.
+    await saDocRef.set({ superadminRegistered: true }, { merge: true });
+    invalidateSuperadminCache();
 
     // Generate a custom token for immediate login
     const customToken = await auth.createCustomToken(userRecord.uid);

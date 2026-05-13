@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
+import { getSuperadminConfig, invalidateSuperadminCache } from "../config/superadminCache.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const formsCollectionRef = () => db.collection("fpmsForms");
@@ -80,7 +81,7 @@ const inferRoleFromTokenContext = async (decodedToken) => {
     }
   }
 
-  return normalizeRoleValue(inferRoleFromEmail(decodedToken?.email || ""));
+  return "faculty";
 };
 
 const resolveRoleFromAuthorizationHeader = async (authorizationHeader) => {
@@ -208,7 +209,7 @@ const resolveActorContextFromAuthorizationHeader = async (
     } catch (docError) {}
 
     const resolvedRole = String(
-      roleFromClaim || userDocData?.role || inferRoleFromEmail(email),
+      roleFromClaim || userDocData?.role || "faculty",
     );
     const specificRole = await resolveSpecificRoleByEmail({
       role: resolvedRole,
@@ -242,25 +243,9 @@ const resolveActorContextFromAuthorizationHeader = async (
 };
 
 const getWorkflowConfig = async () => {
-  const superadminDoc = await db
-    .collection("superadmin")
-    .doc(SUPERADMIN_DOC_ID)
-    .get();
-
-  if (!superadminDoc.exists) {
-    return {
-      roles: [],
-      workflowRules: [],
-      roleLabelByKey: new Map(),
-      roleExistsByKey: new Set(),
-    };
-  }
-
-  const data = superadminDoc.data() || {};
+  const data = await getSuperadminConfig();
   const roles = Array.isArray(data.roles) ? data.roles : [];
-  const workflowRules = Array.isArray(data.workflowRules)
-    ? data.workflowRules
-    : [];
+  const workflowRules = Array.isArray(data.workflowRules) ? data.workflowRules : [];
 
   const roleLabelByKey = new Map();
   const roleExistsByKey = new Set();
@@ -273,12 +258,7 @@ const getWorkflowConfig = async () => {
     roleExistsByKey.add(roleKey);
   });
 
-  return {
-    roles,
-    workflowRules,
-    roleLabelByKey,
-    roleExistsByKey,
-  };
+  return { roles, workflowRules, roleLabelByKey, roleExistsByKey };
 };
 
 const normalizeRoleArray = (value) => {
@@ -970,20 +950,6 @@ export const submitWorkflowAppeal = async (req, res) => {
   }
 };
 
-const inferRoleFromEmail = (email) => {
-  const value = String(email || "").toLowerCase();
-  if (value.includes("superadmin")) return "superadmin";
-  if (value.includes("committee")) return "committee";
-  if (
-    value.includes("principle") ||
-    value.includes("principal") ||
-    value.includes("admin")
-  )
-    return "principle";
-  if (value.includes("dean")) return "dean";
-  if (value.includes("hod")) return "hod";
-  return "faculty";
-};
 
 const resolveRoleFromFirebase = async (decodedToken, email) => {
   if (decodedToken?.committeeMember) {
@@ -1070,7 +1036,7 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
     }
 
     return {
-      role: String(userData.role || inferRoleFromEmail(email)),
+      role: String(userData.role || "faculty"),
       level: userData.level !== undefined ? Number(userData.level) : undefined,
       college: userData.college || "",
       department: userData.department || "",
@@ -1136,7 +1102,7 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
   }
 
   return {
-    role: inferRoleFromEmail(email),
+    role: "faculty",
     level: undefined,
     college: "",
     department: "",
@@ -1199,46 +1165,31 @@ export const unifiedLogin = async (req, res) => {
     const resolvedDesignation = resolved.designation || "";
     if (resolvedCollege && resolvedDesignation) {
       try {
-        const normDesig = (s) =>
-          String(s || "")
-            .trim()
-            .toLowerCase();
-        const saDoc = await db
-          .collection("superadmin")
-          .doc(SUPERADMIN_DOC_ID)
-          .get();
-        if (saDoc.exists) {
-          const saColleges = saDoc.data()?.colleges || [];
-          const col = saColleges.find(
-            (c) =>
-              String(c?.name || "")
-                .trim()
-                .toLowerCase() === resolvedCollege.toLowerCase(),
+        const normDesig = (s) => String(s || "").trim().toLowerCase();
+        const saData = await getSuperadminConfig();
+        const col = (saData.colleges || []).find(
+          (c) => String(c?.name || "").trim().toLowerCase() === resolvedCollege.toLowerCase(),
+        );
+        if (col) {
+          const candidates = (col.designations || []).filter(
+            (d) => normDesig(d?.name) === normDesig(resolvedDesignation),
           );
-          if (col) {
-            const candidates = (col.designations || []).filter(
-              (d) => normDesig(d?.name) === normDesig(resolvedDesignation),
-            );
-            if (candidates.length > 0) {
-              let des = candidates[0];
-              if (resolvedHasPhd !== undefined && candidates.length > 1) {
-                const exact = candidates.find(
-                  (d) => Boolean(d.phd) === Boolean(resolvedHasPhd),
-                );
-                if (exact) des = exact;
-              }
-              designationTarget = des?.target || "";
-              if (resolvedHasPhd === undefined && des) {
-                resolvedHasPhd = Boolean(des.phd);
-              }
+          if (candidates.length > 0) {
+            let des = candidates[0];
+            if (resolvedHasPhd !== undefined && candidates.length > 1) {
+              const exact = candidates.find(
+                (d) => Boolean(d.phd) === Boolean(resolvedHasPhd),
+              );
+              if (exact) des = exact;
+            }
+            designationTarget = des?.target || "";
+            if (resolvedHasPhd === undefined && des) {
+              resolvedHasPhd = Boolean(des.phd);
             }
           }
         }
       } catch (e) {
-        console.error(
-          "[unifiedLogin] designationTarget lookup failed:",
-          e.message,
-        );
+        console.error("[unifiedLogin] designationTarget lookup failed:", e.message);
       }
     }
 
@@ -1935,6 +1886,8 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
       { merge: true },
     );
 
+    invalidateSuperadminCache();
+
     return res.status(200).json({
       success: true,
       message: "Workflow rules updated successfully",
@@ -1955,10 +1908,6 @@ export const getApplicableForms = async (req, res) => {
     // Dev mode fallback: check x-user-role header
     if (!role && req.headers["x-user-role"]) {
       role = normalizeRoleValue(req.headers["x-user-role"]);
-      console.log(
-        "[getApplicableForms] DEV MODE - Using x-user-role header:",
-        role,
-      );
     }
 
     const requesterRole = role;
@@ -1972,23 +1921,14 @@ export const getApplicableForms = async (req, res) => {
 
     if (requestedRole && canOverrideRole) {
       role = requestedRole;
-      console.log(
-        "[getApplicableForms] Role override applied. Requester:",
-        requesterRole,
-        "| Target role:",
-        role,
-      );
     }
 
     if (!role) {
-      console.log("[getApplicableForms] No role found, returning 401");
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
-
-    console.log("[getApplicableForms] User role:", role);
 
     const formsSnapshot = await formsCollectionRef()
       .orderBy("updatedAt", "desc")
@@ -2000,19 +1940,6 @@ export const getApplicableForms = async (req, res) => {
         const applicableRoles = Array.isArray(data.applicableRoles)
           ? data.applicableRoles.map((item) => normalizeRoleValue(item))
           : [];
-
-        console.log(
-          "[getApplicableForms] Form:",
-          data.formTitle,
-          "| Raw roles:",
-          data.applicableRoles,
-          "| Normalized:",
-          applicableRoles,
-          "| User role:",
-          role,
-          "| Match:",
-          applicableRoles.includes(role),
-        );
 
         if (!applicableRoles.includes(role)) {
           return null;
@@ -2184,56 +2111,48 @@ export const getCriteriaModulesTasks = async (req, res) => {
 
 export const getCommitteeDashboard = async (req, res) => {
   try {
-    const normDesig = (s) =>
-      String(s || "")
-        .trim()
-        .toLowerCase();
+    const normDesig = (s) => String(s || "").trim().toLowerCase();
 
-    // Fetch all submissions first
-    const submissionsSnap = await db.collection("submissions").get();
-    const allSubmissions = submissionsSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    // Optional college filter — when provided, scopes all queries to one college
+    // which is critical at scale (prevents full-collection reads).
+    const filterCollege = String(req.query?.college || "").trim();
 
-    // Build a map from userId → submissions
+    // Build designation target map from cache — zero Firestore reads
+    const saData = await getSuperadminConfig();
+    const collegeDesignationMap = {};
+    (saData.colleges || []).forEach((c) => {
+      const key = String(c?.name || "").trim().toLowerCase();
+      collegeDesignationMap[key] = {};
+      (c.designations || []).forEach((d) => {
+        if (d?.name) collegeDesignationMap[key][normDesig(d.name)] = d.target || "";
+      });
+    });
+
+    // Fetch users — scoped to college when provided, hard-capped to prevent OOM
+    let usersQuery = db.collection("users");
+    if (filterCollege) usersQuery = usersQuery.where("college", "==", filterCollege);
+    const usersSnap = await usersQuery.limit(500).get();
+
+    // Fetch submissions — scoped to college when provided
+    let subsQuery = db.collection("submissions");
+    if (filterCollege) subsQuery = subsQuery.where("college", "==", filterCollege);
+    const submissionsSnap = await subsQuery.limit(2000).get();
+
     const submissionsMap = new Map();
-    allSubmissions.forEach((sub) => {
+    submissionsSnap.docs.forEach((doc) => {
+      const sub = { id: doc.id, ...doc.data() };
       if (!submissionsMap.has(sub.userId)) submissionsMap.set(sub.userId, []);
       submissionsMap.get(sub.userId).push(sub);
     });
 
-    // Build per-college designation target maps
-    const saDoc = await db
-      .collection("superadmin")
-      .doc(SUPERADMIN_DOC_ID)
-      .get();
-    const saColleges = saDoc.exists ? saDoc.data()?.colleges || [] : [];
-    const collegeDesignationMap = {}; // college name (lower) → { normDesigName → target }
-    saColleges.forEach((c) => {
-      const key = String(c?.name || "")
-        .trim()
-        .toLowerCase();
-      collegeDesignationMap[key] = {};
-      (c.designations || []).forEach((d) => {
-        if (d?.name)
-          collegeDesignationMap[key][normDesig(d.name)] = d.target || "";
-      });
-    });
-
-    // Fetch all users
-    const usersSnap = await db.collection("users").get();
     const staff = usersSnap.docs.map((doc) => {
       const data = doc.data();
-      const collegeKey = String(data.college || "")
-        .trim()
-        .toLowerCase();
+      const collegeKey = String(data.college || "").trim().toLowerCase();
       const designTargetMap = collegeDesignationMap[collegeKey] || {};
       return {
         ...data,
         id: doc.id,
-        designationTarget:
-          designTargetMap[normDesig(data.designation || "")] || "",
+        designationTarget: designTargetMap[normDesig(data.designation || "")] || "",
         submissions: submissionsMap.get(data.uid) || [],
       };
     });
