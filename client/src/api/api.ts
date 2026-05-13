@@ -7,7 +7,6 @@ const backendUrl =
   import.meta.env.VITE_BACKEND_URL ||
   (import.meta.env.DEV ? "http://localhost:5000" : "");
 
-console.log("[API Config] Backend URL:", backendUrl);
 
 export const api = axios.create({
   baseURL: backendUrl,
@@ -48,8 +47,6 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
-  } else {
-    console.warn("[API Request] ⚠️ NO TOKEN FOUND in localStorage");
   }
 
   // Add user info to headers for simplified auth
@@ -85,7 +82,10 @@ api.interceptors.response.use(
     }
 
     if (status === 401) {
-      console.error("[API] 401 Unauthorized — token invalid or backend cold-started");
+      localStorage.clear();
+      delete api.defaults.headers.common["Authorization"];
+      window.location.replace("/login?reason=session_expired");
+      return new Promise(() => {});
     }
 
     return Promise.reject(error);
