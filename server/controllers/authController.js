@@ -1125,9 +1125,9 @@ export const unifiedLogin = async (req, res) => {
 
     const apiKey = process.env.FIREBASE_WEB_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
-        message: "Firebase web API key is not configured",
+        message: "Service temporarily unavailable",
       });
     }
 
@@ -1219,50 +1219,48 @@ export const unifiedLogin = async (req, res) => {
 };
 
 export const committeeLogin = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Email and password are required",
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    if (email !== process.env.COMMITTEE_EMAIL) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(
+      password,
+      process.env.COMMITTEE_PASSWORD || "",
+    );
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Committee login successful",
+      user: {
+        email,
+        role: "committee",
+        name: "Committee Member",
+      },
     });
+  } catch (error) {
+    console.error("Committee login error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
-
-  if (email !== process.env.COMMITTEE_EMAIL) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid email or password",
-    });
-  }
-
-  const isMatch = await bcrypt.compare(
-    password,
-    process.env.COMMITTEE_PASSWORD,
-  );
-
-  if (!isMatch) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid email or password",
-    });
-  }
-
-  const payload = {
-    role: "committee",
-    email,
-    type: "committee",
-  };
-
-  // For Firebase auth, return a simple success without JWT token
-  return res.json({
-    success: true,
-    message: "Committee login successful",
-    user: {
-      email,
-      role: "committee",
-      name: "Committee Member",
-    },
-  });
 };
 
 export const addAdmin = async (req, res) => {

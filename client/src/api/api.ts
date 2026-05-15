@@ -67,12 +67,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let _sessionExpiredPending = false;
+
+const redirectToSessionExpired = () => {
+  if (_sessionExpiredPending) return;
+  _sessionExpiredPending = true;
+  localStorage.clear();
+  delete api.defaults.headers.common["Authorization"];
+  window.location.replace("/login?reason=session_expired");
+};
+
 // Retry once on network errors / 5xx — catches cold-start transient failures
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const config = error.config as typeof error.config & { _retried?: boolean };
     const status = error.response?.status;
+    const serverMessage: string = error.response?.data?.message || "";
 
     // Retry once on 502/503/504 (gateway errors during cold start) or no response
     if (!config._retried && (!error.response || status === 502 || status === 503 || status === 504)) {
@@ -81,10 +92,17 @@ api.interceptors.response.use(
       return api(config);
     }
 
-    if (status === 401) {
-      localStorage.clear();
-      delete api.defaults.headers.common["Authorization"];
-      window.location.replace("/login?reason=session_expired");
+    // Session expired — covers both clean 401s and auth-failure 500s
+    const isAuthFailure =
+      status === 401 ||
+      (status === 403 && serverMessage.toLowerCase().includes("token")) ||
+      (status === 500 && (
+        serverMessage.toLowerCase().includes("expired") ||
+        serverMessage === "Invalid or expired token"
+      ));
+
+    if (isAuthFailure) {
+      redirectToSessionExpired();
       return new Promise(() => {});
     }
 
