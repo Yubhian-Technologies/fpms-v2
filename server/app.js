@@ -29,22 +29,30 @@ import cloudinaryRouter from "./routes/cloudinaryRoutes.js";
 const app = express();
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:8080", "http://localhost:5173", "http://localhost:3000"];
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : [
+      "http://localhost:8080",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://vishnufpms.in",
+      "https://www.vishnufpms.in",
+    ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, same-origin)
+      // Allow requests with no origin (Postman, server-to-server)
       if (!origin) return callback(null, true);
-      // Allow all Vercel domains and configured origins
+      // Allow all Vercel preview URLs, configured origins, and local dev
       if (
         allowedOrigins.includes(origin) ||
         origin.endsWith(".vercel.app") ||
+        (process.env.VERCEL_URL && origin === `https://${process.env.VERCEL_URL}`) ||
         process.env.NODE_ENV !== "production"
       ) {
         return callback(null, true);
       }
+      console.warn(`[CORS] Blocked origin: ${origin}`);
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
@@ -91,5 +99,16 @@ app.use("/api/submissions", submissionRouter);
 app.use("/api/colleges", collegeRouter);
 app.use("/api/forms", formRouter);
 app.use("/api/cloudinary", cloudinaryRouter);
+
+// 404 — no route matched
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("[Express error]", err);
+  res.status(500).json({ success: false, message: "Internal server error" });
+});
 
 export default app;
