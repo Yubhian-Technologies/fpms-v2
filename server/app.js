@@ -58,10 +58,17 @@ app.get("/api", (req, res) => {
   res.json({ status: "API working", version: "2.0.0" });
 });
 
-// Lightweight warmup endpoint — called by the frontend on tab focus to
-// prevent cold-start delays when the user returns after an idle period
+// Diagnostic health endpoint — shows which env vars are present without leaking values
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
+  const vars = [
+    "FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY",
+    "FIREBASE_PRIVATE_KEY_ID", "FIREBASE_WEB_API_KEY",
+    "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET",
+    "SUPERADMIN_DOC_ID", "COMMITTEE_EMAIL",
+  ];
+  const status = {};
+  for (const v of vars) status[v] = process.env[v] ? "set" : "MISSING";
+  res.json({ ok: true, env: status });
 });
 
 app.use("/api/auth", authRouter);

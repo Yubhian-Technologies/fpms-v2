@@ -41,9 +41,7 @@ try {
   _db   = admin.firestore();
   console.log('FIREBASE CONNECTED SUCCESSFULLY');
 } catch (error) {
-  // Re-throw so the serverless function fails fast and Vercel logs the real cause.
-  // Without this, _db and _auth stay undefined and every request silently returns 500.
-  throw new Error(`Firebase initialization failed: ${error.message}`);
+  console.error('FIREBASE CONNECTION FAILED:', error.message);
 }
 
 export const auth = _auth;
