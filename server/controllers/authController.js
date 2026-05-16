@@ -2017,7 +2017,10 @@ export const getCriteriaModulesTasks = async (req, res) => {
       ? formData.applicableRoles.map((item) => normalizeRoleValue(item))
       : [];
 
-    if (!applicableRoles.includes(role)) {
+    const effectiveRoles =
+      role === "internal committee" ? ["internal committee", "faculty"] : [role];
+
+    if (!applicableRoles.some((r) => effectiveRoles.includes(r))) {
       return res.status(403).json({
         success: false,
         message: "Access denied for this role",
