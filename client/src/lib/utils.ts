@@ -34,7 +34,17 @@ export function formatRoleLabel(role?: string): string {
     return "Internal Committee";
   }
 
-  return role ? role.charAt(0).toUpperCase() + role.slice(1) : "";
+  if (normalized === "hod") return "HOD";
+  if (normalized === "dean") return "Dean";
+  if (normalized === "faculty") return "Faculty";
+  if (normalized === "committee" || normalized === "commitee") return "Committee";
+
+  return role
+    ? role
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+    : "";
 }
 
 export function resolveEvidenceLink(value?: string | null): string | null {

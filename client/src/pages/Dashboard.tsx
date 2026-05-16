@@ -33,6 +33,7 @@ import {
   BarChart2,
 } from "lucide-react";
 import { api } from "@/api/api";
+import { formatRoleLabel } from "@/lib/utils";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
@@ -1118,9 +1119,9 @@ export default function Dashboard() {
                                 key={roleName}
                                 value={`${collegeName}-${roleName}`}
                               >
-                                <AccordionTrigger className="px-5 py-3 text-lg font-semibold capitalize hover:bg-secondary/20 transition-colors data-[state=open]:bg-secondary/10">
+                                <AccordionTrigger className="px-5 py-3 text-lg font-semibold hover:bg-secondary/20 transition-colors data-[state=open]:bg-secondary/10">
                                   <div className="flex justify-between w-full pr-4">
-                                    <span>{roleName}</span>
+                                    <span>{formatRoleLabel(roleName)}</span>
                                     <Badge
                                       variant="outline"
                                       className="text-sm"
