@@ -130,7 +130,7 @@ const getNavItems = (
     {
       icon: FileText,
       label: "FPMS Form",
-      roles: ["faculty", "hod", "dean", "principle", "vice principle"],
+      roles: ["faculty", "internal committee", "hod", "dean", "principle", "vice principle"],
       isDropdown: true,
       dropdownId: "Dynamic FPMS Form",
       children: resolvedDynamicChildren,
@@ -139,7 +139,7 @@ const getNavItems = (
       icon: MessageSquare,
       label: "My Submissions",
       href: "/submissions",
-      roles: ["faculty", "hod", "dean"],
+      roles: ["faculty", "internal committee", "hod", "dean"],
     },
     {
       icon: ClipboardCheck,
@@ -169,7 +169,7 @@ const getNavItems = (
       icon: ClipboardCheck,
       label: "Review Submissions",
       href: "/review",
-      roles: ["hod", "committee", "dean", "vice principle", "principle"],
+      roles: ["hod", "committee", "internal committee", "dean", "vice principle", "principle"],
     },
     {
       // Faculty peer reviewers: uses /faculty-review which renders the same Review page.
@@ -238,7 +238,7 @@ const getNavItems = (
       icon: ClipboardCheck,
       label: "My Appeals",
       href: "/my-appeals",
-      roles: ["faculty", "dean", "hod"],
+      roles: ["faculty", "internal committee", "dean", "hod"],
     },
     {
       icon: KeyRound,

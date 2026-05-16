@@ -4,7 +4,7 @@ const isFacultyRole = (value) => {
   const normalized = String(value || "")
     .trim()
     .toLowerCase();
-  return normalized === "faculty" || normalized.startsWith("faculty");
+  return normalized === "faculty" || normalized.startsWith("faculty") || normalized === "internal committee";
 };
 
 export const facultyAuth = async (req, res, next) => {

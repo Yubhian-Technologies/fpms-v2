@@ -1939,7 +1939,12 @@ export const getApplicableForms = async (req, res) => {
           ? data.applicableRoles.map((item) => normalizeRoleValue(item))
           : [];
 
-        if (!applicableRoles.includes(role)) {
+        // IC members are promoted faculty — they can see forms targeted at
+        // "internal committee" OR "faculty" so they can still submit their own work.
+        const effectiveRoles =
+          role === "internal committee" ? ["internal committee", "faculty"] : [role];
+
+        if (!applicableRoles.some((r) => effectiveRoles.includes(r))) {
           return null;
         }
 
