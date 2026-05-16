@@ -3,6 +3,7 @@ import {
   adminLogin,
   addHod,
   addInternalCommittee,
+  assignExistingUserAsInternalCommittee,
   deleteInternalCommittee,
   getAllHods,
   getAllInternalCommittees,
@@ -29,6 +30,7 @@ adminRouter.post("/login", adminLogin);
 
 adminRouter.post("/add-hod", adminAuth, addHod);
 adminRouter.post("/add-internal-committee", adminAuth, addInternalCommittee);
+adminRouter.post("/internal-committee/assign", adminAuth, assignExistingUserAsInternalCommittee);
 
 adminRouter.get("/all-hods", adminAuth, getAllHods);
 adminRouter.get("/internal-committees", adminAuth, getAllInternalCommittees);

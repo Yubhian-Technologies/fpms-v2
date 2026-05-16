@@ -764,6 +764,86 @@ export const addInternalCommittee = async (req, res) => {
   }
 };
 
+export const assignExistingUserAsInternalCommittee = async (req, res) => {
+  try {
+    const actorRole = String(req.admin?.role || "").trim().toLowerCase();
+    if (!isPrincipalManagementRole(actorRole)) {
+      return res.status(403).json({ success: false, message: "Only principal can add internal committee users" });
+    }
+
+    const principalCollege = String(req.admin?.college || "").trim();
+    if (!principalCollege) {
+      return res.status(400).json({ success: false, message: "Principal college not found" });
+    }
+
+    const { userId } = req.body || {};
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "userId is required" });
+    }
+
+    const userRef = db.collection(USERS_COLLECTION).doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const userData = userDoc.data() || {};
+    const userCollege = String(userData.college || "").trim().toLowerCase();
+
+    if (userCollege !== principalCollege.toLowerCase()) {
+      return res.status(403).json({ success: false, message: "User does not belong to your college" });
+    }
+
+    if (isInternalCommitteeRole(userData.role || "")) {
+      return res.status(409).json({ success: false, message: "User is already an internal committee member" });
+    }
+
+    // One-per-college limit
+    const existingSnap = await db.collection(USERS_COLLECTION)
+      .where("college", "==", principalCollege)
+      .get();
+    const existingMember = existingSnap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .find((item) => item.id !== userId && (Boolean(item.internalCommittee) || isInternalCommitteeRole(item.role || "")));
+    if (existingMember) {
+      return res.status(409).json({ success: false, message: "Only one internal committee user is allowed per college" });
+    }
+
+    // Get IC role level from superadmin config
+    let level = 0;
+    try {
+      const saDoc = await db.collection("superadmin").doc(SUPERADMIN_DOC_ID).get();
+      if (saDoc.exists) {
+        const roles = Array.isArray(saDoc.data()?.roles) ? saDoc.data().roles : [];
+        const icRole = roles.find((r) => isInternalCommitteeRole(String(r.name || "")));
+        if (icRole) level = Number(icRole.level) || 0;
+      }
+    } catch (_) {}
+
+    const normalizedRole = normalizeInternalCommitteeRole("internal committee");
+
+    await auth.setCustomUserClaims(userId, {
+      role: normalizedRole,
+      level,
+      college: userData.college || principalCollege,
+      internalCommittee: true,
+    });
+
+    await userRef.set({
+      role: normalizedRole,
+      level,
+      internalCommittee: true,
+      promotedFromRole: userData.role || "faculty",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return res.status(200).json({ success: true, message: "User assigned as internal committee member" });
+  } catch (error) {
+    console.error("Assign existing user as internal committee error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export const updateInternalCommittee = async (req, res) => {
   try {
     const actorRole = String(req.admin?.role || "")
@@ -973,6 +1053,20 @@ export const deleteInternalCommittee = async (req, res) => {
       });
     }
 
+    // If the user was promoted from an existing account, revert their role instead of deleting
+    if (currentData.promotedFromRole) {
+      const revertRole = String(currentData.promotedFromRole);
+      await auth.setCustomUserClaims(id, { role: revertRole, internalCommittee: false });
+      await memberRef.set({
+        role: revertRole,
+        internalCommittee: false,
+        promotedFromRole: admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return res.status(200).json({ success: true, message: "Internal committee assignment removed" });
+    }
+
+    // Created user — full delete
     try {
       await auth.deleteUser(id);
     } catch (authError) {
