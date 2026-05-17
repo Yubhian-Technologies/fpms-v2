@@ -120,7 +120,11 @@ overallScore += effectiveScore;
     );
   }
 
-  const staffList = committeeData?.staff || [];
+  const rawStaff = committeeData?.staff || [];
+  const staffList =
+    role === "committee"
+      ? rawStaff.filter((s: any) => s.college && s.role !== "committee")
+      : rawStaff;
 
   const groupedData = staffList.reduce((acc: any, staff: any) => {
     const collegeName = staff.college || "Unknown College";
