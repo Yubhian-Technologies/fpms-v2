@@ -1184,7 +1184,7 @@ export default function Dashboard() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="bg-muted/40 rounded-lg py-2">
                           <p className="text-lg font-bold">{Object.keys(roles).length}</p>
                           <p className="text-xs text-muted-foreground">Roles</p>
@@ -1192,10 +1192,6 @@ export default function Dashboard() {
                         <div className="bg-muted/40 rounded-lg py-2">
                           <p className="text-lg font-bold">{collegeStaff.length}</p>
                           <p className="text-xs text-muted-foreground">Staff</p>
-                        </div>
-                        <div className="bg-muted/40 rounded-lg py-2">
-                          <p className="text-lg font-bold">{collegeSubs.length}</p>
-                          <p className="text-xs text-muted-foreground">Submissions</p>
                         </div>
                         <div className={`rounded-lg py-2 ${targetsReached === staffWithTarget.length && staffWithTarget.length > 0 ? "bg-green-100" : "bg-muted/40"}`}>
                           <p className={`text-lg font-bold ${targetsReached === staffWithTarget.length && staffWithTarget.length > 0 ? "text-green-700" : ""}`}>
