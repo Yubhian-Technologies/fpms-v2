@@ -178,11 +178,19 @@ export const addHod = async (req, res) => {
     }
 
     try {
-      await auth.getUserByEmail(normalizedEmail);
-      return res.status(409).json({
-        success: false,
-        message: "HOD already exists",
-      });
+      const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db
+        .collection(USERS_COLLECTION)
+        .doc(existingAuthUser.uid)
+        .get();
+      if (firestoreDoc.exists) {
+        return res.status(409).json({
+          success: false,
+          message: "HOD already exists",
+        });
+      }
+      // Orphaned Auth account (Firestore record was deleted) — remove it
+      await auth.deleteUser(existingAuthUser.uid);
     } catch (error) {
       if (error?.code && error.code !== "auth/user-not-found") {
         throw error;
@@ -325,11 +333,18 @@ export const addDean = async (req, res) => {
     }
 
     try {
-      await auth.getUserByEmail(normalizedEmail);
-      return res.status(409).json({
-        success: false,
-        message: "DEAN already exists",
-      });
+      const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db
+        .collection(USERS_COLLECTION)
+        .doc(existingAuthUser.uid)
+        .get();
+      if (firestoreDoc.exists) {
+        return res.status(409).json({
+          success: false,
+          message: "DEAN already exists",
+        });
+      }
+      await auth.deleteUser(existingAuthUser.uid);
     } catch (error) {
       if (error?.code && error.code !== "auth/user-not-found") {
         throw error;
@@ -683,11 +698,18 @@ export const addInternalCommittee = async (req, res) => {
     }
 
     try {
-      await auth.getUserByEmail(normalizedEmail);
-      return res.status(409).json({
-        success: false,
-        message: "User already exists",
-      });
+      const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db
+        .collection(USERS_COLLECTION)
+        .doc(existingAuthUser.uid)
+        .get();
+      if (firestoreDoc.exists) {
+        return res.status(409).json({
+          success: false,
+          message: "User already exists",
+        });
+      }
+      await auth.deleteUser(existingAuthUser.uid);
     } catch (error) {
       if (error?.code && error.code !== "auth/user-not-found") {
         throw error;

@@ -1333,12 +1333,26 @@ export const addAdmin = async (req, res) => {
     let userRecord;
 
     try {
-      userRecord = await auth.getUserByEmail(normalizedEmail);
-      return res.status(409).json({
-        success: false,
-        message: "Principal already exists",
+      const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db
+        .collection("users")
+        .doc(existingAuthUser.uid)
+        .get();
+      if (firestoreDoc.exists) {
+        return res.status(409).json({
+          success: false,
+          message: "Principal already exists",
+        });
+      }
+      // Orphaned Auth account — delete and recreate
+      await auth.deleteUser(existingAuthUser.uid);
+      userRecord = await auth.createUser({
+        email: normalizedEmail,
+        password: String(password),
+        displayName: normalizedName,
       });
     } catch (error) {
+      if (error?.code && error.code !== "auth/user-not-found") throw error;
       userRecord = await auth.createUser({
         email: normalizedEmail,
         password: String(password),
