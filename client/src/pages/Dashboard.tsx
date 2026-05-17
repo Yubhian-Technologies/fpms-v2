@@ -84,6 +84,7 @@ export default function Dashboard() {
   const [selectedCriteria, setSelectedCriteria] = useState<string>("All");
   const [selectedModule, setSelectedModule] = useState<string>("All");
   const [selectedCollegeDetail, setSelectedCollegeDetail] = useState<string | null>(null);
+  const [selectedDeptDetail, setSelectedDeptDetail] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
@@ -1396,8 +1397,246 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── PRINCIPAL / HOD: Accordion hierarchy ── */}
-        {user?.role !== "committee" && (
+        {/* ── PRINCIPAL / VICE PRINCIPAL: Department-first layout ── */}
+        {isDean && (
+          <div className="mt-8 mb-6 space-y-6">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  Departments Overview
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Click any department card to explore HOD and faculty
+                </p>
+              </div>
+            </div>
+
+            {/* Summary strip */}
+            {(() => {
+              const deptMap = staffList
+                .filter((s: any) => s.department)
+                .reduce((acc: any, s: any) => {
+                  const dept = s.department;
+                  if (!acc[dept]) acc[dept] = { hods: [], faculty: [] };
+                  const r = String(s.role || "").toLowerCase();
+                  if (r === "hod") acc[dept].hods.push(s);
+                  else acc[dept].faculty.push(s);
+                  return acc;
+                }, {});
+
+              const allDeptStaff = staffList.filter((s: any) => s.department);
+              const totalWithTarget = allDeptStaff.filter((s: any) => s.designationTarget);
+              const totalTargetsReached = totalWithTarget.filter((s: any) => {
+                const achieved = (s.submissions || []).reduce(
+                  (sum: number, sub: any) =>
+                    sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                  0,
+                );
+                return achieved >= Number(s.designationTarget);
+              }).length;
+
+              return (
+                <>
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card className="shadow-sm">
+                      <CardContent className="pt-5 pb-4 text-center">
+                        <p className="text-3xl font-bold text-primary">{Object.keys(deptMap).length}</p>
+                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                          <BookOpen className="h-3.5 w-3.5" /> Departments
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm">
+                      <CardContent className="pt-5 pb-4 text-center">
+                        <p className="text-3xl font-bold text-primary">{allDeptStaff.length}</p>
+                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                          <Users className="h-3.5 w-3.5" /> Total Staff
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="shadow-sm">
+                      <CardContent className="pt-5 pb-4 text-center">
+                        <p className="text-3xl font-bold text-primary">
+                          {totalTargetsReached}
+                          <span className="text-lg font-normal text-muted-foreground"> / {totalWithTarget.length}</span>
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                          <CheckCircle className="h-3.5 w-3.5" /> Targets Reached
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Department cards grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {Object.entries(deptMap)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([deptName, deptData]: any) => {
+                        const deptAllStaff = [...deptData.hods, ...deptData.faculty];
+                        const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
+                        const deptTargetsReached = deptWithTarget.filter((s: any) => {
+                          const achieved = (s.submissions || []).reduce(
+                            (sum: number, sub: any) =>
+                              sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                            0,
+                          );
+                          return achieved >= Number(s.designationTarget);
+                        }).length;
+                        const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
+                        const deptCompleted = deptSubs.filter(
+                          (s: any) => s.status === "accepted" || s.status === "appeal-resolved",
+                        ).length;
+                        const completionPct = deptSubs.length > 0
+                          ? Math.round((deptCompleted / deptSubs.length) * 100)
+                          : 0;
+                        const isSelected = selectedDeptDetail === deptName;
+
+                        return (
+                          <Card
+                            key={deptName}
+                            className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
+                              isSelected
+                                ? "border-primary shadow-md"
+                                : "border-border hover:border-primary/40"
+                            }`}
+                            onClick={() => setSelectedDeptDetail(isSelected ? null : deptName)}
+                          >
+                            <CardHeader className="pb-3">
+                              <CardTitle className="flex items-start gap-2 text-base">
+                                <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                                <span>{deptName}</span>
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div className="grid grid-cols-3 gap-2 text-center">
+                                <div className="bg-muted/40 rounded-lg py-2">
+                                  <p className="text-lg font-bold">{deptData.hods.length}</p>
+                                  <p className="text-xs text-muted-foreground">HOD</p>
+                                </div>
+                                <div className="bg-muted/40 rounded-lg py-2">
+                                  <p className="text-lg font-bold">{deptData.faculty.length}</p>
+                                  <p className="text-xs text-muted-foreground">Faculty</p>
+                                </div>
+                                <div className={`rounded-lg py-2 ${deptTargetsReached === deptWithTarget.length && deptWithTarget.length > 0 ? "bg-green-100" : "bg-muted/40"}`}>
+                                  <p className={`text-lg font-bold ${deptTargetsReached === deptWithTarget.length && deptWithTarget.length > 0 ? "text-green-700" : ""}`}>
+                                    {deptTargetsReached}
+                                    <span className="text-sm font-normal text-muted-foreground"> / {deptWithTarget.length}</span>
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Target Reached</p>
+                                </div>
+                              </div>
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">Completion</span>
+                                  <span className="font-medium">{completionPct}%</span>
+                                </div>
+                                <Progress value={completionPct} className="h-2" />
+                              </div>
+                              <p className="text-right text-xs text-primary font-medium">
+                                {isSelected ? "▲ Hide details" : "▼ View details"}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+
+                  {/* Department Detail Panel */}
+                  {selectedDeptDetail && deptMap[selectedDeptDetail] && (
+                    <Card className="border-primary/20 shadow-sm overflow-hidden">
+                      <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                              <BookOpen className="h-5 w-5 text-primary" />
+                              {selectedDeptDetail}
+                            </CardTitle>
+                            <CardDescription>
+                              {deptMap[selectedDeptDetail].hods.length} HOD · {deptMap[selectedDeptDetail].faculty.length} Faculty
+                            </CardDescription>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => setSelectedDeptDetail(null)}>
+                            Close ✕
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        {(() => {
+                          const staffRow = (s: any) => {
+                            const subs = s.submissions || [];
+                            const achieved = subs.reduce(
+                              (sum: number, sub: any) =>
+                                sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                              0,
+                            );
+                            const done = subs.filter(
+                              (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved",
+                            ).length;
+                            const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
+                            return (
+                              <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                                <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
+                                <td className="px-4 py-3 text-muted-foreground text-xs">{s.email || "—"}</td>
+                                <td className="px-4 py-3">{s.designation || "—"}</td>
+                                <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
+                                <td className="px-4 py-3 text-center font-medium">
+                                  {achieved}{s.designationTarget ? ` / ${s.designationTarget}` : ""}
+                                </td>
+                                <td className="px-4 py-3 text-center text-xs font-medium">{pct}%</td>
+                              </tr>
+                            );
+                          };
+                          const staffTable = (rows: any[]) => (
+                            <div className="overflow-x-auto rounded-lg border">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b bg-muted/30">
+                                    <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                                    <th className="text-left px-4 py-2.5 font-medium">Email</th>
+                                    <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                                    <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
+                                    <th className="text-center px-4 py-2.5 font-medium">Score</th>
+                                    <th className="text-center px-4 py-2.5 font-medium">Completion</th>
+                                  </tr>
+                                </thead>
+                                <tbody>{rows.map(staffRow)}</tbody>
+                              </table>
+                            </div>
+                          );
+                          return (
+                            <>
+                              {deptMap[selectedDeptDetail].hods.length > 0 && (
+                                <div>
+                                  <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                                    <User className="h-4 w-4 text-primary" /> HOD
+                                  </div>
+                                  <div className="p-5">{staffTable(deptMap[selectedDeptDetail].hods)}</div>
+                                </div>
+                              )}
+                              {deptMap[selectedDeptDetail].faculty.length > 0 && (
+                                <div className={deptMap[selectedDeptDetail].hods.length > 0 ? "border-t" : ""}>
+                                  <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                                    <Users className="h-4 w-4 text-primary" /> Faculty
+                                  </div>
+                                  <div className="p-5">{staffTable(deptMap[selectedDeptDetail].faculty)}</div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* ── HOD: Department Staff Overview ── */}
+        {isHod && (
           <Card className="shadow-sm rounded-xl overflow-hidden mt-8 mb-10">
             <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-primary/5 to-primary/10">
               <div>
