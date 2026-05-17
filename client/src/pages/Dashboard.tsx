@@ -1152,6 +1152,17 @@ export default function Dashboard() {
                   collegeSubs.length > 0
                     ? Math.round((collegeCompleted / collegeSubs.length) * 100)
                     : 0;
+                const staffWithTarget = collegeStaff.filter(
+                  (s: any) => s.designationTarget,
+                );
+                const targetsReached = staffWithTarget.filter((s: any) => {
+                  const achieved = (s.submissions || []).reduce(
+                    (sum: number, sub: any) =>
+                      sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                    0,
+                  );
+                  return achieved >= Number(s.designationTarget);
+                }).length;
                 const isSelected = selectedCollegeDetail === collegeName;
 
                 return (
@@ -1173,7 +1184,7 @@ export default function Dashboard() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="grid grid-cols-2 gap-2 text-center">
                         <div className="bg-muted/40 rounded-lg py-2">
                           <p className="text-lg font-bold">{Object.keys(roles).length}</p>
                           <p className="text-xs text-muted-foreground">Roles</p>
@@ -1185,6 +1196,13 @@ export default function Dashboard() {
                         <div className="bg-muted/40 rounded-lg py-2">
                           <p className="text-lg font-bold">{collegeSubs.length}</p>
                           <p className="text-xs text-muted-foreground">Submissions</p>
+                        </div>
+                        <div className={`rounded-lg py-2 ${targetsReached === staffWithTarget.length && staffWithTarget.length > 0 ? "bg-green-100" : "bg-muted/40"}`}>
+                          <p className={`text-lg font-bold ${targetsReached === staffWithTarget.length && staffWithTarget.length > 0 ? "text-green-700" : ""}`}>
+                            {targetsReached}
+                            <span className="text-sm font-normal text-muted-foreground"> / {staffWithTarget.length}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Target Reached</p>
                         </div>
                       </div>
                       <div className="space-y-1.5">
