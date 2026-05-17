@@ -191,11 +191,19 @@ export const addFaculty = async (req, res) => {
     }
 
     try {
-      await auth.getUserByEmail(normalizedEmail);
-      return res.status(409).json({
-        success: false,
-        message: "Faculty already exists",
-      });
+      const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db
+        .collection("users")
+        .doc(existingAuthUser.uid)
+        .get();
+      if (firestoreDoc.exists) {
+        return res.status(409).json({
+          success: false,
+          message: "Faculty already exists",
+        });
+      }
+      // Orphaned Auth account — delete it so fresh creation proceeds
+      await auth.deleteUser(existingAuthUser.uid);
     } catch (error) {
       if (error?.code && error.code !== "auth/user-not-found") {
         throw error;

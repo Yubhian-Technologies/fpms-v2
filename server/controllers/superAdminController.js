@@ -1264,13 +1264,19 @@ export const registerSuperAdmin = async (req, res) => {
 
     // Check if email is already registered
     try {
-      const existingUser = await auth.getUserByEmail(normalizedEmail);
-      if (existingUser) {
+      const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db
+        .collection("users")
+        .doc(existingAuthUser.uid)
+        .get();
+      if (firestoreDoc.exists) {
         return res.status(409).json({
           success: false,
           message: "A user with this email already exists",
         });
       }
+      // Orphaned Auth account — delete it so fresh creation proceeds
+      await auth.deleteUser(existingAuthUser.uid);
     } catch (error) {
       // User doesn't exist, continue with registration
     }
