@@ -966,15 +966,17 @@ export default function Dashboard() {
           </div>
         )}
 
-        <StatusCards
-          role={user?.role || "committee"}
-          submissions={
-            isHod || user.role === "faculty" ? submissions : undefined
-          }
-          committeeData={
-            !(isHod || user.role === "faculty") ? committeeData : undefined
-          }
-        />
+        {user?.role !== "committee" && (
+          <StatusCards
+            role={user?.role || "committee"}
+            submissions={
+              isHod || user.role === "faculty" ? submissions : undefined
+            }
+            committeeData={
+              !(isHod || user.role === "faculty") ? committeeData : undefined
+            }
+          />
+        )}
 
         {isHod && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
@@ -1800,7 +1802,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {["principle", "vice principle"].includes(
+        {["committee", "principle", "vice principle"].includes(
           user?.role || "",
         ) && (
           <div className="mt-10 mb-10 bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden">
