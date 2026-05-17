@@ -1220,9 +1220,12 @@ export default function Dashboard() {
                         {selectedCollegeDetail}
                       </CardTitle>
                       <CardDescription>
-                        {staffList.filter((s: any) => (s.college || "Unknown College") === selectedCollegeDetail).length}{" "}
-                        staff across{" "}
-                        {Object.keys(groupedData[selectedCollegeDetail] as any).length} roles
+                        {staffList.filter(
+                          (s: any) =>
+                            (s.college || "Unknown College") === selectedCollegeDetail &&
+                            s.role !== "committee",
+                        ).length}{" "}
+                        staff — departments &amp; leadership
                       </CardDescription>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setSelectedCollegeDetail(null)}>
@@ -1231,85 +1234,148 @@ export default function Dashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Accordion type="single" collapsible className="divide-y">
-                    {Object.entries(groupedData[selectedCollegeDetail] as any).map(
-                      ([roleName, staffArray]: any) => (
-                        <AccordionItem key={roleName} value={`detail-${roleName}`}>
-                          <AccordionTrigger className="px-5 py-3 text-base font-semibold hover:bg-secondary/20 transition-colors data-[state=open]:bg-secondary/10">
-                            <div className="flex justify-between w-full pr-4">
-                              <span>{formatRoleLabel(roleName)}</span>
-                              <Badge variant="outline">{staffArray.length} Staff</Badge>
+                  {(() => {
+                    const detailStaff = staffList.filter(
+                      (s: any) =>
+                        (s.college || "Unknown College") === selectedCollegeDetail &&
+                        s.role !== "committee",
+                    );
+
+                    const leaderRoles = ["principle", "vice principle", "dean", "vice dean"];
+                    const leaders = detailStaff.filter((s: any) =>
+                      leaderRoles.includes(String(s.role || "").toLowerCase()),
+                    );
+                    const deptStaff = detailStaff.filter(
+                      (s: any) =>
+                        !leaderRoles.includes(String(s.role || "").toLowerCase()),
+                    );
+
+                    const departments = deptStaff.reduce((acc: any, s: any) => {
+                      const dept = s.department || "No Department";
+                      if (!acc[dept]) acc[dept] = { hods: [], faculty: [], others: [] };
+                      const r = String(s.role || "").toLowerCase();
+                      if (r === "hod") acc[dept].hods.push(s);
+                      else if (r === "faculty" || r === "internal committee") acc[dept].faculty.push(s);
+                      else acc[dept].others.push(s);
+                      return acc;
+                    }, {});
+
+                    const staffRow = (s: any) => {
+                      const subs = s.submissions || [];
+                      const achieved = subs.reduce(
+                        (sum: number, sub: any) =>
+                          sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                        0,
+                      );
+                      const done = subs.filter(
+                        (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved",
+                      ).length;
+                      const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
+                      return (
+                        <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{s.email || "—"}</td>
+                          <td className="px-4 py-3">{s.designation || "—"}</td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant="outline">{subs.length}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center font-medium">
+                            {achieved}{s.designationTarget ? ` / ${s.designationTarget}` : ""}
+                          </td>
+                          <td className="px-4 py-3 text-center text-xs font-medium">{pct}%</td>
+                        </tr>
+                      );
+                    };
+
+                    const staffTable = (rows: any[]) => (
+                      <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/30">
+                              <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                              <th className="text-left px-4 py-2.5 font-medium">Email</th>
+                              <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                              <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
+                              <th className="text-center px-4 py-2.5 font-medium">Score</th>
+                              <th className="text-center px-4 py-2.5 font-medium">Completion</th>
+                            </tr>
+                          </thead>
+                          <tbody>{rows.map(staffRow)}</tbody>
+                        </table>
+                      </div>
+                    );
+
+                    return (
+                      <>
+                        {/* Departments */}
+                        {Object.keys(departments).length > 0 && (
+                          <div>
+                            <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                              <BookOpen className="h-4 w-4 text-primary" /> Departments
                             </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-5 pb-5 pt-3">
-                            <div className="overflow-x-auto rounded-lg border">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="border-b bg-muted/30">
-                                    <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                                    <th className="text-left px-4 py-2.5 font-medium">Email</th>
-                                    <th className="text-left px-4 py-2.5 font-medium">Department</th>
-                                    <th className="text-left px-4 py-2.5 font-medium">Designation</th>
-                                    <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
-                                    <th className="text-center px-4 py-2.5 font-medium">Score</th>
-                                    <th className="text-center px-4 py-2.5 font-medium">Completion</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {staffArray.map((staff: any) => {
-                                    const subs = staff.submissions || [];
-                                    const achieved = subs.reduce(
-                                      (sum: number, s: any) =>
-                                        sum + Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0),
-                                      0,
-                                    );
-                                    const completedSubs = subs.filter(
-                                      (s: any) =>
-                                        s.status === "accepted" || s.status === "appeal-resolved",
-                                    ).length;
-                                    const appealedSubs = subs.filter(
-                                      (s: any) => s.status === "appealed",
-                                    ).length;
-                                    const staffPct =
-                                      subs.length > 0
-                                        ? Math.round((completedSubs / subs.length) * 100)
-                                        : 0;
-                                    return (
-                                      <tr
-                                        key={staff.id}
-                                        className="border-b last:border-b-0 hover:bg-muted/20 transition-colors"
-                                      >
-                                        <td className="px-4 py-3 font-medium">{staff.name || "—"}</td>
-                                        <td className="px-4 py-3 text-muted-foreground text-xs">{staff.email || "—"}</td>
-                                        <td className="px-4 py-3">{staff.department || "—"}</td>
-                                        <td className="px-4 py-3">{staff.designation || "—"}</td>
-                                        <td className="px-4 py-3 text-center">
-                                          <Badge variant="outline">{subs.length}</Badge>
-                                        </td>
-                                        <td className="px-4 py-3 text-center font-medium">
-                                          {achieved}{staff.designationTarget ? ` / ${staff.designationTarget}` : ""}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                          <div className="flex flex-col items-center gap-1">
-                                            <span className="text-xs font-medium">{staffPct}%</span>
-                                            {appealedSubs > 0 && (
-                                              <span className="text-xs text-amber-600 font-medium">
-                                                {appealedSubs} appeal
-                                              </span>
-                                            )}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                            <Accordion type="single" collapsible className="divide-y">
+                              {Object.entries(departments)
+                                .sort(([a], [b]) => a.localeCompare(b))
+                                .map(([deptName, deptData]: any) => (
+                                  <AccordionItem key={deptName} value={`dept-${deptName}`}>
+                                    <AccordionTrigger className="px-5 py-3 hover:bg-muted/20 transition-colors data-[state=open]:bg-muted/10">
+                                      <div className="flex justify-between w-full pr-4">
+                                        <span className="font-medium">{deptName}</span>
+                                        <div className="flex gap-3 text-xs text-muted-foreground">
+                                          {deptData.hods.length > 0 && (
+                                            <span>{deptData.hods.length} HOD</span>
+                                          )}
+                                          <span>{deptData.faculty.length} Faculty</span>
+                                          {deptData.others.length > 0 && (
+                                            <span>{deptData.others.length} Other</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-5 pb-5 pt-3 space-y-4">
+                                      {deptData.hods.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                            HOD
+                                          </p>
+                                          {staffTable(deptData.hods)}
+                                        </div>
+                                      )}
+                                      {deptData.faculty.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                            Faculty
+                                          </p>
+                                          {staffTable(deptData.faculty)}
+                                        </div>
+                                      )}
+                                      {deptData.others.length > 0 && (
+                                        <div>
+                                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                            Other
+                                          </p>
+                                          {staffTable(deptData.others)}
+                                        </div>
+                                      )}
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                ))}
+                            </Accordion>
+                          </div>
+                        )}
+
+                        {/* Deans / Leadership */}
+                        {leaders.length > 0 && (
+                          <div className={Object.keys(departments).length > 0 ? "border-t" : ""}>
+                            <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                              <Award className="h-4 w-4 text-primary" /> Deans &amp; Leadership
                             </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ),
-                    )}
-                  </Accordion>
+                            <div className="p-5">{staffTable(leaders)}</div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             )}
