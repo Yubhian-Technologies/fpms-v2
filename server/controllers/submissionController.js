@@ -567,61 +567,6 @@ export const getReviewQueue = async (req, res) => {
       ...doc.data(),
     }));
 
-    // HOD: exclude departments that have a peer reviewer assigned —
-    // those submissions are handled exclusively by the peer reviewer.
-    if (userRole === "hod" && college) {
-      const peerReviewerSnap = await db
-        .collection("departmentReviewers")
-        .where("college", "==", college)
-        .where("isActive", "==", true)
-        .get();
-
-      const peerReviewedDepts = new Set(
-        peerReviewerSnap.docs.map((d) => d.data().department),
-      );
-
-      if (peerReviewedDepts.size > 0) {
-        submissions = submissions.filter(
-          (s) => !peerReviewedDepts.has(s.department),
-        );
-      }
-    }
-
-    // If this user is a peer reviewer, append their assigned faculty submissions.
-    // This makes the single /review-queue endpoint work for all reviewers.
-    if (userId) {
-      const assignmentSnap = await db
-        .collection("departmentReviewers")
-        .where("reviewerUid", "==", userId)
-        .where("isActive", "==", true)
-        .get();
-
-      if (!assignmentSnap.empty) {
-        const existingIds = new Set(submissions.map((s) => s.id));
-
-        for (const assignDoc of assignmentSnap.docs) {
-          const { college: ac, department: ad } = assignDoc.data();
-
-          const peerSubsSnap = await db
-            .collection("submissions")
-            .where("college", "==", ac)
-            .where("department", "==", ad)
-            .where("userRole", "==", "faculty")
-            .get();
-
-          peerSubsSnap.docs
-            .filter(
-              (doc) =>
-                doc.data().status === "submitted" && !existingIds.has(doc.id),
-            )
-            .forEach((doc) => {
-              submissions.push({ id: doc.id, ...doc.data(), isPeerReview: true });
-              existingIds.add(doc.id);
-            });
-        }
-      }
-    }
-
     return res.status(200).json({
       success: true,
       data: submissions,

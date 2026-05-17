@@ -49,7 +49,6 @@ import FormPreviewScreen from "./pages/FormPreviewScreen";
 import WorkflowRules from "./pages/WorkflowRules";
 import MyAppeals from "./pages/MyAppeals";
 import ChangePassword from "./pages/ChangePassword";
-import AddReviewer from "./pages/AddReviewer";
 import CommitteeMember from "./pages/CommitteeMember";
 
 const queryClient = new QueryClient();
@@ -144,14 +143,6 @@ function AppRoutes() {
               "principal",
             ]}
           >
-            <Review />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/faculty-review"
-        element={
-          <ProtectedRoute allowedRoles={["faculty", "hod", "dean", "vice principal"]}>
             <Review />
           </ProtectedRoute>
         }
@@ -266,14 +257,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["principal"]}>
             <AddInternalCommittee />
-          </ProtectedRoute>
-        }
-      ></Route>
-      <Route
-        path="/add-reviewer"
-        element={
-          <ProtectedRoute allowedRoles={["principal"]}>
-            <AddReviewer />
           </ProtectedRoute>
         }
       ></Route>

@@ -20,9 +20,6 @@ import {
   getCriteriaModulesTasks,
   getCommitteeDashboard,
   changePassword,
-  getMyReviewerAssignment,
-  getReviewerDepartmentSubmissions,
-  submitReviewerFeedback,
 } from "../controllers/authController.js";
 import {
   createCollege,
@@ -78,8 +75,5 @@ authRouter.put("/hod-appeals/:appealId", committeeAuth, verifyHodAppeal);
 
 authRouter.post("/change-password", changePassword);
 
-authRouter.get("/reviewer-assignment", getMyReviewerAssignment);
-authRouter.get("/reviewer-submissions", getReviewerDepartmentSubmissions);
-authRouter.post("/reviewer-submissions/:submissionId/feedback", submitReviewerFeedback);
 
 export default authRouter;

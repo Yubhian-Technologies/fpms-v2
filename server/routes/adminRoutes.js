@@ -18,9 +18,6 @@ import {
   getCollegeDesignations,
   updateCollegeDesignations,
   getCollegeFacultyForReview,
-  getDepartmentReviewers,
-  assignDepartmentReviewer,
-  removeDepartmentReviewer,
 } from "../controllers/adminController.js";
 import { adminAuth } from "../middleware/adminAuth.js";
 
@@ -56,12 +53,5 @@ adminRouter.put("/internal-committee/:id", adminAuth, updateInternalCommittee);
 adminRouter.get("/college-dashboard", adminAuth, getCollegeDashboard);
 
 adminRouter.get("/college-faculty", adminAuth, getCollegeFacultyForReview);
-adminRouter.get("/department-reviewers", adminAuth, getDepartmentReviewers);
-adminRouter.post("/department-reviewers", adminAuth, assignDepartmentReviewer);
-adminRouter.delete(
-  "/department-reviewers/:id",
-  adminAuth,
-  removeDepartmentReviewer,
-);
 
 export default adminRouter;

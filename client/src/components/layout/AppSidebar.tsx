@@ -64,7 +64,6 @@ const getNavItems = (
   role: string,
   dynamicForms: DynamicFormItem[],
   isFormsLoading: boolean,
-  isReviewer: boolean = false,
 ) => {
   const resolvedRole = normalizeRoleForAccess(role);
   const dynamicFpmsChildren = dynamicForms
@@ -160,24 +159,10 @@ const getNavItems = (
       roles: ["principle"],
     },
     {
-      icon: UserCheck,
-      label: "Manage Reviewers",
-      href: "/add-reviewer",
-      roles: ["principle"],
-    },
-    {
       icon: ClipboardCheck,
       label: "Review Submissions",
       href: "/review",
       roles: ["hod", "committee", "internal committee", "dean", "vice principle", "principle"],
-    },
-    {
-      // Faculty peer reviewers: uses /faculty-review which renders the same Review page.
-      // getReviewQueue on the server injects their assigned submissions.
-      icon: ClipboardCheck,
-      label: "Review Submissions",
-      href: "/faculty-review",
-      roles: isReviewer ? ["faculty"] : [],
     },
     {
       icon: ClipboardCheck,
@@ -272,8 +257,6 @@ export function AppSidebar() {
   const [expandedDropdown, setExpandedDropdown] = useState<string | null>(null);
   const [dynamicForms, setDynamicForms] = useState<DynamicFormItem[]>([]);
   const [isFormsLoading, setIsFormsLoading] = useState(false);
-  const [isReviewer, setIsReviewer] = useState(false);
-
   useEffect(() => {
     const fetchForms = async () => {
       if (!user?.role) {
@@ -298,22 +281,9 @@ export function AppSidebar() {
     fetchForms();
   }, [user?.role]);
 
-  useEffect(() => {
-    // Only faculty need the reviewer check — other roles (hod, dean, etc.)
-    // already see "Review Submissions" and getReviewQueue injects peer items for them.
-    if (normalizeRoleForAccess(user?.role) !== "faculty") return;
-    api
-      .get("/api/auth/reviewer-assignment")
-      .then((res) => {
-        const data = res.data?.data;
-        setIsReviewer(Array.isArray(data) && data.length > 0);
-      })
-      .catch(() => {});
-  }, [user?.role]);
-
   if (!user) return null;
 
-  const navItems = getNavItems(user.role, dynamicForms, isFormsLoading, isReviewer);
+  const navItems = getNavItems(user.role, dynamicForms, isFormsLoading);
   const shouldShowFullScreenLoader =
     isFormsLoading &&
     ["faculty", "hod", "dean", "principle", "internal committee"].includes(
