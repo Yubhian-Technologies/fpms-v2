@@ -743,15 +743,21 @@ export default function Dashboard() {
     const isDean =
       user?.role === "principle" || user?.role === "vice principle";
 
-    const groupedData = staffList.reduce((acc: any, staff: any) => {
-      const collegeName = staff.college || "Unknown College";
-      const roleName = staff.role || "Unknown Role";
+    const groupedData = staffList
+      .filter((staff: any) =>
+        user?.role === "committee"
+          ? staff.college && staff.role !== "committee"
+          : true,
+      )
+      .reduce((acc: any, staff: any) => {
+        const collegeName = staff.college || "Unknown College";
+        const roleName = staff.role || "Unknown Role";
 
-      if (!acc[collegeName]) acc[collegeName] = {};
-      if (!acc[collegeName][roleName]) acc[collegeName][roleName] = [];
-      acc[collegeName][roleName].push(staff);
-      return acc;
-    }, {});
+        if (!acc[collegeName]) acc[collegeName] = {};
+        if (!acc[collegeName][roleName]) acc[collegeName][roleName] = [];
+        acc[collegeName][roleName].push(staff);
+        return acc;
+      }, {});
 
     // Aggregate stats for department/college view
     let totalSubmissions = 0;
@@ -759,16 +765,22 @@ export default function Dashboard() {
     let totalMaxMarks = 0;
     let totalAppealed = 0;
     let totalCompleted = 0;
-    staffList.forEach((staff: any) => {
-      staff.submissions?.forEach((sub: any) => {
-        totalSubmissions++;
-        totalFinalScore += sub.finalScore ?? 0;
-        totalMaxMarks += sub.maxMarks ?? 0;
-        if (sub.status === "appealed") totalAppealed++;
-        if (sub.status === "accepted" || sub.status === "appeal-resolved")
-          totalCompleted++;
+    staffList
+      .filter((staff: any) =>
+        user?.role === "committee"
+          ? staff.college && staff.role !== "committee"
+          : true,
+      )
+      .forEach((staff: any) => {
+        staff.submissions?.forEach((sub: any) => {
+          totalSubmissions++;
+          totalFinalScore += sub.finalScore ?? 0;
+          totalMaxMarks += sub.maxMarks ?? 0;
+          if (sub.status === "appealed") totalAppealed++;
+          if (sub.status === "accepted" || sub.status === "appeal-resolved")
+            totalCompleted++;
+        });
       });
-    });
 
     // ─── PERSONAL STATS (only used when isHod === true) ───
     let personalClaimed = 0,
@@ -1090,7 +1102,7 @@ export default function Dashboard() {
               </Card>
               <Card className="shadow-sm">
                 <CardContent className="pt-5 pb-4 text-center">
-                  <p className="text-3xl font-bold text-primary">{staffList.length}</p>
+                  <p className="text-3xl font-bold text-primary">{staffList.filter((s: any) => s.college && s.role !== "committee").length}</p>
                   <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
                     <Users className="h-3.5 w-3.5" /> Total Staff
                   </p>
@@ -1118,9 +1130,11 @@ export default function Dashboard() {
 
             {/* College cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Object.entries(groupedData).map(([collegeName, roles]: any) => {
+              {Object.entries(groupedData)
+                .filter(([collegeName]) => collegeName !== "Unknown College")
+                .map(([collegeName, roles]: any) => {
                 const collegeStaff = staffList.filter(
-                  (s: any) => s.college === collegeName,
+                  (s: any) => (s.college || "Unknown College") === collegeName,
                 );
                 const collegeSubs = collegeStaff.flatMap(
                   (s: any) => s.submissions || [],
@@ -1204,7 +1218,7 @@ export default function Dashboard() {
                         {selectedCollegeDetail}
                       </CardTitle>
                       <CardDescription>
-                        {staffList.filter((s: any) => s.college === selectedCollegeDetail).length}{" "}
+                        {staffList.filter((s: any) => (s.college || "Unknown College") === selectedCollegeDetail).length}{" "}
                         staff across{" "}
                         {Object.keys(groupedData[selectedCollegeDetail] as any).length} roles
                       </CardDescription>
