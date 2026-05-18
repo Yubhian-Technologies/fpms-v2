@@ -111,7 +111,10 @@ export const adminAuth = async (req, res, next) => {
       decodedFirebase.claims?.principal ||
       decodedFirebase.claims?.vicePrincipal,
     );
-    const isAuthorizedAdmin = isPrincipal || hasPrincipalOrViceClaim;
+    const isInternalCommittee =
+      String(firebaseRole || "").toLowerCase().includes("internal committee") ||
+      Boolean(decodedFirebase.internalCommittee || decodedFirebase.claims?.internalCommittee);
+    const isAuthorizedAdmin = isPrincipal || hasPrincipalOrViceClaim || isInternalCommittee;
 
     if (!isAuthorizedAdmin) {
       return res.status(403).json({

@@ -46,8 +46,11 @@ export const committeeAuth = async (req, res, next) => {
       decodedFirebase.committeeMember ||
       decodedFirebase.claims?.committeeMember,
     );
+    const isInternalCommittee =
+      String(role || "").toLowerCase().includes("internal committee") ||
+      Boolean(decodedFirebase.internalCommittee || decodedFirebase.claims?.internalCommittee);
 
-    if (role !== "committee" && !isCommitteeMember) {
+    if (role !== "committee" && !isCommitteeMember && !isInternalCommittee) {
       return res.status(403).json({
         success: false,
         message: "Not authorized (committee only)",
@@ -57,8 +60,8 @@ export const committeeAuth = async (req, res, next) => {
     req.committee = {
       uid: decodedFirebase.uid,
       email: decodedFirebase.email,
-      role: "committee",
-      committeeMember: isCommitteeMember,
+      role: role || "committee",
+      committeeMember: isCommitteeMember || isInternalCommittee,
       token: decodedFirebase,
     };
 
