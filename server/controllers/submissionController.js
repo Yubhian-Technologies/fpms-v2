@@ -556,6 +556,7 @@ export const getReviewQueue = async (req, res) => {
     if (
       department &&
       !isCommitteeRole(userRole) &&
+      !isInternalCommitteeRole(userRole) &&
       !isPrincipalRole(userRole)
     ) {
       query = query.where("department", "==", department);
@@ -606,6 +607,7 @@ export const getReviewedSubmissions = async (req, res) => {
     if (
       department &&
       !isCommitteeRole(userRole) &&
+      !isInternalCommitteeRole(userRole) &&
       !isPrincipalRole(userRole)
     ) {
       query = query.where("department", "==", department);
