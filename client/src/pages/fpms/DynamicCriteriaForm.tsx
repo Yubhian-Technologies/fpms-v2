@@ -1255,11 +1255,12 @@ export default function DynamicCriteriaForm() {
                               <Input
                                 type="number"
                                 min={0}
+                                max={task.marksType !== "range" ? task.marks : undefined}
                                 value={progress.claimedScore}
                                 className="w-full"
                                 onChange={(e) =>
                                   updateTaskProgress(task.id, {
-                                    claimedScore: Math.max(0, Number(e.target.value || 0)),
+                                    claimedScore: clampClaimedScore(Number(e.target.value || 0), task),
                                   })
                                 }
                               />
