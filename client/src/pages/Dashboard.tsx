@@ -411,7 +411,9 @@ export default function Dashboard() {
     const rows = filteredData.map((sub: any) => {
       const staff = subToStaff[sub.id] || {};
       const finalScore =
-        sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? "";
+        sub.status === "accepted" || sub.status === "appeal-resolved"
+          ? (sub.finalScore ?? "")
+          : "";
       const submittedAt = sub.createdAt?.seconds
         ? new Date(sub.createdAt.seconds * 1000).toLocaleDateString("en-IN")
         : "";
@@ -2443,10 +2445,9 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Final:</span>{" "}
-                      {sub.finalScore ??
-                        sub.reviewerScore ??
-                        sub.claimedScore ??
-                        "Pending"}
+                      {sub.status === "accepted" || sub.status === "appeal-resolved"
+                        ? sub.finalScore
+                        : "Pending"}
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">
