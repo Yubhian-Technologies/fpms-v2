@@ -1363,6 +1363,7 @@ export const addAdmin = async (req, res) => {
     await auth.setCustomUserClaims(userRecord.uid, {
       role: normalizedRole,
       level: normalizedLevel,
+      college: normalizedCollege,
       principal: isPrincipalRole(normalizedRole),
       vicePrincipal: isVicePrincipalRole(normalizedRole),
     });
@@ -1399,10 +1400,10 @@ export const addAdmin = async (req, res) => {
       message: "Principal added successfully",
     });
   } catch (error) {
-    console.error(error);
+    console.error("addAdmin error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error?.message || "Server error",
     });
   }
 };
@@ -1552,9 +1553,13 @@ export const updateAdmin = async (req, res) => {
         ? Number(level)
         : Number((adminDoc.data() || {}).level || 1);
 
+    const nextCollege = String(
+      (college ? college : (adminDoc.data() || {}).college) || ""
+    ).trim();
     await auth.setCustomUserClaims(id, {
       role: resolvedRole,
       level: nextLevel,
+      college: nextCollege,
       principal: isPrincipalRole(resolvedRole),
       vicePrincipal: isVicePrincipalRole(resolvedRole),
     });
