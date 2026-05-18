@@ -138,6 +138,7 @@ function AppRoutes() {
             allowedRoles={[
               "hod",
               "committee",
+              "internal committee",
               "dean",
               "vice principal",
               "principal",
