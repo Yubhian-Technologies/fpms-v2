@@ -935,13 +935,6 @@ export default function Dashboard() {
                           <p className="text-xs text-muted-foreground">Target Reached</p>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Completion</span>
-                          <span className="font-medium">{completionPct}%</span>
-                        </div>
-                        <Progress value={completionPct} className="h-2" />
-                      </div>
                       {collegeAppeals > 0 && (
                         <div className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
                           <AlertCircle className="h-3.5 w-3.5" />
@@ -1259,13 +1252,6 @@ export default function Dashboard() {
                                   </p>
                                   <p className="text-xs text-muted-foreground">Target Reached</p>
                                 </div>
-                              </div>
-                              <div className="space-y-1.5">
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-muted-foreground">Completion</span>
-                                  <span className="font-medium">{completionPct}%</span>
-                                </div>
-                                <Progress value={completionPct} className="h-2" />
                               </div>
                               <p className="text-right text-xs text-primary font-medium">
                                 {isSelected ? "▲ Hide details" : "▼ View details"}
