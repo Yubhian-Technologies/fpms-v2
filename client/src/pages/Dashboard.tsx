@@ -2106,7 +2106,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {["committee", "principle", "vice principle", "hod"].includes(
+        {["committee", "principle", "vice principle", "hod", "internal committee"].includes(
           user?.role || "",
         ) && (
           <div className="mt-10 mb-10 bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden">
