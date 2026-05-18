@@ -1,3 +1,4 @@
+import { getConfirmedScore } from "@/lib/utils";
 import { CategoryCard } from "./CategoryCard";
 
 interface Submission {
@@ -36,7 +37,7 @@ export function FPMSFormOverview({ submissions }: FPMSFormOverviewProps) {
       let completedItems = 0;
 
       subs.forEach((sub) => {
-        score += sub.finalScore != null ? sub.finalScore : (sub.claimedScore ?? 0);
+        score += getConfirmedScore(sub);
 
         // Use criteriaTotalMarks for maxScore (take max value seen, assume consistent)
         if (sub.criteriaTotalMarks != null && sub.criteriaTotalMarks > maxScore) {

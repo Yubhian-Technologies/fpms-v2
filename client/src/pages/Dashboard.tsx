@@ -46,6 +46,7 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { UserProfile } from "@/components/dashboard/UserProfile";
 import { FPMSFormOverview } from "@/components/fpms/FPMSFormOverview";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { getConfirmedScore } from "@/lib/utils";
 
 /* ---------------- STATUS CONFIG ---------------- */
 const statusConfig: Record<
@@ -526,20 +527,11 @@ export default function Dashboard() {
       allScoreColumns.forEach((title) => {
         formScores[title] = submissions
           .filter((sub: any) => getScoreColumnKey(sub) === title)
-          .reduce(
-            (sum: number, sub: any) =>
-              sum +
-              Number(
-                sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0,
-              ),
-            0,
-          );
+          .reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
       });
 
       const achievedScore = submissions.reduce(
-        (sum: number, sub: any) =>
-          sum +
-          Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+        (sum: number, sub: any) => sum + getConfirmedScore(sub),
         0,
       );
 
@@ -775,7 +767,7 @@ export default function Dashboard() {
       .forEach((staff: any) => {
         staff.submissions?.forEach((sub: any) => {
           totalSubmissions++;
-          totalFinalScore += sub.finalScore ?? 0;
+          totalFinalScore += getConfirmedScore(sub);
           totalMaxMarks += sub.maxMarks ?? 0;
           if (sub.status === "appealed") totalAppealed++;
           if (sub.status === "accepted" || sub.status === "appeal-resolved")
@@ -793,7 +785,7 @@ export default function Dashboard() {
     submissions.forEach((sub: any) => {
       personalClaimed += sub.claimedScore ?? 0;
       personalReviewer += sub.reviewerScore ?? 0;
-      personalFinal += sub.finalScore ?? 0;
+      personalFinal += getConfirmedScore(sub);
       personalMax += sub.maxMarks ?? 0;
       if (sub.status === "accepted" || sub.status === "appeal-resolved")
         personalCompleted++;
@@ -1159,7 +1151,7 @@ export default function Dashboard() {
                 const targetsReached = staffWithTarget.filter((s: any) => {
                   const achieved = (s.submissions || []).reduce(
                     (sum: number, sub: any) =>
-                      sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                      sum + getConfirmedScore(sub),
                     0,
                   );
                   return achieved >= Number(s.designationTarget);
@@ -1279,7 +1271,7 @@ export default function Dashboard() {
                       const subs = s.submissions || [];
                       const achieved = subs.reduce(
                         (sum: number, sub: any) =>
-                          sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                          sum + getConfirmedScore(sub),
                         0,
                       );
                       const done = subs.filter(
@@ -1431,7 +1423,7 @@ export default function Dashboard() {
               const totalTargetsReached = totalWithTarget.filter((s: any) => {
                 const achieved = (s.submissions || []).reduce(
                   (sum: number, sub: any) =>
-                    sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                    sum + getConfirmedScore(sub),
                   0,
                 );
                 return achieved >= Number(s.designationTarget);
@@ -1479,7 +1471,7 @@ export default function Dashboard() {
                         const deptTargetsReached = deptWithTarget.filter((s: any) => {
                           const achieved = (s.submissions || []).reduce(
                             (sum: number, sub: any) =>
-                              sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                              sum + getConfirmedScore(sub),
                             0,
                           );
                           return achieved >= Number(s.designationTarget);
@@ -1568,7 +1560,7 @@ export default function Dashboard() {
                             const subs = s.submissions || [];
                             const achieved = subs.reduce(
                               (sum: number, sub: any) =>
-                                sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
+                                sum + getConfirmedScore(sub),
                               0,
                             );
                             const done = subs.filter(

@@ -1,6 +1,6 @@
 // src/components/dashboard/ScoreOverview.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, getConfirmedScore } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 
 interface ScoreCategory {
@@ -31,22 +31,8 @@ export function ScoreOverview({
     const critName = sub.criteriaName?.trim();
     if (!critName) return;
 
-    const claimed = Number(sub.claimedScore ?? 0);
-    const reviewer =
-      sub.reviewerScore != null ? Number(sub.reviewerScore) : null;
-    const appeal = sub.appealScore != null ? Number(sub.appealScore) : null;
-    const final = sub.finalScore != null ? Number(sub.finalScore) : null;
-
-    // Correct unified priority logic
-    let displayScore =
-      appeal != null
-        ? appeal
-        : final != null
-          ? final
-          : reviewer != null
-            ? reviewer
-            : claimed;
-    const isUsingClaimed = sub.finalScore == null && sub.claimedScore != null;
+    const displayScore = getConfirmedScore(sub);
+    const isUsingClaimed = sub.status !== "accepted" && sub.status !== "appeal-resolved";
 
     const criteriaTotal = Number(sub.criteriaTotalMarks ?? sub.maxMarks ?? 0);
 

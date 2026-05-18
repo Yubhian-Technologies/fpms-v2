@@ -47,6 +47,19 @@ export function formatRoleLabel(role?: string): string {
     : "";
 }
 
+// Returns the confirmed score for a submission only after faculty accepts or
+// an appeal is resolved. All earlier statuses (submitted, reviewed, appealed)
+// are not yet final and should not count toward the displayed score.
+export function getConfirmedScore(sub: {
+  status?: string | null;
+  finalScore?: number | null;
+}): number {
+  if (sub.status === "accepted" || sub.status === "appeal-resolved") {
+    return Number(sub.finalScore ?? 0);
+  }
+  return 0;
+}
+
 export function resolveEvidenceLink(value?: string | null): string | null {
   const raw = String(value || "").trim();
   if (!raw) return null;
