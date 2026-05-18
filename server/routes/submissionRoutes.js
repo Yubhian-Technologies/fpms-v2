@@ -15,11 +15,28 @@ import {
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 import upload from "../middleware/upload.js";
+import cloudinary from "../config/cloudinary.js";
 
 const router = express.Router();
 
 // Apply optional auth to all routes
 router.use(optionalAuth);
+
+// Cloudinary direct-upload signature (avoids Vercel 4.5MB body limit)
+router.get("/cloudinary-sign", (req, res) => {
+  const timestamp = Math.round(Date.now() / 1000);
+  const paramsToSign = { folder: "task_evidence", timestamp };
+  const signature = cloudinary.utils.api_sign_request(
+    paramsToSign,
+    process.env.CLOUDINARY_API_SECRET
+  );
+  res.json({
+    signature,
+    timestamp,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+  });
+});
 
 // Faculty endpoints
 router.post("/submit", (req, res, next) => {

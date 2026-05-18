@@ -593,6 +593,28 @@ export default function DynamicCriteriaForm() {
 
       setSubmittingTaskId(task.id);
 
+      // Upload file directly to Cloudinary to bypass Vercel's 4.5MB body limit
+      let evidenceValue: string = progress.evidenceUrl instanceof File ? "" : (progress.evidenceUrl || "");
+      if (progress.evidenceUrl instanceof File) {
+        const signRes = await api.get("/api/submissions/cloudinary-sign");
+        const { signature, timestamp, cloudName, apiKey } = signRes.data;
+
+        const cloudForm = new FormData();
+        cloudForm.append("file", progress.evidenceUrl);
+        cloudForm.append("timestamp", String(timestamp));
+        cloudForm.append("signature", signature);
+        cloudForm.append("api_key", apiKey);
+        cloudForm.append("folder", "task_evidence");
+
+        const cloudRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+          { method: "POST", body: cloudForm }
+        );
+        if (!cloudRes.ok) throw new Error("File upload to Cloudinary failed");
+        const cloudData = await cloudRes.json();
+        evidenceValue = cloudData.secure_url;
+      }
+
       const formData = new FormData();
 
       formData.append("formId", formId || "");
@@ -613,13 +635,7 @@ export default function DynamicCriteriaForm() {
       formData.append("minMarks", String(task.minMarks ?? 0));
       formData.append("claimedScore", String(progress.claimedScore));
       formData.append("description", progress.description || "");
-
-      // 🔥 IMPORTANT PART
-      if (progress.evidenceUrl instanceof File) {
-        formData.append("evidence", progress.evidenceUrl);
-      } else {
-        formData.append("evidence", progress.evidenceUrl || "");
-      }
+      formData.append("evidence", evidenceValue);
 
       let submitRes;
 
