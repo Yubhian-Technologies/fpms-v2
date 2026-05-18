@@ -189,6 +189,8 @@ export default function Dashboard() {
             setCommitteeData({ staff: filtered });
             setStaffList(filtered);
           }
+          // Also load personal submissions so their own score is shown
+          await personalFetch();
         } else if (
           user.role === "principle" ||
           user.role === "vice principle"
@@ -730,13 +732,14 @@ export default function Dashboard() {
   }
 
   if (
-    ["committee", "principle", "vice principle", "hod"].includes(
+    ["committee", "principle", "vice principle", "hod", "internal committee"].includes(
       user?.role || "",
     )
   ) {
     const isHod = user?.role === "hod";
+    const isInternalCommittee = user?.role === "internal committee";
     const isDean =
-      user?.role === "principle" || user?.role === "vice principle";
+      user?.role === "principle" || user?.role === "vice principle" || isInternalCommittee;
 
     const groupedData = staffList
       .filter((staff: any) =>
@@ -973,7 +976,7 @@ export default function Dashboard() {
           />
         )}
 
-        {isHod && (
+        {(isHod || isInternalCommittee) && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
             {/* Score Overview */}
             <ScoreOverview
@@ -1033,37 +1036,25 @@ export default function Dashboard() {
           </div>
         )}
 
-        {isHod && (
+        {(isHod || isInternalCommittee) && (
           <>
             {/* Recent Activity */}
             <div className="mt-10 mb-10">
-              <RecentActivity
-                submissions={
-                  isHod
-                    ? submissions
-                    : staffList.flatMap((s) => s.submissions || [])
-                }
-              />
+              <RecentActivity submissions={submissions} />
             </div>
 
             {/* FPMS Section */}
             <div className="mt-10 mb-10 space-y-4">
               <div>
                 <h2 className="text-xl font-semibold text-foreground">
-                  FPMS Categories
+                  My FPMS Categories
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Complete all sections to submit your annual performance report
+                  Your own annual performance submission progress
                 </p>
               </div>
 
-              <FPMSFormOverview
-                submissions={
-                  isHod
-                    ? submissions
-                    : staffList.flatMap((s) => s.submissions || [])
-                }
-              />
+              <FPMSFormOverview submissions={submissions} />
             </div>
           </>
         )}
