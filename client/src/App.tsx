@@ -137,7 +137,6 @@ function AppRoutes() {
           <ProtectedRoute
             allowedRoles={[
               "hod",
-              "committee",
               "internal committee",
               "dean",
               "vice principal",
@@ -156,7 +155,6 @@ function AppRoutes() {
               "dean",
               "vice principal",
               "principal",
-              "committee",
               "internal committee",
             ]}
           >

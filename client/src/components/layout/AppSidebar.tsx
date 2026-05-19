@@ -162,13 +162,13 @@ const getNavItems = (
       icon: ClipboardCheck,
       label: "Review Submissions",
       href: "/review",
-      roles: ["hod", "committee", "internal committee", "dean", "vice principle", "principle"],
+      roles: ["hod", "internal committee", "dean", "vice principle", "principle"],
     },
     {
       icon: ClipboardCheck,
       label: "Review Appeals",
       href: "/appeal-review",
-      roles: ["vice principle", "principle", "committee", "internal committee"],
+      roles: ["vice principle", "principle", "internal committee"],
     },
     {
       icon: BarChart3,
