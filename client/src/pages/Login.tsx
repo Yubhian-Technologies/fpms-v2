@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Footer } from "@/components/layout/Footer";
 import vishnuLogo from "@/assets/vishnu.png";
-import fpmsLogo from "@/assets/LOGO.png";
 import { formatRoleLabel } from "@/lib/utils";
 
 export default function Login() {
@@ -112,21 +111,12 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           <div className="text-center py-8">
-            <div className="flex items-center justify-center gap-4 mb-8">
-              <div className="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg p-1 border">
-                <img
-                  src={vishnuLogo}
-                  alt="Vishnu Logo"
-                  className="h-full w-full rounded-xl object-contain"
-                />
-              </div>
-              <div className="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg p-1 border">
-                <img
-                  src={fpmsLogo}
-                  alt="FPMS Logo"
-                  className="h-full w-full rounded-xl object-contain"
-                />
-              </div>
+            <div className="inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-lg p-1 border mb-8">
+              <img
+                src={vishnuLogo}
+                alt="Vishnu Logo"
+                className="h-full w-full rounded-xl object-contain"
+              />
             </div>
             {/* <h1 className="mt-4 font-display text-3xl font-bold text-foreground">
               FPMS
