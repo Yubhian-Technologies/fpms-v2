@@ -124,8 +124,8 @@ export default function WorkflowRules() {
 
   const fetchData = async () => {
     const [rolesRes, rulesRes] = await Promise.all([
-      api.get("/api/committee/roles"),
-      api.get("/api/committee/workflow-rules"),
+      api.get("/api/auth/admin-workflow-roles"),
+      api.get("/api/auth/workflow-rules"),
     ]);
 
     const roleList = Array.isArray(rolesRes.data?.data)
@@ -213,7 +213,7 @@ export default function WorkflowRules() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await api.put("/api/committee/workflow-rules", { rules });
+      await api.put("/api/auth/workflow-rules", { rules });
       toast({ title: "Workflow rules saved" });
       await fetchData();
     } catch (err: any) {

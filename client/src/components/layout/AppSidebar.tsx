@@ -217,7 +217,7 @@ const getNavItems = (
       icon: ClipboardCheck,
       label: "Workflow Rules",
       href: "/workflow-rules",
-      roles: ["committee"],
+      roles: ["principle", "vice principle"],
     },
     {
       icon: ClipboardCheck,

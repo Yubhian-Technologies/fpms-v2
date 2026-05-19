@@ -163,8 +163,12 @@ const resolveReviewerScope = async (req) => {
   return scope;
 };
 
-const loadWorkflowRules = async () => {
+const loadWorkflowRules = async (college) => {
   const data = await getSuperadminConfig();
+  const normalizedCollege = String(college || "").trim();
+  if (normalizedCollege && data.collegeWorkflowRules && Array.isArray(data.collegeWorkflowRules[normalizedCollege])) {
+    return data.collegeWorkflowRules[normalizedCollege];
+  }
   return Array.isArray(data.workflowRules) ? data.workflowRules : [];
 };
 
@@ -258,7 +262,7 @@ export const submitTask = async (req, res) => {
       finalEvidence = evidence || "";
     }
 
-    const workflowRules = await loadWorkflowRules();
+    const workflowRules = await loadWorkflowRules(college);
     if (!workflowRules.length) {
       return res.status(400).json({
         success: false,
@@ -715,7 +719,7 @@ export const raiseAppeal = async (req, res) => {
       });
     }
 
-    const workflowRules = await loadWorkflowRules();
+    const workflowRules = await loadWorkflowRules(data.college);
     const effectiveAppealToRoleIds = getEffectiveAppealRoleIds(
       data,
       workflowRules,
@@ -836,7 +840,7 @@ export const getAppealQueue = async (req, res) => {
     }
 
     const snapshot = await query.get();
-    const workflowRules = await loadWorkflowRules();
+    const workflowRules = await loadWorkflowRules(college);
 
     const mappedAppeals = snapshot.docs.map((doc) => {
       const data = doc.data() || {};

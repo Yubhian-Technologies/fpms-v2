@@ -236,7 +236,7 @@ function AppRoutes() {
       <Route
         path="/workflow-rules"
         element={
-          <ProtectedRoute allowedRoles={["committee"]}>
+          <ProtectedRoute allowedRoles={["principal", "vice principal"]}>
             <WorkflowRules />
           </ProtectedRoute>
         }

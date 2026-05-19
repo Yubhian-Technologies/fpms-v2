@@ -1750,6 +1750,8 @@ export const getCommitteeRoles = async (req, res) => {
 
 export const getSubmissionAppealWorkflowRules = async (req, res) => {
   try {
+    const college = String(req.admin?.college || "").trim();
+
     const superadminDoc = await db
       .collection("superadmin")
       .doc(SUPERADMIN_DOC_ID)
@@ -1761,9 +1763,14 @@ export const getSubmissionAppealWorkflowRules = async (req, res) => {
 
     const data = superadminDoc.data() || {};
     const roles = Array.isArray(data.roles) ? data.roles : [];
-    const workflowRules = Array.isArray(data.workflowRules)
-      ? data.workflowRules
-      : [];
+
+    const collegeWorkflowRules = data.collegeWorkflowRules || {};
+    const workflowRules =
+      college && Array.isArray(collegeWorkflowRules[college])
+        ? collegeWorkflowRules[college]
+        : Array.isArray(data.workflowRules)
+          ? data.workflowRules
+          : [];
 
     const roleNames = new Set(
       roles.map((item) => normalizeRoleKey(item?.name || "")).filter(Boolean),
@@ -1807,12 +1814,20 @@ export const getSubmissionAppealWorkflowRules = async (req, res) => {
 
 export const updateSubmissionAppealWorkflowRules = async (req, res) => {
   try {
+    const college = String(req.admin?.college || "").trim();
     const rules = Array.isArray(req.body?.rules) ? req.body.rules : null;
 
     if (!rules) {
       return res.status(400).json({
         success: false,
         message: "Rules must be provided",
+      });
+    }
+
+    if (!college) {
+      return res.status(400).json({
+        success: false,
+        message: "College not found for this account",
       });
     }
 
@@ -1895,9 +1910,13 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
       uniqueByRole.set(item.role, item);
     });
 
+    const existingCollegeRules = data.collegeWorkflowRules || {};
     await superadminRef.set(
       {
-        workflowRules: Array.from(uniqueByRole.values()),
+        collegeWorkflowRules: {
+          ...existingCollegeRules,
+          [college]: Array.from(uniqueByRole.values()),
+        },
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true },

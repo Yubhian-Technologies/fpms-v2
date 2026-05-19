@@ -28,6 +28,7 @@ import {
   updateCollege,
 } from "../controllers/superAdminController.js";
 import { committeeAuth } from "../middleware/authMiddleware.js";
+import { adminAuth } from "../middleware/adminAuth.js";
 import {
   fetchAllHodAppeals,
   verifyHodAppeal,
@@ -46,15 +47,16 @@ authRouter.post("/colleges", committeeAuth, createCollege);
 authRouter.put("/colleges/:id", committeeAuth, updateCollege);
 authRouter.delete("/colleges/:id", committeeAuth, deleteCollege);
 authRouter.get("/roles", committeeAuth, getCommitteeRoles);
+authRouter.get("/admin-workflow-roles", adminAuth, getCommitteeRoles);
 authRouter.get("/dashboard-data", committeeAuth, getCommitteeDashboard);
 authRouter.get(
   "/workflow-rules",
-  committeeAuth,
+  adminAuth,
   getSubmissionAppealWorkflowRules,
 );
 authRouter.put(
   "/workflow-rules",
-  committeeAuth,
+  adminAuth,
   updateSubmissionAppealWorkflowRules,
 );
 authRouter.post("/workflow/submissions/task", submitWorkflowTask);
