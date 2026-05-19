@@ -1805,18 +1805,40 @@ export const updateDean = async (req, res) => {
     if (nextEmail) authUpdatePayload.email = nextEmail;
     if (resolvedPassword) authUpdatePayload.password = resolvedPassword;
 
-    if (Object.keys(authUpdatePayload).length > 0) {
-      await auth.updateUser(id, authUpdatePayload);
-    }
+    try {
+      if (Object.keys(authUpdatePayload).length > 0) {
+        await auth.updateUser(id, authUpdatePayload);
+      }
 
-    await auth.setCustomUserClaims(id, {
-      role: nextRole,
-      level: Number.isFinite(nextLevel) ? nextLevel : 0,
-      college: nextCollege,
-      department: nextDepartment,
-      designation: normalizedDesignation ?? currentData.designation ?? "",
-      dean: true,
-    });
+      await auth.setCustomUserClaims(id, {
+        role: nextRole,
+        level: Number.isFinite(nextLevel) ? nextLevel : 0,
+        college: nextCollege,
+        department: nextDepartment,
+        designation: normalizedDesignation ?? currentData.designation ?? "",
+        dean: true,
+      });
+    } catch (authError) {
+      if (authError?.code === "auth/user-not-found") {
+        // Orphaned Firestore doc — recreate the Firebase Auth account
+        const newRecord = await auth.createUser({
+          uid: id,
+          email: nextEmail,
+          displayName: nextName,
+          ...(resolvedPassword ? { password: resolvedPassword } : {}),
+        });
+        await auth.setCustomUserClaims(newRecord.uid, {
+          role: nextRole,
+          level: Number.isFinite(nextLevel) ? nextLevel : 0,
+          college: nextCollege,
+          department: nextDepartment,
+          designation: normalizedDesignation ?? currentData.designation ?? "",
+          dean: true,
+        });
+      } else {
+        throw authError;
+      }
+    }
 
     updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
 
@@ -1830,7 +1852,7 @@ export const updateDean = async (req, res) => {
     console.error("Update Dean error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: error?.message || "Server error",
     });
   }
 };
