@@ -61,8 +61,15 @@ const normalizeRoleKey = (value: string) => {
   return cleaned;
 };
 
-const isCommitteeRole = (value: string) =>
-  normalizeRoleKey(value) === "committee";
+const isReviewerOnlyRole = (value: string) => {
+  const key = normalizeRoleKey(value);
+  return (
+    key === "committee" ||
+    key === "principle" ||
+    key === "viceprinciple" ||
+    key === "viceprincipal"
+  );
+};
 
 const isAllowedAppealReviewerRole = (value: string) => {
   const key = normalizeRoleKey(value);
@@ -98,7 +105,7 @@ export default function WorkflowRules() {
       existingRules.map((item) => [String(item.role || "").trim(), item]),
     );
 
-    return roleOptions.map((role) => {
+    return roleOptions.filter((role) => !isReviewerOnlyRole(role.name)).map((role) => {
       const roleName = String(role.name || "").trim();
       const existing = byRole.get(roleName);
       return {
@@ -281,7 +288,7 @@ export default function WorkflowRules() {
                               </DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {sortedRoles
-                                .filter((role) => role.name !== item.role && !isCommitteeRole(role.name))
+                                .filter((role) => role.name !== item.role && !isReviewerOnlyRole(role.name))
                                 .map((role) => (
                                   <DropdownMenuCheckboxItem
                                     key={`${item.role}-submit-${role.name}`}
