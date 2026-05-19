@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { api } from "@/api/api";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { firebaseAuth } from "@/lib/firebase";
 
 type Role =
   | "committee"
@@ -32,6 +34,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
   setDemoUser: (role: Role) => void;
+  sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -130,6 +133,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return null;
   };
 
+  const sendPasswordReset = async (email: string): Promise<void> => {
+    await sendPasswordResetEmail(firebaseAuth, email.trim().toLowerCase());
+  };
+
   const logout = () => {
     localStorage.clear();
     delete api.defaults.headers.common["Authorization"];
@@ -164,6 +171,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         login,
         logout,
         setDemoUser,
+        sendPasswordReset,
       }}
     >
       {children}
