@@ -1868,7 +1868,6 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
       .filter((item) => item.role);
 
     const allowedAppealRoleKeys = new Set([
-      "committee",
       "principle",
       "internalcommittee",
     ]);
@@ -1901,7 +1900,7 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Appeal roles can only include Principal, Committee, or Internal Committee",
+          "Appeal roles can only include Principal or Internal Committee",
       });
     }
 

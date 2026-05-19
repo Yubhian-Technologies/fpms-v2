@@ -61,11 +61,12 @@ const normalizeRoleKey = (value: string) => {
   return cleaned;
 };
 
+const isCommitteeRole = (value: string) =>
+  normalizeRoleKey(value) === "committee";
+
 const isAllowedAppealReviewerRole = (value: string) => {
   const key = normalizeRoleKey(value);
-  return (
-    key === "principle" || key === "committee" || key === "internal committee"
-  );
+  return key === "principle" || key === "internal committee";
 };
 
 export default function WorkflowRules() {
@@ -280,7 +281,7 @@ export default function WorkflowRules() {
                               </DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {sortedRoles
-                                .filter((role) => role.name !== item.role)
+                                .filter((role) => role.name !== item.role && !isCommitteeRole(role.name))
                                 .map((role) => (
                                   <DropdownMenuCheckboxItem
                                     key={`${item.role}-submit-${role.name}`}
