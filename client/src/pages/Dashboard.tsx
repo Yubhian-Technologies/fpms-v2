@@ -982,14 +982,12 @@ export default function Dashboard() {
                         s.role !== "committee",
                     );
 
-                    const leaderRoles = ["principle", "vice principle", "dean", "vice dean"];
-                    const leaders = detailStaff.filter((s: any) =>
-                      leaderRoles.includes(String(s.role || "").toLowerCase()),
-                    );
-                    const deptStaff = detailStaff.filter(
-                      (s: any) =>
-                        !leaderRoles.includes(String(s.role || "").toLowerCase()),
-                    );
+                    const isLeaderRole = (role: string) => {
+                      const r = String(role || "").toLowerCase().trim();
+                      return r === "principle" || r === "vice principle" || r.startsWith("dean");
+                    };
+                    const leaders = detailStaff.filter((s: any) => isLeaderRole(s.role));
+                    const deptStaff = detailStaff.filter((s: any) => !isLeaderRole(s.role));
 
                     const departments = deptStaff.reduce((acc: any, s: any) => {
                       const dept = s.department || "No Department";
