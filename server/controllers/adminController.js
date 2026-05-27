@@ -1217,7 +1217,12 @@ export const getDeanCollegeDetails = async (req, res) => {
     }
 
     const adminData = adminUserDoc.data() || {};
-    const principalCollege = String(adminData.college || "").trim();
+    let principalCollege = String(adminData.college || req.admin?.college || "").trim();
+
+    if (!principalCollege) {
+      const adminsDoc = await db.collection("admins").doc(adminUid).get();
+      if (adminsDoc.exists) principalCollege = String(adminsDoc.data()?.college || "").trim();
+    }
 
     console.log("[getDeanCollegeDetails] Admin data:", {
       college: principalCollege,
@@ -1333,7 +1338,7 @@ export const getPrincipalCollegeDetails = async (req, res) => {
         message: "Admin user not found in database",
       });
     }
-    const principalCollege = String(adminData.college || "").trim();
+    const principalCollege = String(adminData.college || req.admin?.college || "").trim();
 
     console.log("[getPrincipalCollegeDetails] Admin data:", {
       college: principalCollege,
@@ -1968,16 +1973,30 @@ const normDesigAdmin = (s) =>
 
 export const getCollegeDashboard = async (req, res) => {
   try {
-    const adminDoc = await db.collection("users").doc(req.admin.uid).get();
+    const adminUid = String(req.admin?.uid || req.admin?.id || "").trim();
+    const adminDoc = await db.collection("users").doc(adminUid).get();
 
-    if (!adminDoc.exists) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Admin not found" });
+    const adminData = adminDoc.exists ? adminDoc.data() : {};
+
+    // Resolve college with multiple fallbacks
+    let college = String(adminData?.college || req.admin?.college || "").trim();
+
+    if (!college) {
+      // Try admins collection by UID
+      const adminsDoc = await db.collection("admins").doc(adminUid).get();
+      if (adminsDoc.exists) college = String(adminsDoc.data()?.college || "").trim();
+    }
+    if (!college && req.admin?.email) {
+      // Try admins collection by email
+      const snap = await db.collection("admins")
+        .where("email", "==", String(req.admin.email).trim().toLowerCase())
+        .limit(1).get();
+      if (!snap.empty) college = String(snap.docs[0].data()?.college || "").trim();
     }
 
-    const adminData = adminDoc.data();
-    const college = adminData.college;
+    if (!college) {
+      return res.status(400).json({ success: false, message: "College not found for this account. Please contact your administrator." });
+    }
 
     /* -------- FETCH SUBMISSIONS -------- */
     const submissionsSnap = await db.collection("submissions").get();
