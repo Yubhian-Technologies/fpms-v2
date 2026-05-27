@@ -1262,6 +1262,69 @@ export default function Dashboard() {
                       })}
                   </div>
 
+                  {/* Deans & Leadership Section */}
+                  {(() => {
+                    const deans = staffList.filter((s: any) => {
+                      const r = String(s.role || "").toLowerCase();
+                      return r.startsWith("dean") || (!s.department && r !== "hod" && r !== "faculty");
+                    });
+                    if (deans.length === 0) return null;
+                    return (
+                      <Card className="border-primary/20 shadow-sm overflow-hidden">
+                        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <Award className="h-5 w-5 text-primary" />
+                            Deans &amp; Leadership
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/30">
+                                  <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                                  <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                                  <th className="text-left px-4 py-2.5 font-medium">Email</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Score</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {deans.map((s: any) => {
+                                  const subs = s.submissions || [];
+                                  const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+                                  const accepted = subs.filter((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved").length;
+                                  const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
+                                  return (
+                                    <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                                      <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
+                                      <td className="px-4 py-3 text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
+                                      <td className="px-4 py-3 text-muted-foreground">{s.email || "—"}</td>
+                                      <td className="px-4 py-3 text-center">{subs.length}</td>
+                                      <td className="px-4 py-3 text-center font-semibold text-primary">{achieved}</td>
+                                      <td className="px-4 py-3 text-center">
+                                        {subs.length === 0 ? (
+                                          <Badge variant="outline">No submissions</Badge>
+                                        ) : appealed > 0 ? (
+                                          <Badge variant="warning">{appealed} appeal{appealed > 1 ? "s" : ""}</Badge>
+                                        ) : accepted > 0 ? (
+                                          <Badge variant="success">{accepted} accepted</Badge>
+                                        ) : (
+                                          <Badge variant="secondary">{subs.length - accepted} pending</Badge>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
+
                   {/* Department Detail Panel */}
                   {selectedDeptDetail && deptMap[selectedDeptDetail] && (
                     <Card className="border-primary/20 shadow-sm overflow-hidden">
