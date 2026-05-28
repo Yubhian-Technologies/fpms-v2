@@ -21,7 +21,6 @@ export const excelHeaders = {
     "name",
     "email",
     "password",
-    "department",
     "designation",
     "experience",
     "hasPhd",

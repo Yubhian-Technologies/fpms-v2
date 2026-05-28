@@ -414,9 +414,8 @@ export default function Faculty() {
           const pass = String(
             row["pass"] ?? row["password"] ?? row["Password"] ?? "",
           ).trim();
-          const department = String(
-            row["department"] ?? row["Department"] ?? lockedDepartment ?? "",
-          ).trim();
+          // Department is always taken from the HOD's own department — not from the Excel row
+          const department = lockedDepartment;
           const designation = String(
             row["designation"] ?? row["Designation"] ?? "",
           ).trim();
@@ -1079,7 +1078,6 @@ export default function Faculty() {
                     <TableHead className="w-6"></TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Department</TableHead>
                     <TableHead>Designation</TableHead>
                     <TableHead>Exp</TableHead>
                     <TableHead>PhD</TableHead>
@@ -1102,9 +1100,6 @@ export default function Faculty() {
                       </TableCell>
                       <TableCell>{row.name || "—"}</TableCell>
                       <TableCell>{row.email || "—"}</TableCell>
-                      <TableCell>
-                        {row.department || lockedDepartment || "—"}
-                      </TableCell>
                       <TableCell>{row.designation || "—"}</TableCell>
                       <TableCell>{row.experience}</TableCell>
                       <TableCell>{row.hasPhd ? "Yes" : "No"}</TableCell>
@@ -1128,8 +1123,8 @@ export default function Faculty() {
 
             <div className="mt-3 p-3 rounded-md bg-muted text-xs text-muted-foreground">
               <strong>Expected columns:</strong> name, email, pass (password),
-              department, designation, experience, hasPhd (yes/no/true/false),
-              status (active/inactive)
+              designation, experience, hasPhd (yes/no/true/false),
+              status (active/inactive) — department is set automatically from your account.
             </div>
 
             <DialogFooter className="pt-2">
