@@ -87,6 +87,7 @@ export default function Dashboard() {
   const [selectedCollegeDetail, setSelectedCollegeDetail] = useState<string | null>(null);
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
+  const [viewerStats, setViewerStats] = useState<any>(null);
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
   >({});
@@ -155,7 +156,12 @@ export default function Dashboard() {
         };
 
         // ─── ROLE-SPECIFIC ───
-        if (user.role === "committee") {
+        if (user.role === "viewer") {
+          const res = await api.get("/api/viewer/stats", {
+            headers: { "x-user-id": user.uid, "x-user-role": user.role },
+          });
+          if (res.data.success) setViewerStats(res.data.data);
+        } else if (user.role === "committee") {
           const res = await api.get("/api/auth/dashboard-data", {
             headers: { "x-user-id": user.uid, "x-user-role": user.role },
           });
@@ -474,6 +480,239 @@ export default function Dashboard() {
         <div className="flex min-h-[60vh] items-center justify-center gap-3 text-muted-foreground">
           <Clock className="h-6 w-6 animate-spin" />
           <span>Loading dashboard...</span>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (user?.role === "viewer") {
+    const stats = viewerStats;
+    const summary = stats?.summary || {};
+    const collegeStats: any[] = stats?.collegeStats || [];
+    const deptStats: any[] = stats?.deptStats || [];
+    const roleStats: any[] = stats?.roleStats || [];
+    const rangeStats: any[] = stats?.rangeStats || [];
+
+    const totalForRange = rangeStats.reduce((s: number, b: any) => s + (b.count || 0), 0);
+
+    const rangeColors: Record<string, string> = {
+      "0%": "bg-red-500",
+      "1–25%": "bg-orange-400",
+      "26–50%": "bg-yellow-400",
+      "51–75%": "bg-blue-400",
+      "76–99%": "bg-teal-400",
+      "100%+": "bg-green-500",
+    };
+
+    return (
+      <DashboardLayout title="Statistics Overview">
+        <div className="space-y-6">
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users },
+              { label: "Colleges", value: summary.totalColleges ?? "—", icon: School },
+              { label: "Submitted", value: summary.totalSubmitted ?? "—", icon: FileText },
+              { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award },
+            ].map(({ label, value, icon: Icon }) => (
+              <Card key={label}>
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="text-2xl font-bold">{value}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Completion Range distribution */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart2 className="h-4 w-4" />
+                Target Completion Distribution
+              </CardTitle>
+              <CardDescription>How many staff fall in each % band of their designation target</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {rangeStats.map((band: any) => {
+                  const pct = totalForRange > 0 ? Math.round((band.count / totalForRange) * 100) : 0;
+                  return (
+                    <div key={band.label} className="flex items-center gap-3">
+                      <span className="w-16 text-sm font-medium text-right">{band.label}</span>
+                      <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${rangeColors[band.label] || "bg-primary"} transition-all`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="w-20 text-sm text-muted-foreground text-right">
+                        {band.count} staff ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* College-wise stats */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <School className="h-4 w-4" />
+                College-wise Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {collegeStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No data</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="text-left py-2 font-medium">College</th>
+                        <th className="text-right py-2 font-medium">Staff</th>
+                        <th className="text-right py-2 font-medium">Submitted</th>
+                        <th className="text-right py-2 font-medium">Avg Score</th>
+                        <th className="text-right py-2 font-medium">Completion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {collegeStats
+                        .sort((a: any, b: any) => b.total - a.total)
+                        .map((c: any) => (
+                          <tr key={c.college} className="border-b last:border-0 hover:bg-muted/40">
+                            <td className="py-2 font-medium">{c.college}</td>
+                            <td className="py-2 text-right">{c.total}</td>
+                            <td className="py-2 text-right">{c.submitted}</td>
+                            <td className="py-2 text-right">{c.avgScore}</td>
+                            <td className="py-2 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Progress value={Math.min(c.completionPct, 100)} className="w-20 h-2" />
+                                <span className="w-10">{c.completionPct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Role-wise stats */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Role-wise Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {roleStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No data</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="text-left py-2 font-medium">Role</th>
+                        <th className="text-right py-2 font-medium">Count</th>
+                        <th className="text-right py-2 font-medium">Submitted</th>
+                        <th className="text-right py-2 font-medium">Avg Score</th>
+                        <th className="text-right py-2 font-medium">Completion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roleStats.map((r: any) => (
+                        <tr key={r.role} className="border-b last:border-0 hover:bg-muted/40">
+                          <td className="py-2 capitalize">{formatRoleLabel(r.role)}</td>
+                          <td className="py-2 text-right">{r.total}</td>
+                          <td className="py-2 text-right">{r.submitted}</td>
+                          <td className="py-2 text-right">{r.avgScore}</td>
+                          <td className="py-2 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Progress value={Math.min(r.completionPct, 100)} className="w-20 h-2" />
+                              <span className="w-10">{r.completionPct}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Dept-wise stats — grouped by college */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                Department-wise Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {deptStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No data</p>
+              ) : (
+                <Accordion type="multiple" className="w-full">
+                  {Array.from(new Set(deptStats.map((d: any) => d.college))).sort().map((college: any) => {
+                    const rows = deptStats
+                      .filter((d: any) => d.college === college)
+                      .sort((a: any, b: any) => b.total - a.total);
+                    return (
+                      <AccordionItem key={college} value={college}>
+                        <AccordionTrigger className="text-sm font-medium">
+                          {college} ({rows.length} dept{rows.length !== 1 ? "s" : ""})
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b text-muted-foreground">
+                                <th className="text-left py-2 font-medium">Department</th>
+                                <th className="text-right py-2 font-medium">Staff</th>
+                                <th className="text-right py-2 font-medium">Submitted</th>
+                                <th className="text-right py-2 font-medium">Avg Score</th>
+                                <th className="text-right py-2 font-medium">Completion</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((d: any) => (
+                                <tr key={d.department} className="border-b last:border-0 hover:bg-muted/40">
+                                  <td className="py-2">{d.department}</td>
+                                  <td className="py-2 text-right">{d.total}</td>
+                                  <td className="py-2 text-right">{d.submitted}</td>
+                                  <td className="py-2 text-right">{d.avgScore}</td>
+                                  <td className="py-2 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <Progress value={Math.min(d.completionPct, 100)} className="w-20 h-2" />
+                                      <span className="w-10">{d.completionPct}%</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </DashboardLayout>
     );

@@ -1,6 +1,8 @@
 import express from "express";
 import {
   addAdmin,
+  addViewer,
+  getViewers,
   committeeLogin,
   getAllAdmins,
   deleteAdmin,
@@ -41,6 +43,8 @@ authRouter.post("/unified-login", unifiedLogin);
 authRouter.get("/forms", getApplicableForms);
 authRouter.get("/forms/:formId/criteria/:criteriaId", getCriteriaModulesTasks);
 authRouter.post("/admin-add", committeeAuth, addAdmin);
+authRouter.post("/viewer-add", committeeAuth, addViewer);
+authRouter.get("/viewers", committeeAuth, getViewers);
 authRouter.get("/admins", committeeAuth, getAllAdmins);
 authRouter.get("/colleges", committeeAuth, getColleges);
 authRouter.post("/colleges", committeeAuth, createCollege);

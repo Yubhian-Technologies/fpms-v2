@@ -11,7 +11,8 @@ type Role =
   | "hod"
   | "dean"
   | "faculty"
-  | "superadmin";
+  | "superadmin"
+  | "viewer";
 
 interface User {
   id?: string;

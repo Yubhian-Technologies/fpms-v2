@@ -1408,6 +1408,65 @@ export const addAdmin = async (req, res) => {
   }
 };
 
+export const getViewers = async (req, res) => {
+  try {
+    const snap = await db.collection("users").where("role", "==", "viewer").get();
+    const viewers = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return res.json({ success: true, data: viewers });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error?.message || "Server error" });
+  }
+};
+
+export const addViewer = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedName = String(name || "").trim();
+
+    if (!normalizedName || !normalizedEmail || !password) {
+      return res.status(400).json({ success: false, message: "Name, email and password are required" });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+    }
+
+    let userRecord;
+    try {
+      const existing = await auth.getUserByEmail(normalizedEmail);
+      const firestoreDoc = await db.collection("users").doc(existing.uid).get();
+      if (firestoreDoc.exists) {
+        return res.status(409).json({ success: false, message: "User already exists" });
+      }
+      await auth.deleteUser(existing.uid);
+      userRecord = await auth.createUser({ email: normalizedEmail, password: String(password), displayName: normalizedName });
+    } catch (error) {
+      if (error?.code && error.code !== "auth/user-not-found") throw error;
+      userRecord = await auth.createUser({ email: normalizedEmail, password: String(password), displayName: normalizedName });
+    }
+
+    await auth.setCustomUserClaims(userRecord.uid, { role: "viewer" });
+
+    const hashedPassword = await bcrypt.hash(String(password), 10);
+    await db.collection("users").doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      name: normalizedName,
+      email: normalizedEmail,
+      role: "viewer",
+      password: hashedPassword,
+      isActive: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return res.status(201).json({ success: true, message: "Viewer added successfully" });
+  } catch (error) {
+    console.error("addViewer error:", error);
+    return res.status(500).json({ success: false, message: error?.message || "Server error" });
+  }
+};
+
 export const getAllAdmins = async (req, res) => {
   try {
     const usersSnapshot = await db.collection("users").get();

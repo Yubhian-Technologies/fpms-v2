@@ -100,6 +100,7 @@ const getNavItems = (
         "principle",
         "dean",
         "vice principle",
+        "viewer",
       ],
     },
     {
@@ -207,6 +208,12 @@ const getNavItems = (
       href: "/add-vice-principal",
       roles: ["committee"],
     },
+    {
+      icon: UserCheck,
+      label: "Add Viewer",
+      href: "/add-viewer",
+      roles: ["committee"],
+    },
     // {
     //   icon: Settings,
     //   label: "Settings",
@@ -238,6 +245,7 @@ const getNavItems = (
         "dean",
         "vice principle",
         "superadmin",
+        "viewer",
       ],
     },
   ];

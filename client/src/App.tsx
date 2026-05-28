@@ -48,6 +48,7 @@ import CreateFormScreen from "./pages/CreateFormScreen";
 import FormPreviewScreen from "./pages/FormPreviewScreen";
 import WorkflowRules from "./pages/WorkflowRules";
 import MyAppeals from "./pages/MyAppeals";
+import AddViewer from "./pages/AddViewer";
 import ChangePassword from "./pages/ChangePassword";
 import CommitteeMember from "./pages/CommitteeMember";
 
@@ -250,6 +251,14 @@ function AppRoutes() {
         element={<CommitteeReview></CommitteeReview>}
       ></Route>
       <Route path="/add-dean" element={<AddDean></AddDean>}></Route>
+      <Route
+        path="/add-viewer"
+        element={
+          <ProtectedRoute allowedRoles={["committee"]}>
+            <AddViewer />
+          </ProtectedRoute>
+        }
+      ></Route>
       <Route path="/add-hod" element={<AddHod></AddHod>}></Route>
       <Route
         path="/add-internal-committee"
