@@ -665,16 +665,16 @@ export default function Dashboard() {
                 <CardDescription>Average target completion % across each role</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-64">
+                <div style={{ height: Math.max(200, rolePerformanceData.length * 44) }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       layout="vertical"
                       data={rolePerformanceData}
-                      margin={{ top: 4, right: 48, left: 8, bottom: 4 }}
+                      margin={{ top: 4, right: 52, left: 4, bottom: 4 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                       <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                      <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomRoleTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
                       <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={26}>
                         {rolePerformanceData.map((entry: any, i: number) => (
