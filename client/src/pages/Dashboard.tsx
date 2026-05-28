@@ -540,9 +540,9 @@ export default function Dashboard() {
       }))
       .sort((a: any, b: any) => b.completion - a.completion);
 
-    // College chart — horizontal bars
+    // College chart — horizontal bars, label by code (fallback to short name)
     const collegeChartData = collegeStats.map((c: any) => ({
-      name: c.college.length > 22 ? c.college.slice(0, 20) + "…" : c.college,
+      name: c.code || (c.college.length > 18 ? c.college.slice(0, 16) + "…" : c.college),
       fullName: c.college,
       completion: c.completionPct,
       avgScore: c.avgScore,
@@ -745,7 +745,7 @@ export default function Dashboard() {
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                       <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomCollegeTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
                       <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={28} fill="#6366f1">
                         <LabelList dataKey="completion" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />

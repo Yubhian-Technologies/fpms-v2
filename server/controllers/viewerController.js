@@ -14,11 +14,13 @@ export const getViewerStats = async (req, res) => {
 
     const saData = await getSuperadminConfig();
 
-    // Build designation target map
+    // Build designation target map and college code lookup
     const collegeDesignationMap = {};
+    const collegeCodeMap = {}; // college name (lowercase) -> code
     (saData.colleges || []).forEach((c) => {
       const key = normStr(c?.name);
       collegeDesignationMap[key] = {};
+      if (c?.code) collegeCodeMap[key] = String(c.code).trim().toUpperCase();
       (c.designations || []).forEach((d) => {
         if (d?.name) collegeDesignationMap[key][normStr(d.name)] = Number(d.target) || 0;
       });
@@ -77,7 +79,8 @@ export const getViewerStats = async (req, res) => {
     staff.forEach((s) => {
       const c = s.college;
       if (!collegeMap[c]) {
-        collegeMap[c] = { college: c, total: 0, submitted: 0, totalScore: 0, totalTarget: 0 };
+        const code = collegeCodeMap[normStr(c)] || "";
+        collegeMap[c] = { college: c, code, total: 0, submitted: 0, totalScore: 0, totalTarget: 0 };
       }
       collegeMap[c].total++;
       if (s.submissionCount > 0) collegeMap[c].submitted++;
