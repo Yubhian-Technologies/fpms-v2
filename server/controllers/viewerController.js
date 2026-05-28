@@ -38,35 +38,44 @@ export const getViewerStats = async (req, res) => {
       subsMap.get(sub.userId).push(sub);
     });
 
-    // Build enriched staff list
-    const staff = usersSnap.docs.map((doc) => {
-      const data = doc.data();
-      const collegeKey = normStr(data.college);
-      const desigMap = collegeDesignationMap[collegeKey] || {};
-      const target = desigMap[normStr(data.designation)] || 0;
-      const userSubs = subsMap.get(data.uid) || [];
-      const score = userSubs.reduce((sum, s) => sum + getConfirmedScore(s), 0);
-      return {
-        uid: data.uid || doc.id,
-        name: data.name || "",
-        email: data.email || "",
-        role: normStr(data.role),
-        college: String(data.college || "").trim(),
-        department: String(data.department || "").trim(),
-        designation: String(data.designation || "").trim(),
-        target,
-        score,
-        submissionCount: userSubs.length,
-        acceptedCount: userSubs.filter(
-          (s) => s.status === "accepted" || s.status === "appeal-resolved",
-        ).length,
-      };
-    });
+    // Roles that are system/admin accounts — excluded from all stats
+    const excludedRoles = new Set(["committee", "viewer", "superadmin", "internal committee"]);
+    const isDeanRole = (r) => String(r || "").trim().toLowerCase().startsWith("dean");
+
+    // Build enriched staff list — skip accounts with no college and system roles
+    const staff = usersSnap.docs
+      .map((doc) => {
+        const data = doc.data();
+        const role = normStr(data.role);
+        const college = String(data.college || "").trim();
+        if (!college || excludedRoles.has(role)) return null;
+        const collegeKey = normStr(college);
+        const desigMap = collegeDesignationMap[collegeKey] || {};
+        const target = desigMap[normStr(data.designation)] || 0;
+        const userSubs = subsMap.get(data.uid) || [];
+        const score = userSubs.reduce((sum, s) => sum + getConfirmedScore(s), 0);
+        return {
+          uid: data.uid || doc.id,
+          name: data.name || "",
+          email: data.email || "",
+          role,
+          college,
+          department: String(data.department || "").trim(),
+          designation: String(data.designation || "").trim(),
+          target,
+          score,
+          submissionCount: userSubs.length,
+          acceptedCount: userSubs.filter(
+            (s) => s.status === "accepted" || s.status === "appeal-resolved",
+          ).length,
+        };
+      })
+      .filter(Boolean);
 
     // --- College-wise aggregation ---
     const collegeMap = {};
     staff.forEach((s) => {
-      const c = s.college || "Unknown";
+      const c = s.college;
       if (!collegeMap[c]) {
         collegeMap[c] = { college: c, total: 0, submitted: 0, totalScore: 0, totalTarget: 0 };
       }
@@ -81,15 +90,15 @@ export const getViewerStats = async (req, res) => {
       completionPct: c.totalTarget ? Math.round((c.totalScore / c.totalTarget) * 100) : 0,
     }));
 
-    // --- Dept-wise aggregation (per college) ---
-    const deptKey = (college, dept) => `${college}|||${dept || "No Department"}`;
+    // --- Dept-wise aggregation (per college) — skip deans, they have no department ---
+    const deptKey = (college, dept) => `${college}|||${dept}`;
     const deptMap = {};
-    staff.forEach((s) => {
-      const key = deptKey(s.college || "Unknown", s.department);
+    staff.filter((s) => !isDeanRole(s.role) && s.department).forEach((s) => {
+      const key = deptKey(s.college, s.department);
       if (!deptMap[key]) {
         deptMap[key] = {
-          college: s.college || "Unknown",
-          department: s.department || "No Department",
+          college: s.college,
+          department: s.department,
           total: 0,
           submitted: 0,
           totalScore: 0,
