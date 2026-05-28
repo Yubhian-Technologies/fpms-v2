@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
+} from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
@@ -488,42 +492,96 @@ export default function Dashboard() {
   if (user?.role === "viewer") {
     const stats = viewerStats;
     const summary = stats?.summary || {};
-    const collegeStats: any[] = stats?.collegeStats || [];
+    const collegeStats: any[] = (stats?.collegeStats || []).sort((a: any, b: any) => b.completionPct - a.completionPct);
     const deptStats: any[] = stats?.deptStats || [];
     const roleStats: any[] = stats?.roleStats || [];
     const rangeStats: any[] = stats?.rangeStats || [];
 
-    const totalForRange = rangeStats.reduce((s: number, b: any) => s + (b.count || 0), 0);
+    // Colour palettes
+    const ROLE_COLORS = ["#6366f1","#f59e0b","#10b981","#3b82f6","#ec4899","#8b5cf6","#14b8a6","#f97316"];
+    const RANGE_COLORS: Record<string, string> = {
+      "0%": "#ef4444",
+      "1–25%": "#f97316",
+      "26–50%": "#eab308",
+      "51–75%": "#3b82f6",
+      "76–99%": "#14b8a6",
+      "100%+": "#22c55e",
+    };
 
-    const rangeColors: Record<string, string> = {
-      "0%": "bg-red-500",
-      "1–25%": "bg-orange-400",
-      "26–50%": "bg-yellow-400",
-      "51–75%": "bg-blue-400",
-      "76–99%": "bg-teal-400",
-      "100%+": "bg-green-500",
+    const submittedPct = summary.totalStaff
+      ? Math.round((summary.totalSubmitted / summary.totalStaff) * 100)
+      : 0;
+    const submissionDonut = [
+      { name: "Submitted", value: summary.totalSubmitted || 0 },
+      { name: "Not Submitted", value: (summary.totalStaff || 0) - (summary.totalSubmitted || 0) },
+    ];
+
+    const rangeChartData = rangeStats.map((b: any) => ({
+      label: b.label,
+      count: b.count,
+      fill: RANGE_COLORS[b.label] || "#6366f1",
+    }));
+
+    const roleChartData = roleStats.map((r: any, i: number) => ({
+      name: formatRoleLabel(r.role),
+      value: r.total,
+      fill: ROLE_COLORS[i % ROLE_COLORS.length],
+    }));
+
+    // College chart — horizontal bars
+    const collegeChartData = collegeStats.map((c: any) => ({
+      name: c.college.length > 22 ? c.college.slice(0, 20) + "…" : c.college,
+      fullName: c.college,
+      completion: c.completionPct,
+      avgScore: c.avgScore,
+      staff: c.total,
+    }));
+
+    const CustomRangeTooltip = ({ active, payload }: any) => {
+      if (!active || !payload?.length) return null;
+      const d = payload[0].payload;
+      return (
+        <div className="rounded-lg border bg-background px-3 py-2 shadow text-sm">
+          <p className="font-semibold">{d.label}</p>
+          <p className="text-muted-foreground">{d.count} staff</p>
+        </div>
+      );
+    };
+
+    const CustomCollegeTooltip = ({ active, payload }: any) => {
+      if (!active || !payload?.length) return null;
+      const d = payload[0].payload;
+      return (
+        <div className="rounded-lg border bg-background px-3 py-2 shadow text-sm space-y-1">
+          <p className="font-semibold">{d.fullName}</p>
+          <p className="text-muted-foreground">Completion: <span className="text-foreground font-medium">{d.completion}%</span></p>
+          <p className="text-muted-foreground">Avg Score: <span className="text-foreground font-medium">{d.avgScore}</span></p>
+          <p className="text-muted-foreground">Staff: <span className="text-foreground font-medium">{d.staff}</span></p>
+        </div>
+      );
     };
 
     return (
       <DashboardLayout title="Statistics Overview">
         <div className="space-y-6">
-          {/* Summary cards */}
+
+          {/* ── Row 1: Summary cards ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users },
-              { label: "Colleges", value: summary.totalColleges ?? "—", icon: School },
-              { label: "Submitted", value: summary.totalSubmitted ?? "—", icon: FileText },
-              { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award },
-            ].map(({ label, value, icon: Icon }) => (
-              <Card key={label}>
+              { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-500" },
+              { label: "Colleges", value: summary.totalColleges ?? "—", icon: School, color: "bg-amber-500/10 text-amber-500" },
+              { label: "Submitted", value: `${summary.totalSubmitted ?? "—"} (${submittedPct}%)`, icon: FileText, color: "bg-emerald-500/10 text-emerald-500" },
+              { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award, color: "bg-blue-500/10 text-blue-500" },
+            ].map(({ label, value, icon: Icon, color }) => (
+              <Card key={label} className="border-border/60">
                 <CardContent className="pt-5 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Icon className="h-4 w-4 text-primary" />
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${color}`}>
+                      <Icon className="h-5 w-5" />
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-2xl font-bold">{value}</p>
+                      <p className="text-xl font-bold leading-tight">{value}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -531,137 +589,147 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Completion Range distribution */}
+          {/* ── Row 2: Submission donut + Role pie ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Submission rate donut */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Submission Rate</CardTitle>
+                <CardDescription>How many staff have submitted at least one entry</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative flex items-center justify-center h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={submissionDonut}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        <Cell fill="#22c55e" />
+                        <Cell fill="#e5e7eb" />
+                      </Pie>
+                      <Tooltip
+                        formatter={(v: any, name: string) => [`${v} staff`, name]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Centre label */}
+                  <div className="absolute flex flex-col items-center pointer-events-none">
+                    <span className="text-3xl font-bold">{submittedPct}%</span>
+                    <span className="text-xs text-muted-foreground">submitted</span>
+                  </div>
+                </div>
+                <div className="flex justify-center gap-6 mt-2 text-sm">
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-green-500 inline-block" />Submitted ({summary.totalSubmitted ?? 0})</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gray-200 inline-block" />Not yet ({(summary.totalStaff ?? 0) - (summary.totalSubmitted ?? 0)})</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Role distribution pie */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Staff by Role</CardTitle>
+                <CardDescription>Distribution of all staff across roles</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={roleChartData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={85}
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {roleChartData.map((entry: any, i: number) => (
+                          <Cell key={i} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v: any, name: string) => [`${v} staff`, name]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
+                      />
+                      <Legend iconType="circle" iconSize={10} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Row 3: Target completion range bar chart ── */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart2 className="h-4 w-4" />
-                Target Completion Distribution
-              </CardTitle>
-              <CardDescription>How many staff fall in each % band of their designation target</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Target Completion Bands</CardTitle>
+              <CardDescription>Number of staff in each completion % band of their designation target</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {rangeStats.map((band: any) => {
-                  const pct = totalForRange > 0 ? Math.round((band.count / totalForRange) * 100) : 0;
-                  return (
-                    <div key={band.label} className="flex items-center gap-3">
-                      <span className="w-16 text-sm font-medium text-right">{band.label}</span>
-                      <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${rangeColors[band.label] || "bg-primary"} transition-all`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="w-20 text-sm text-muted-foreground text-right">
-                        {band.count} staff ({pct}%)
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={rangeChartData} margin={{ top: 16, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} width={36} />
+                    <Tooltip content={<CustomRangeTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={64}>
+                      {rangeChartData.map((entry: any, i: number) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                      <LabelList dataKey="count" position="top" style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          {/* College-wise stats */}
+          {/* ── Row 4: College completion horizontal bar chart ── */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <School className="h-4 w-4" />
-                College-wise Overview
-              </CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">College-wise Target Completion</CardTitle>
+              <CardDescription>Average % of designation target achieved per college</CardDescription>
             </CardHeader>
             <CardContent>
-              {collegeStats.length === 0 ? (
+              {collegeChartData.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">No data</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-muted-foreground">
-                        <th className="text-left py-2 font-medium">College</th>
-                        <th className="text-right py-2 font-medium">Staff</th>
-                        <th className="text-right py-2 font-medium">Submitted</th>
-                        <th className="text-right py-2 font-medium">Avg Score</th>
-                        <th className="text-right py-2 font-medium">Completion</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {collegeStats
-                        .sort((a: any, b: any) => b.total - a.total)
-                        .map((c: any) => (
-                          <tr key={c.college} className="border-b last:border-0 hover:bg-muted/40">
-                            <td className="py-2 font-medium">{c.college}</td>
-                            <td className="py-2 text-right">{c.total}</td>
-                            <td className="py-2 text-right">{c.submitted}</td>
-                            <td className="py-2 text-right">{c.avgScore}</td>
-                            <td className="py-2 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Progress value={Math.min(c.completionPct, 100)} className="w-20 h-2" />
-                                <span className="w-10">{c.completionPct}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                <div style={{ height: Math.max(180, collegeChartData.length * 46) }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={collegeChartData}
+                      margin={{ top: 4, right: 56, left: 8, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<CustomCollegeTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                      <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={28} fill="#6366f1">
+                        <LabelList dataKey="completion" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Role-wise stats */}
+          {/* ── Row 5: Department breakdown ── */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                Role-wise Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {roleStats.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No data</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-muted-foreground">
-                        <th className="text-left py-2 font-medium">Role</th>
-                        <th className="text-right py-2 font-medium">Count</th>
-                        <th className="text-right py-2 font-medium">Submitted</th>
-                        <th className="text-right py-2 font-medium">Avg Score</th>
-                        <th className="text-right py-2 font-medium">Completion</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {roleStats.map((r: any) => (
-                        <tr key={r.role} className="border-b last:border-0 hover:bg-muted/40">
-                          <td className="py-2 capitalize">{formatRoleLabel(r.role)}</td>
-                          <td className="py-2 text-right">{r.total}</td>
-                          <td className="py-2 text-right">{r.submitted}</td>
-                          <td className="py-2 text-right">{r.avgScore}</td>
-                          <td className="py-2 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Progress value={Math.min(r.completionPct, 100)} className="w-20 h-2" />
-                              <span className="w-10">{r.completionPct}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Dept-wise stats — grouped by college */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                Department-wise Breakdown
-              </CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Department Breakdown</CardTitle>
+              <CardDescription>Per-department stats, grouped by college</CardDescription>
             </CardHeader>
             <CardContent>
               {deptStats.length === 0 ? (
@@ -671,40 +739,36 @@ export default function Dashboard() {
                   {Array.from(new Set(deptStats.map((d: any) => d.college))).sort().map((college: any) => {
                     const rows = deptStats
                       .filter((d: any) => d.college === college)
-                      .sort((a: any, b: any) => b.total - a.total);
+                      .sort((a: any, b: any) => b.completionPct - a.completionPct);
+                    const collegeAvg = rows.length
+                      ? Math.round(rows.reduce((s: number, d: any) => s + d.completionPct, 0) / rows.length)
+                      : 0;
                     return (
                       <AccordionItem key={college} value={college}>
-                        <AccordionTrigger className="text-sm font-medium">
-                          {college} ({rows.length} dept{rows.length !== 1 ? "s" : ""})
+                        <AccordionTrigger className="text-sm font-medium hover:no-underline">
+                          <div className="flex items-center justify-between w-full pr-2">
+                            <span>{college}</span>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground font-normal">
+                              <span>{rows.length} dept{rows.length !== 1 ? "s" : ""}</span>
+                              <span className="w-28 flex items-center gap-1">
+                                <Progress value={Math.min(collegeAvg, 100)} className="h-1.5 flex-1" />
+                                <span className="w-8 text-right">{collegeAvg}%</span>
+                              </span>
+                            </div>
+                          </div>
                         </AccordionTrigger>
-                        <AccordionContent>
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b text-muted-foreground">
-                                <th className="text-left py-2 font-medium">Department</th>
-                                <th className="text-right py-2 font-medium">Staff</th>
-                                <th className="text-right py-2 font-medium">Submitted</th>
-                                <th className="text-right py-2 font-medium">Avg Score</th>
-                                <th className="text-right py-2 font-medium">Completion</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((d: any) => (
-                                <tr key={d.department} className="border-b last:border-0 hover:bg-muted/40">
-                                  <td className="py-2">{d.department}</td>
-                                  <td className="py-2 text-right">{d.total}</td>
-                                  <td className="py-2 text-right">{d.submitted}</td>
-                                  <td className="py-2 text-right">{d.avgScore}</td>
-                                  <td className="py-2 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <Progress value={Math.min(d.completionPct, 100)} className="w-20 h-2" />
-                                      <span className="w-10">{d.completionPct}%</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <AccordionContent className="pt-1 pb-2">
+                          <div className="space-y-2">
+                            {rows.map((d: any) => (
+                              <div key={d.department} className="flex items-center gap-3 text-sm">
+                                <span className="w-36 truncate text-muted-foreground" title={d.department}>{d.department}</span>
+                                <Progress value={Math.min(d.completionPct, 100)} className="flex-1 h-2" />
+                                <span className="w-10 text-right font-medium">{d.completionPct}%</span>
+                                <span className="w-16 text-right text-xs text-muted-foreground">{d.total} staff</span>
+                                <span className="w-16 text-right text-xs text-muted-foreground">avg {d.avgScore}</span>
+                              </div>
+                            ))}
+                          </div>
                         </AccordionContent>
                       </AccordionItem>
                     );
@@ -713,6 +777,7 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+
         </div>
       </DashboardLayout>
     );
