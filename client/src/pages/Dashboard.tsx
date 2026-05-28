@@ -622,20 +622,22 @@ export default function Dashboard() {
                 <CardTitle className="text-base">Target Achieved</CardTitle>
                 <CardDescription>Staff who have reached 100% or more of their designation target</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col flex-1 justify-center">
-                <div className="relative flex items-center justify-center flex-1" style={{ minHeight: 220 }}>
+              <CardContent className="flex flex-col flex-1 justify-between gap-4">
+                {/* Donut + centred label */}
+                <div className="relative mx-auto w-full" style={{ height: 260 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={targetDonut}
                         cx="50%"
                         cy="50%"
-                        innerRadius="35%"
-                        outerRadius="55%"
-                        paddingAngle={3}
+                        innerRadius={80}
+                        outerRadius={110}
+                        paddingAngle={2}
                         dataKey="value"
                         startAngle={90}
                         endAngle={-270}
+                        strokeWidth={0}
                       >
                         <Cell fill="#22c55e" />
                         <Cell fill="#e5e7eb" />
@@ -646,15 +648,24 @@ export default function Dashboard() {
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-5xl font-bold text-green-600">{achievedPct}%</span>
-                    <span className="text-sm text-muted-foreground mt-1">of staff achieved target</span>
-                    <span className="text-2xl font-semibold mt-2">{achievedCount} <span className="text-base font-normal text-muted-foreground">/ {summary.totalStaff ?? 0}</span></span>
+                  {/* Centred overlay — sits inside the donut hole (r=80px) */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
+                    <span className="text-4xl font-bold text-green-600 leading-none">{achievedPct}%</span>
+                    <span className="text-xs text-muted-foreground mt-1 text-center">achieved</span>
+                    <span className="text-lg font-semibold mt-1 leading-none">{achievedCount}</span>
+                    <span className="text-xs text-muted-foreground">of {summary.totalStaff ?? 0}</span>
                   </div>
                 </div>
-                <div className="flex justify-center gap-6 mt-4 text-sm">
-                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-green-500 inline-block" />Achieved ({achievedCount})</span>
-                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gray-200 inline-block" />In Progress ({(summary.totalStaff ?? 0) - achievedCount})</span>
+                {/* Legend */}
+                <div className="flex justify-center gap-6 pb-2 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+                    Achieved ({achievedCount})
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-gray-200 shrink-0" />
+                    In Progress ({(summary.totalStaff ?? 0) - achievedCount})
+                  </span>
                 </div>
               </CardContent>
             </Card>
