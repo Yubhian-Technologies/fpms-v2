@@ -511,9 +511,15 @@ export default function Dashboard() {
     const submittedPct = summary.totalStaff
       ? Math.round((summary.totalSubmitted / summary.totalStaff) * 100)
       : 0;
-    const submissionDonut = [
-      { name: "Submitted", value: summary.totalSubmitted || 0 },
-      { name: "Not Submitted", value: (summary.totalStaff || 0) - (summary.totalSubmitted || 0) },
+
+    // Target achieved: staff in the 100%+ band
+    const achievedCount = rangeStats.find((b: any) => b.label === "100%+")?.count || 0;
+    const achievedPct = summary.totalStaff
+      ? Math.round((achievedCount / summary.totalStaff) * 100)
+      : 0;
+    const targetDonut = [
+      { name: "Achieved Target", value: achievedCount },
+      { name: "In Progress", value: (summary.totalStaff || 0) - achievedCount },
     ];
 
     const rangeChartData = rangeStats.map((b: any) => ({
@@ -522,11 +528,17 @@ export default function Dashboard() {
       fill: RANGE_COLORS[b.label] || "#6366f1",
     }));
 
-    const roleChartData = roleStats.map((r: any, i: number) => ({
-      name: formatRoleLabel(r.role),
-      value: r.total,
-      fill: ROLE_COLORS[i % ROLE_COLORS.length],
-    }));
+    // Role performance: avg completion % per role, sorted descending
+    const rolePerformanceData = roleStats
+      .filter((r: any) => r.total > 0)
+      .map((r: any, i: number) => ({
+        name: formatRoleLabel(r.role),
+        completion: r.completionPct,
+        avgScore: r.avgScore,
+        staff: r.total,
+        fill: ROLE_COLORS[i % ROLE_COLORS.length],
+      }))
+      .sort((a: any, b: any) => b.completion - a.completion);
 
     // College chart — horizontal bars
     const collegeChartData = collegeStats.map((c: any) => ({
@@ -544,6 +556,19 @@ export default function Dashboard() {
         <div className="rounded-lg border bg-background px-3 py-2 shadow text-sm">
           <p className="font-semibold">{d.label}</p>
           <p className="text-muted-foreground">{d.count} staff</p>
+        </div>
+      );
+    };
+
+    const CustomRoleTooltip = ({ active, payload }: any) => {
+      if (!active || !payload?.length) return null;
+      const d = payload[0].payload;
+      return (
+        <div className="rounded-lg border bg-background px-3 py-2 shadow text-sm space-y-0.5">
+          <p className="font-semibold">{d.name}</p>
+          <p className="text-muted-foreground">Completion: <span className="text-foreground font-medium">{d.completion}%</span></p>
+          <p className="text-muted-foreground">Avg Score: <span className="text-foreground font-medium">{d.avgScore}</span></p>
+          <p className="text-muted-foreground">Staff: <span className="text-foreground font-medium">{d.staff}</span></p>
         </div>
       );
     };
@@ -570,7 +595,7 @@ export default function Dashboard() {
             {[
               { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-500" },
               { label: "Colleges", value: summary.totalColleges ?? "—", icon: School, color: "bg-amber-500/10 text-amber-500" },
-              { label: "Submitted", value: `${summary.totalSubmitted ?? "—"} (${submittedPct}%)`, icon: FileText, color: "bg-emerald-500/10 text-emerald-500" },
+              { label: "Target Achieved", value: `${achievedCount} (${achievedPct}%)`, icon: CheckCircle, color: "bg-emerald-500/10 text-emerald-500" },
               { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award, color: "bg-blue-500/10 text-blue-500" },
             ].map(({ label, value, icon: Icon, color }) => (
               <Card key={label} className="border-border/60">
@@ -589,26 +614,28 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* ── Row 2: Submission donut + Role pie ── */}
+          {/* ── Row 2: Target achieved donut + Role performance bar ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Submission rate donut */}
+            {/* Target achieved donut */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Submission Rate</CardTitle>
-                <CardDescription>How many staff have submitted at least one entry</CardDescription>
+                <CardTitle className="text-base">Target Achieved</CardTitle>
+                <CardDescription>Staff who have reached 100% or more of their designation target</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="relative flex items-center justify-center h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={submissionDonut}
+                        data={targetDonut}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
                         outerRadius={90}
                         paddingAngle={3}
                         dataKey="value"
+                        startAngle={90}
+                        endAngle={-270}
                       >
                         <Cell fill="#22c55e" />
                         <Cell fill="#e5e7eb" />
@@ -619,49 +646,43 @@ export default function Dashboard() {
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                  {/* Centre label */}
                   <div className="absolute flex flex-col items-center pointer-events-none">
-                    <span className="text-3xl font-bold">{submittedPct}%</span>
-                    <span className="text-xs text-muted-foreground">submitted</span>
+                    <span className="text-3xl font-bold text-green-600">{achievedPct}%</span>
+                    <span className="text-xs text-muted-foreground">achieved</span>
                   </div>
                 </div>
                 <div className="flex justify-center gap-6 mt-2 text-sm">
-                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-green-500 inline-block" />Submitted ({summary.totalSubmitted ?? 0})</span>
-                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gray-200 inline-block" />Not yet ({(summary.totalStaff ?? 0) - (summary.totalSubmitted ?? 0)})</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-green-500 inline-block" />Achieved ({achievedCount})</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gray-200 inline-block" />In Progress ({(summary.totalStaff ?? 0) - achievedCount})</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Role distribution pie */}
+            {/* Role performance — avg completion % per role */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Staff by Role</CardTitle>
-                <CardDescription>Distribution of all staff across roles</CardDescription>
+                <CardTitle className="text-base">Performance by Role</CardTitle>
+                <CardDescription>Average target completion % across each role</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-56">
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={roleChartData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={85}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {roleChartData.map((entry: any, i: number) => (
+                    <BarChart
+                      layout="vertical"
+                      data={rolePerformanceData}
+                      margin={{ top: 4, right: 48, left: 8, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                      <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<CustomRoleTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                      <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={26}>
+                        {rolePerformanceData.map((entry: any, i: number) => (
                           <Cell key={i} fill={entry.fill} />
                         ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: any, name: string) => [`${v} staff`, name]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
-                      />
-                      <Legend iconType="circle" iconSize={10} />
-                    </PieChart>
+                        <LabelList dataKey="completion" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
