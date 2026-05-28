@@ -624,15 +624,15 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="flex flex-col flex-1 justify-between gap-4">
                 {/* Donut + centred label */}
-                <div className="relative mx-auto w-full" style={{ height: 260 }}>
+                <div className="relative mx-auto w-full flex-1" style={{ minHeight: 340 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={targetDonut}
                         cx="50%"
                         cy="50%"
-                        innerRadius={80}
-                        outerRadius={110}
+                        innerRadius="38%"
+                        outerRadius="58%"
                         paddingAngle={2}
                         dataKey="value"
                         startAngle={90}
@@ -648,12 +648,11 @@ export default function Dashboard() {
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                  {/* Centred overlay — sits inside the donut hole (r=80px) */}
+                  {/* Centred overlay */}
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
-                    <span className="text-4xl font-bold text-green-600 leading-none">{achievedPct}%</span>
-                    <span className="text-xs text-muted-foreground mt-1 text-center">achieved</span>
-                    <span className="text-lg font-semibold mt-1 leading-none">{achievedCount}</span>
-                    <span className="text-xs text-muted-foreground">of {summary.totalStaff ?? 0}</span>
+                    <span className="text-5xl font-bold text-green-600 leading-none">{achievedPct}%</span>
+                    <span className="text-sm text-muted-foreground mt-1.5">achieved target</span>
+                    <span className="text-2xl font-bold mt-2 leading-none">{achievedCount} <span className="text-base font-normal text-muted-foreground">/ {summary.totalStaff ?? 0}</span></span>
                   </div>
                 </div>
                 {/* Legend */}
