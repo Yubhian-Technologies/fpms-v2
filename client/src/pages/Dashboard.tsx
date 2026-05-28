@@ -615,23 +615,23 @@ export default function Dashboard() {
           </div>
 
           {/* ── Row 2: Target achieved donut + Role performance bar ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Target achieved donut */}
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            {/* Target achieved donut — stretches to match role chart height */}
+            <Card className="flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Target Achieved</CardTitle>
                 <CardDescription>Staff who have reached 100% or more of their designation target</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="relative flex items-center justify-center h-56">
+              <CardContent className="flex flex-col flex-1 justify-center">
+                <div className="relative flex items-center justify-center flex-1" style={{ minHeight: 220 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={targetDonut}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
+                        innerRadius="35%"
+                        outerRadius="55%"
                         paddingAngle={3}
                         dataKey="value"
                         startAngle={90}
@@ -646,12 +646,13 @@ export default function Dashboard() {
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="absolute flex flex-col items-center pointer-events-none">
-                    <span className="text-3xl font-bold text-green-600">{achievedPct}%</span>
-                    <span className="text-xs text-muted-foreground">achieved</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-5xl font-bold text-green-600">{achievedPct}%</span>
+                    <span className="text-sm text-muted-foreground mt-1">of staff achieved target</span>
+                    <span className="text-2xl font-semibold mt-2">{achievedCount} <span className="text-base font-normal text-muted-foreground">/ {summary.totalStaff ?? 0}</span></span>
                   </div>
                 </div>
-                <div className="flex justify-center gap-6 mt-2 text-sm">
+                <div className="flex justify-center gap-6 mt-4 text-sm">
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-green-500 inline-block" />Achieved ({achievedCount})</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gray-200 inline-block" />In Progress ({(summary.totalStaff ?? 0) - achievedCount})</span>
                 </div>
