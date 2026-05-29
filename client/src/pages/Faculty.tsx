@@ -438,12 +438,20 @@ export default function Faculty() {
             .toLowerCase();
           const status = statusRaw === "inactive" ? "inactive" : "active";
 
+          const validDesignationNames = designations.map((d) =>
+            d.name.trim().toLowerCase(),
+          );
+
           let error = "";
           if (!name) error += "Name missing. ";
           if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
             error += "Valid email required. ";
           if (!pass || pass.length < 6) error += "Password must be ≥6 chars. ";
-          if (!designation) error += "Designation missing. ";
+          if (!designation) {
+            error += "Designation missing. ";
+          } else if (!validDesignationNames.includes(designation.toLowerCase())) {
+            error += `Designation "${designation}" is not valid for this college. `;
+          }
 
           return {
             name,

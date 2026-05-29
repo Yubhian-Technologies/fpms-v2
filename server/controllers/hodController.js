@@ -190,6 +190,25 @@ export const addFaculty = async (req, res) => {
       });
     }
 
+    // Validate designation against college config
+    try {
+      const saData = await getSuperadminConfig();
+      const collegeDef = (saData.colleges || []).find(
+        (c) => normDesig(c?.name) === normDesig(resolvedCollege),
+      );
+      if (collegeDef) {
+        const validNames = (collegeDef.designations || []).map((d) =>
+          normDesig(d?.name),
+        );
+        if (validNames.length > 0 && !validNames.includes(normDesig(normalizedDesignation))) {
+          return res.status(400).json({
+            success: false,
+            message: `Designation "${normalizedDesignation}" is not valid for this college`,
+          });
+        }
+      }
+    } catch (_) {}
+
     try {
       const existingAuthUser = await auth.getUserByEmail(normalizedEmail);
       const firestoreDoc = await db
