@@ -69,16 +69,19 @@ const isVicePrincipalRole = (value) => {
 const inferRoleFromTokenContext = async (decodedToken) => {
   if (decodedToken?.committeeMember) return "committee";
 
-  if (decodedToken?.role) {
-    return normalizeRoleValue(decodedToken.role);
+  // Firestore is the source of truth — token claims can be stale after role changes
+  if (decodedToken?.uid) {
+    try {
+      const userDoc = await db.collection("users").doc(decodedToken.uid).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data() || {};
+        if (userData.role) return normalizeRoleValue(userData.role);
+      }
+    } catch (_) {}
   }
 
-  if (decodedToken?.uid) {
-    const userDoc = await db.collection("users").doc(decodedToken.uid).get();
-    if (userDoc.exists) {
-      const userData = userDoc.data() || {};
-      return normalizeRoleValue(userData.role || "");
-    }
+  if (decodedToken?.role) {
+    return normalizeRoleValue(decodedToken.role);
   }
 
   return "faculty";
