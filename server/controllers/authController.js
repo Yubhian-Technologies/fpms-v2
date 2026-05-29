@@ -966,13 +966,19 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
   }
 
   if (decodedToken?.role) {
-    const resolvedRole = String(decodedToken.role);
     const userSnap = await db.collection("users").doc(decodedToken.uid).get();
     const userData = userSnap.exists ? userSnap.data() : {};
-    let college = decodedToken?.college || "";
-    const department = decodedToken?.department || "";
+
+    // Prefer Firestore role over stale claims — Firestore is the source of truth
+    const resolvedRole = userData?.role
+      ? normalizeRoleValue(userData.role)
+      : String(decodedToken.role);
+
+    let college = decodedToken?.college || userData?.college || "";
+    const department = userData?.department || decodedToken?.department || "";
     const designation = userData?.designation || "";
     const hasPhd = userData?.hasPhd;
+    const internalCommittee = Boolean(userData?.internalCommittee);
 
     // Principle/admin college lives in the "admins" collection, not in token claims
     if (
@@ -1014,6 +1020,7 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
       department,
       designation,
       hasPhd,
+      internalCommittee,
     };
   }
 
@@ -1042,6 +1049,7 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
       department: userData.department || "",
       designation: userData.designation || "",
       hasPhd: userData.hasPhd,
+      internalCommittee: Boolean(userData.internalCommittee),
     };
   }
 
@@ -1193,6 +1201,21 @@ export const unifiedLogin = async (req, res) => {
       }
     }
 
+    // Sync claims if Firestore disagrees (handles manually-deleted fields or stale claims)
+    const claimsRole = decodedToken?.role ? normalizeRoleValue(decodedToken.role) : null;
+    const claimsIC = Boolean(decodedToken?.internalCommittee);
+    if (claimsRole !== resolved.role || claimsIC !== Boolean(resolved.internalCommittee)) {
+      try {
+        await auth.setCustomUserClaims(decodedToken.uid, {
+          role: resolved.role,
+          level: resolved.level || 0,
+          college: resolved.college || "",
+          department: resolved.department || "",
+          internalCommittee: Boolean(resolved.internalCommittee),
+        });
+      } catch (_) {}
+    }
+
     return res.status(200).json({
       success: true,
       token: firebaseData.idToken,
@@ -1207,6 +1230,7 @@ export const unifiedLogin = async (req, res) => {
         designation: resolved.designation || "",
         designationTarget,
         hasPhd: Boolean(resolvedHasPhd ?? false),
+        internalCommittee: Boolean(resolved.internalCommittee),
       },
     });
   } catch (error) {
