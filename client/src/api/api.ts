@@ -92,14 +92,23 @@ api.interceptors.response.use(
       return api(config);
     }
 
+    // Never treat a 401 on login endpoints as a session expiry —
+    // those are just wrong credentials and the caller handles them.
+    const requestUrl = String(config?.url || "");
+    const isLoginEndpoint = [
+      "/login", "unified-login",
+    ].some((path) => requestUrl.includes(path));
+
     // Session expired — covers both clean 401s and auth-failure 500s
     const isAuthFailure =
-      status === 401 ||
-      (status === 403 && serverMessage.toLowerCase().includes("token")) ||
-      (status === 500 && (
-        serverMessage.toLowerCase().includes("expired") ||
-        serverMessage === "Invalid or expired token"
-      ));
+      !isLoginEndpoint && (
+        status === 401 ||
+        (status === 403 && serverMessage.toLowerCase().includes("token")) ||
+        (status === 500 && (
+          serverMessage.toLowerCase().includes("expired") ||
+          serverMessage === "Invalid or expired token"
+        ))
+      );
 
     if (isAuthFailure) {
       redirectToSessionExpired();
