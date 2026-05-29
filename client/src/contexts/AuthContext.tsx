@@ -26,6 +26,7 @@ interface User {
   designation?: string;
   designationTarget?: string;
   hasPhd?: boolean;
+  internalCommittee?: boolean;
 }
 
 interface AuthContextType {

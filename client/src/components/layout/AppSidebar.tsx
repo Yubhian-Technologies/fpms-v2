@@ -64,6 +64,7 @@ const getNavItems = (
   role: string,
   dynamicForms: DynamicFormItem[],
   isFormsLoading: boolean,
+  isInternalCommittee?: boolean,
 ) => {
   const resolvedRole = normalizeRoleForAccess(role);
   const dynamicFpmsChildren = dynamicForms
@@ -252,7 +253,7 @@ const getNavItems = (
 
   return items.filter(
     (item) =>
-      item.roles.includes(resolvedRole) &&
+      (item.roles.includes(resolvedRole) || (isInternalCommittee && item.roles.includes("internal committee"))) &&
       (!item.isDropdown || (item.children && item.children.length > 0)),
   );
 };
@@ -291,12 +292,12 @@ export function AppSidebar() {
 
   if (!user) return null;
 
-  const navItems = getNavItems(user.role, dynamicForms, isFormsLoading);
+  const navItems = getNavItems(user.role, dynamicForms, isFormsLoading, user.internalCommittee);
   const shouldShowFullScreenLoader =
     isFormsLoading &&
-    ["faculty", "hod", "dean", "principle", "internal committee"].includes(
+    (["faculty", "hod", "dean", "principle", "internal committee"].includes(
       normalizeRoleForAccess(user.role),
-    );
+    ) || Boolean(user.internalCommittee));
 
   const toggleDropdown = (dropdownId: string) => {
     setExpandedDropdown((current) =>

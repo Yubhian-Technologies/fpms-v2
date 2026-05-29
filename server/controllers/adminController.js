@@ -589,7 +589,7 @@ export const getAllInternalCommittees = async (req, res) => {
     const snapshot = await db.collection(USERS_COLLECTION).get();
     const members = snapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((item) => isInternalCommitteeRole(item.role || ""))
+      .filter((item) => Boolean(item.internalCommittee) || isInternalCommitteeRole(item.role || ""))
       .filter(
         (item) =>
           String(item.college || "")
@@ -816,7 +816,7 @@ export const assignExistingUserAsInternalCommittee = async (req, res) => {
       return res.status(403).json({ success: false, message: "User does not belong to your college" });
     }
 
-    if (isInternalCommitteeRole(userData.role || "")) {
+    if (Boolean(userData.internalCommittee) || isInternalCommitteeRole(userData.role || "")) {
       return res.status(409).json({ success: false, message: "User is already an internal committee member" });
     }
 
@@ -831,31 +831,17 @@ export const assignExistingUserAsInternalCommittee = async (req, res) => {
       return res.status(409).json({ success: false, message: "Only one internal committee user is allowed per college" });
     }
 
-    // Get IC role level from superadmin config
-    let level = 0;
-    try {
-      const saDoc = await db.collection("superadmin").doc(SUPERADMIN_DOC_ID).get();
-      if (saDoc.exists) {
-        const roles = Array.isArray(saDoc.data()?.roles) ? saDoc.data().roles : [];
-        const icRole = roles.find((r) => isInternalCommitteeRole(String(r.name || "")));
-        if (icRole) level = Number(icRole.level) || 0;
-      }
-    } catch (_) {}
-
-    const normalizedRole = normalizeInternalCommitteeRole("internal committee");
-
+    // Preserve original role — only flag the user as internal committee
     await auth.setCustomUserClaims(userId, {
-      role: normalizedRole,
-      level,
+      role: userData.role,
+      level: userData.level || 0,
       college: userData.college || principalCollege,
+      department: userData.department || "",
       internalCommittee: true,
     });
 
     await userRef.set({
-      role: normalizedRole,
-      level,
       internalCommittee: true,
-      promotedFromRole: userData.role || "faculty",
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
@@ -1068,21 +1054,43 @@ export const deleteInternalCommittee = async (req, res) => {
       });
     }
 
-    if (!isInternalCommitteeRole(currentData.role || "")) {
+    if (!currentData.internalCommittee && !isInternalCommitteeRole(currentData.role || "")) {
       return res.status(400).json({
         success: false,
         message: "Selected user is not an internal committee member",
       });
     }
 
-    // If the user was promoted from an existing account, revert their role instead of deleting
+    // Old-style: role was changed to "internal committee", revert via promotedFromRole
     if (currentData.promotedFromRole) {
       const revertRole = String(currentData.promotedFromRole);
-      await auth.setCustomUserClaims(id, { role: revertRole, internalCommittee: false });
+      await auth.setCustomUserClaims(id, {
+        role: revertRole,
+        level: currentData.level || 0,
+        college: currentData.college || "",
+        department: currentData.department || "",
+        internalCommittee: false,
+      });
       await memberRef.set({
         role: revertRole,
         internalCommittee: false,
         promotedFromRole: admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return res.status(200).json({ success: true, message: "Internal committee assignment removed" });
+    }
+
+    // New-style: role was never changed, just clear the flag
+    if (currentData.internalCommittee) {
+      await auth.setCustomUserClaims(id, {
+        role: currentData.role,
+        level: currentData.level || 0,
+        college: currentData.college || "",
+        department: currentData.department || "",
+        internalCommittee: false,
+      });
+      await memberRef.set({
+        internalCommittee: false,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
       return res.status(200).json({ success: true, message: "Internal committee assignment removed" });
