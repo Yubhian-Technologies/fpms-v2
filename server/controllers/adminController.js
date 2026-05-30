@@ -716,25 +716,6 @@ export const addInternalCommittee = async (req, res) => {
       }
     }
 
-    const existingCollegeMembersSnap = await db
-      .collection(USERS_COLLECTION)
-      .where("college", "==", principalCollege)
-      .get();
-
-    const existingInternalCommitteeMember = existingCollegeMembersSnap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .find(
-        (item) =>
-          Boolean(item.internalCommittee) || isInternalCommitteeRole(item.role),
-      );
-
-    if (existingInternalCommitteeMember) {
-      return res.status(409).json({
-        success: false,
-        message: "Only one internal committee user is allowed per college",
-      });
-    }
-
     const userRecord = await auth.createUser({
       email: normalizedEmail,
       password: resolvedPassword,
@@ -818,17 +799,6 @@ export const assignExistingUserAsInternalCommittee = async (req, res) => {
 
     if (Boolean(userData.internalCommittee) || isInternalCommitteeRole(userData.role || "")) {
       return res.status(409).json({ success: false, message: "User is already an internal committee member" });
-    }
-
-    // One-per-college limit
-    const existingSnap = await db.collection(USERS_COLLECTION)
-      .where("college", "==", principalCollege)
-      .get();
-    const existingMember = existingSnap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .find((item) => item.id !== userId && (Boolean(item.internalCommittee) || isInternalCommitteeRole(item.role || "")));
-    if (existingMember) {
-      return res.status(409).json({ success: false, message: "Only one internal committee user is allowed per college" });
     }
 
     // Preserve original role — only flag the user as internal committee
