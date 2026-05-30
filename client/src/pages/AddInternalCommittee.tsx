@@ -211,7 +211,6 @@ export default function AddInternalCommittee() {
               setShowDialog(true);
             }}
             className="gap-2 whitespace-nowrap"
-            disabled={members.length >= 1}
           >
             <Plus className="h-4 w-4" />
             Assign Member
