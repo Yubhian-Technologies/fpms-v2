@@ -583,8 +583,8 @@ export default function Faculty() {
         faculty.subs.forEach((sub, idx) => {
           rows.push([
             idx === 0 ? faculty.name : "",
-            sub.formTitle || "-",
-            sub.criteriaName || "-",
+            sub.criteriaName || sub.formTitle || "-",
+            sub.moduleName || sub.taskName || sub.criteriaName || "-",
             sub.maxMarks ?? "-",
             sub.claimedScore ?? "-",
             sub.reviewerScore ?? "-",

@@ -814,11 +814,13 @@ export const exportHodReport = async (req, res) => {
         reportData.push({ name, subs: [] });
         continue;
       }
-      // Sort by formTitle then criteriaName
+      // Sort by criteriaName then moduleName/taskName
       const sorted = [...subs].sort((a, b) => {
-        const ft = String(a.formTitle || "").localeCompare(String(b.formTitle || ""));
-        if (ft !== 0) return ft;
-        return String(a.criteriaName || "").localeCompare(String(b.criteriaName || ""));
+        const cn = String(a.criteriaName || "").localeCompare(String(b.criteriaName || ""));
+        if (cn !== 0) return cn;
+        const mn = String(a.moduleName || "").localeCompare(String(b.moduleName || ""));
+        if (mn !== 0) return mn;
+        return String(a.taskName || "").localeCompare(String(b.taskName || ""));
       });
       reportData.push({ name, subs: sorted });
     }
