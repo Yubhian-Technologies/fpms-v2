@@ -604,32 +604,56 @@ export default function Faculty() {
         if (endRow > startRow) merges.push({ s: { r: startRow, c: col }, e: { r: endRow, c: col } });
       };
 
-      let nameStart = 1; // row index (0 = header)
+      let nameStart = 1;
       let moduleStart = 1;
+      let subModuleStart = 1;
       let curName = "";
       let curModule = "";
+      let curSubModule = "";
 
       for (let i = 1; i < rows.length; i++) {
         const rowName = rows[i][0];
         const rowModule = rows[i][1];
+        const rowSubModule = rows[i][2];
 
-        // Faculty name: merge blank continuation rows back to the named row
-        if (rowName !== "" && rowName !== curName) {
+        // Faculty name: new faculty starts when name cell is non-empty
+        if (rowName !== "") {
           trackMerge(0, nameStart, i - 1);
           nameStart = i;
           curName = rowName;
-        }
-
-        // Module: merge consecutive rows with same module within same faculty
-        if (rowModule !== curModule || rowName !== "" && rowName !== rows[nameStart]?.[0]) {
+          // Reset module + submodule groups on new faculty
           trackMerge(1, moduleStart, i - 1);
           moduleStart = i;
           curModule = rowModule;
+          trackMerge(2, subModuleStart, i - 1);
+          subModuleStart = i;
+          curSubModule = rowSubModule;
+          continue;
+        }
+
+        // Module group changed
+        if (rowModule !== curModule) {
+          trackMerge(1, moduleStart, i - 1);
+          moduleStart = i;
+          curModule = rowModule;
+          // Also reset submodule group
+          trackMerge(2, subModuleStart, i - 1);
+          subModuleStart = i;
+          curSubModule = rowSubModule;
+          continue;
+        }
+
+        // Sub-module group changed within same module
+        if (rowSubModule !== curSubModule) {
+          trackMerge(2, subModuleStart, i - 1);
+          subModuleStart = i;
+          curSubModule = rowSubModule;
         }
       }
-      // Close last groups
+      // Close final groups
       trackMerge(0, nameStart, rows.length - 1);
       trackMerge(1, moduleStart, rows.length - 1);
+      trackMerge(2, subModuleStart, rows.length - 1);
 
       ws["!merges"] = merges;
 
