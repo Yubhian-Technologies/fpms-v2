@@ -587,15 +587,16 @@ export default function Faculty() {
           0,
         );
 
-        // Group subs by criteriaName to guarantee correct merge boundaries
-        const criteriaGroups: { key: string; subs: any[] }[] = [];
+        // Collect ALL subs per criteriaName (preserving first-seen order)
+        const criteriaMap = new Map<string, any[]>();
         for (const sub of faculty.subs) {
           const key = sub.criteriaName || sub.formTitle || "-";
-          if (criteriaGroups.length === 0 || criteriaGroups[criteriaGroups.length - 1].key !== key) {
-            criteriaGroups.push({ key, subs: [] });
-          }
-          criteriaGroups[criteriaGroups.length - 1].subs.push(sub);
+          if (!criteriaMap.has(key)) criteriaMap.set(key, []);
+          criteriaMap.get(key)!.push(sub);
         }
+        const criteriaGroups = Array.from(criteriaMap.entries()).map(
+          ([key, subs]) => ({ key, subs }),
+        );
 
         const facultyRowStart = rows.length; // 0-based row index in sheet
         let isFirstFacultyRow = true;
