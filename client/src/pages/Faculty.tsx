@@ -562,6 +562,7 @@ export default function Faculty() {
         "Name of the Faculty",
         "Modules",
         "Sub Modules",
+        "Tasks",
         "Points",
         "Points Claimed",
         "Points given by Reviewer",
@@ -603,22 +604,39 @@ export default function Faculty() {
 
         criteriaGroups.forEach(({ key, subs }) => {
           const criteriaRowStart = rows.length;
-          subs.forEach((sub, subIdx) => {
-            const isLast =
-              sub === faculty.subs[faculty.subs.length - 1];
-            rows.push([
-              isFirstFacultyRow ? faculty.name : "",
-              subIdx === 0 ? key : "",
-              sub.taskName || sub.moduleName || "-",
-              sub.maxMarks ?? "-",
-              sub.claimedScore ?? "-",
-              sub.reviewerScore ?? "-",
-              sub.appealerScore ?? "-",
-              sub.finalScore ?? "-",
-              isLast ? totalFinal : "",
-            ]);
-            isFirstFacultyRow = false;
-          });
+
+          // Sub-group by moduleName within this criteria
+          const subModuleMap = new Map<string, any[]>();
+          for (const sub of subs) {
+            const smKey = sub.moduleName || "-";
+            if (!subModuleMap.has(smKey)) subModuleMap.set(smKey, []);
+            subModuleMap.get(smKey)!.push(sub);
+          }
+
+          let isFirstInCriteria = true;
+          for (const [smKey, smSubs] of subModuleMap) {
+            const subModuleRowStart = rows.length;
+            smSubs.forEach((sub, smIdx) => {
+              const isLast = sub === faculty.subs[faculty.subs.length - 1];
+              rows.push([
+                isFirstFacultyRow ? faculty.name : "",
+                isFirstInCriteria ? key : "",
+                smIdx === 0 ? smKey : "",
+                sub.taskName || "-",
+                sub.maxMarks ?? "-",
+                sub.claimedScore ?? "-",
+                sub.reviewerScore ?? "-",
+                sub.appealerScore ?? "-",
+                sub.finalScore ?? "-",
+                isLast ? totalFinal : "",
+              ]);
+              isFirstFacultyRow = false;
+              isFirstInCriteria = false;
+            });
+            // Merge col C for this sub-module group
+            addMerge(2, subModuleRowStart, rows.length - 1);
+          }
+
           // Merge col B for this criteria group
           addMerge(1, criteriaRowStart, rows.length - 1);
         });
@@ -632,7 +650,7 @@ export default function Faculty() {
 
       // Column widths
       ws["!cols"] = [
-        { wch: 30 }, { wch: 25 }, { wch: 35 }, { wch: 8 },
+        { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 35 }, { wch: 8 },
         { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
       ];
 
