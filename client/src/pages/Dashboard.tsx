@@ -35,6 +35,7 @@ import {
   CheckCircle,
   AlertCircle,
   BarChart2,
+  FileSpreadsheet,
 } from "lucide-react";
 import { api } from "@/api/api";
 import { formatRoleLabel } from "@/lib/utils";
@@ -1029,6 +1030,113 @@ export default function Dashboard() {
       });
     };
 
+    const exportPrincipalReport = async () => {
+      try {
+        const res = await api.get("/api/admin/export-report");
+        const { deans, byDept } = res.data?.data || { deans: [], byDept: {} };
+
+        const wb = XLSX.utils.book_new();
+        const HEADERS = [
+          "Name of the Faculty", "Modules", "Sub Modules", "Tasks",
+          "Points", "Points Claimed", "Points given by Reviewer",
+          "Appeal Points", "Final Points", "Total Points",
+        ];
+        const COL_WIDTHS = [
+          { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 }, { wch: 8 },
+          { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+        ];
+
+        const buildSheetRows = (staffArr: any[]) => {
+          const rows: any[][] = [HEADERS];
+          const merges: XLSX.Range[] = [];
+          const addMerge = (c: number, r1: number, r2: number) => {
+            if (r2 > r1) merges.push({ s: { r: r1, c }, e: { r: r2, c } });
+          };
+
+          for (const person of staffArr) {
+            const subs: any[] = person.subs || [];
+            if (subs.length === 0) {
+              rows.push([person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
+              continue;
+            }
+            const totalFinal = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
+
+            // Group by criteriaName
+            const criteriaMap = new Map<string, any[]>();
+            for (const sub of subs) {
+              const key = sub.criteriaName || sub.formTitle || "-";
+              if (!criteriaMap.has(key)) criteriaMap.set(key, []);
+              criteriaMap.get(key)!.push(sub);
+            }
+
+            const facultyRowStart = rows.length;
+            let isFirstFacultyRow = true;
+
+            for (const [criteriaKey, critSubs] of criteriaMap) {
+              const criteriaRowStart = rows.length;
+
+              // Group by moduleName within criteria
+              const subModMap = new Map<string, any[]>();
+              for (const sub of critSubs) {
+                const smKey = sub.moduleName || "-";
+                if (!subModMap.has(smKey)) subModMap.set(smKey, []);
+                subModMap.get(smKey)!.push(sub);
+              }
+
+              let isFirstInCriteria = true;
+              for (const [smKey, smSubs] of subModMap) {
+                const smRowStart = rows.length;
+                smSubs.forEach((sub: any, smIdx: number) => {
+                  const isLast = sub === subs[subs.length - 1];
+                  rows.push([
+                    isFirstFacultyRow ? person.name : "",
+                    isFirstInCriteria ? criteriaKey : "",
+                    smIdx === 0 ? smKey : "",
+                    sub.taskName || "-",
+                    sub.maxMarks ?? "-",
+                    sub.claimedScore ?? "-",
+                    sub.reviewerScore ?? "-",
+                    sub.appealerScore ?? "-",
+                    sub.finalScore ?? "-",
+                    isLast ? totalFinal : "",
+                  ]);
+                  isFirstFacultyRow = false;
+                  isFirstInCriteria = false;
+                });
+                addMerge(2, smRowStart, rows.length - 1);
+              }
+              addMerge(1, criteriaRowStart, rows.length - 1);
+            }
+            addMerge(0, facultyRowStart, rows.length - 1);
+          }
+          return { rows, merges };
+        };
+
+        const addSheet = (name: string, staffArr: any[]) => {
+          const safeName = name.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+          if (!staffArr.length) return;
+          const { rows, merges } = buildSheetRows(staffArr);
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          ws["!merges"] = merges;
+          ws["!cols"] = COL_WIDTHS;
+          XLSX.utils.book_append_sheet(wb, ws, safeName);
+        };
+
+        // One sheet per department
+        Object.entries(byDept).sort(([a], [b]) => a.localeCompare(b)).forEach(([dept, staff]) => {
+          addSheet(dept, staff as any[]);
+        });
+
+        // Deans sheet
+        if (deans.length > 0) addSheet("Deans", deans);
+
+        if (wb.SheetNames.length === 0) return;
+        XLSX.writeFile(wb, "principal_report.xlsx");
+      } catch {
+        // silent — toast not available here without hook, rely on network error boundary
+      }
+    };
+
     return (
       <DashboardLayout
         title={`${displayName}'s Dashboard`}
@@ -1471,6 +1579,9 @@ export default function Dashboard() {
                   Click any department card to explore HOD and faculty
                 </p>
               </div>
+              <Button variant="outline" onClick={exportPrincipalReport}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Report
+              </Button>
             </div>
 
             {/* Summary strip */}

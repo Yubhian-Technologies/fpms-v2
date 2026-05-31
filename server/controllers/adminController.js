@@ -2309,3 +2309,69 @@ export const updateCollegeDesignations = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export const exportPrincipalReport = async (req, res) => {
+  try {
+    const principalCollege = String(req.admin?.college || "").trim();
+    if (!principalCollege) {
+      return res.status(400).json({ success: false, message: "Principal college not found" });
+    }
+
+    const [usersSnap, subsSnap] = await Promise.all([
+      db.collection(USERS_COLLECTION).where("college", "==", principalCollege).get(),
+      db.collection("submissions").where("college", "==", principalCollege).get(),
+    ]);
+
+    // Excluded system roles
+    const excludedRoles = new Set(["committee", "viewer", "superadmin"]);
+
+    // uid → submissions[]
+    const subsByUser = {};
+    subsSnap.docs.forEach((doc) => {
+      const sub = { id: doc.id, ...doc.data() };
+      if (!subsByUser[sub.userId]) subsByUser[sub.userId] = [];
+      subsByUser[sub.userId].push(sub);
+    });
+
+    // Build staff list
+    const staff = usersSnap.docs
+      .map((doc) => {
+        const d = doc.data();
+        const role = String(d.role || "").trim().toLowerCase();
+        if (excludedRoles.has(role)) return null;
+        return {
+          uid: d.uid || doc.id,
+          name: d.name || d.email || doc.id,
+          role,
+          department: String(d.department || "").trim(),
+          subs: (subsByUser[d.uid || doc.id] || []).sort((a, b) => {
+            const cn = String(a.criteriaName || "").localeCompare(String(b.criteriaName || ""));
+            if (cn !== 0) return cn;
+            const mn = String(a.moduleName || "").localeCompare(String(b.moduleName || ""));
+            if (mn !== 0) return mn;
+            return String(a.taskName || "").localeCompare(String(b.taskName || ""));
+          }),
+        };
+      })
+      .filter(Boolean);
+
+    const isDean = (role) => String(role || "").toLowerCase().startsWith("dean");
+
+    // Group: deans → own sheet, rest → by department
+    const deans = staff.filter((s) => isDean(s.role));
+    const byDept = {};
+    staff.filter((s) => !isDean(s.role)).forEach((s) => {
+      const dept = s.department || "No Department";
+      if (!byDept[dept]) byDept[dept] = [];
+      byDept[dept].push(s);
+    });
+
+    return res.json({
+      success: true,
+      data: { deans, byDept },
+    });
+  } catch (err) {
+    console.error("[exportPrincipalReport]", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};

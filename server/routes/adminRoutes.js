@@ -18,6 +18,7 @@ import {
   getCollegeDesignations,
   updateCollegeDesignations,
   getCollegeFacultyForReview,
+  exportPrincipalReport,
 } from "../controllers/adminController.js";
 import { adminAuth } from "../middleware/adminAuth.js";
 
@@ -53,5 +54,6 @@ adminRouter.put("/internal-committee/:id", adminAuth, updateInternalCommittee);
 adminRouter.get("/college-dashboard", adminAuth, getCollegeDashboard);
 
 adminRouter.get("/college-faculty", adminAuth, getCollegeFacultyForReview);
+adminRouter.get("/export-report", adminAuth, exportPrincipalReport);
 
 export default adminRouter;
