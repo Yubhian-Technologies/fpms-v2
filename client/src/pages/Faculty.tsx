@@ -597,9 +597,45 @@ export default function Faculty() {
 
       const ws = XLSX.utils.aoa_to_sheet(rows);
 
+      // Merge cells for Faculty Name (col 0) and Modules (col 1) where consecutive rows repeat
+      const merges: XLSX.Range[] = [];
+      // Track merge ranges: [startRow, endRow] for each column
+      const trackMerge = (col: number, startRow: number, endRow: number) => {
+        if (endRow > startRow) merges.push({ s: { r: startRow, c: col }, e: { r: endRow, c: col } });
+      };
+
+      let nameStart = 1; // row index (0 = header)
+      let moduleStart = 1;
+      let curName = "";
+      let curModule = "";
+
+      for (let i = 1; i < rows.length; i++) {
+        const rowName = rows[i][0];
+        const rowModule = rows[i][1];
+
+        // Faculty name: merge blank continuation rows back to the named row
+        if (rowName !== "" && rowName !== curName) {
+          trackMerge(0, nameStart, i - 1);
+          nameStart = i;
+          curName = rowName;
+        }
+
+        // Module: merge consecutive rows with same module within same faculty
+        if (rowModule !== curModule || rowName !== "" && rowName !== rows[nameStart]?.[0]) {
+          trackMerge(1, moduleStart, i - 1);
+          moduleStart = i;
+          curModule = rowModule;
+        }
+      }
+      // Close last groups
+      trackMerge(0, nameStart, rows.length - 1);
+      trackMerge(1, moduleStart, rows.length - 1);
+
+      ws["!merges"] = merges;
+
       // Column widths
       ws["!cols"] = [
-        { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 8 },
+        { wch: 30 }, { wch: 25 }, { wch: 35 }, { wch: 8 },
         { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
       ];
 
