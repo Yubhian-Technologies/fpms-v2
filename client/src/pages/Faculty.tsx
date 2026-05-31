@@ -552,6 +552,65 @@ export default function Faculty() {
     });
   };
 
+  const handleExportReport = async () => {
+    try {
+      const res = await api.get("/api/hod/export-report");
+      const reportData: Array<{ name: string; subs: any[] }> = res.data?.data || [];
+
+      const rows: any[][] = [];
+      const headers = [
+        "Name of the Faculty",
+        "Modules",
+        "Sub Modules",
+        "Points",
+        "Points Claimed",
+        "Points given by Reviewer",
+        "Appeal Points",
+        "Final Points",
+        "Total Points",
+      ];
+      rows.push(headers);
+
+      for (const faculty of reportData) {
+        if (faculty.subs.length === 0) {
+          rows.push([faculty.name, "-", "-", "-", "-", "-", "-", "-", "-"]);
+          continue;
+        }
+        const totalFinal = faculty.subs.reduce(
+          (sum, s) => sum + Number(s.finalScore ?? 0),
+          0,
+        );
+        faculty.subs.forEach((sub, idx) => {
+          rows.push([
+            idx === 0 ? faculty.name : "",
+            sub.formTitle || "-",
+            sub.criteriaName || "-",
+            sub.maxMarks ?? "-",
+            sub.claimedScore ?? "-",
+            sub.reviewerScore ?? "-",
+            sub.appealerScore ?? "-",
+            sub.finalScore ?? "-",
+            idx === faculty.subs.length - 1 ? totalFinal : "",
+          ]);
+        });
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+
+      // Column widths
+      ws["!cols"] = [
+        { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 8 },
+        { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Faculty Report");
+      XLSX.writeFile(wb, "faculty_report.xlsx");
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       setIsDeleting(true);
@@ -678,6 +737,9 @@ export default function Faculty() {
               onClick={() => xlsxInputRef.current?.click()}
             >
               <FileSpreadsheet className="mr-2 h-4 w-4" /> Upload Excel
+            </Button>
+            <Button variant="outline" onClick={handleExportReport}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Report
             </Button>
             <Button onClick={startNewFaculty}>
               <Plus className="mr-2 h-4 w-4" /> Add Faculty

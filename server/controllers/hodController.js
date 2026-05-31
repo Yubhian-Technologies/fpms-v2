@@ -773,3 +773,59 @@ export const getHodDashboard = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const exportHodReport = async (req, res) => {
+  try {
+    const { college, department } = req.hod;
+
+    const [facultySnap, subsSnap] = await Promise.all([
+      db.collection("users")
+        .where("college", "==", college)
+        .where("department", "==", department)
+        .where("role", "==", "faculty")
+        .get(),
+      db.collection("submissions")
+        .where("college", "==", college)
+        .where("department", "==", department)
+        .get(),
+    ]);
+
+    // uid → name map
+    const facultyMap = {};
+    facultySnap.docs.forEach((doc) => {
+      const d = doc.data();
+      facultyMap[d.uid || doc.id] = d.name || d.email || doc.id;
+    });
+
+    // Group submissions by userId
+    const subsByUser = {};
+    subsSnap.docs.forEach((doc) => {
+      const sub = { id: doc.id, ...doc.data() };
+      if (!subsByUser[sub.userId]) subsByUser[sub.userId] = [];
+      subsByUser[sub.userId].push(sub);
+    });
+
+    // Build report rows per faculty
+    const reportData = [];
+    for (const uid of Object.keys(facultyMap)) {
+      const name = facultyMap[uid];
+      const subs = subsByUser[uid] || [];
+      if (subs.length === 0) {
+        reportData.push({ name, subs: [] });
+        continue;
+      }
+      // Sort by formTitle then criteriaName
+      const sorted = [...subs].sort((a, b) => {
+        const ft = String(a.formTitle || "").localeCompare(String(b.formTitle || ""));
+        if (ft !== 0) return ft;
+        return String(a.criteriaName || "").localeCompare(String(b.criteriaName || ""));
+      });
+      reportData.push({ name, subs: sorted });
+    }
+
+    return res.json({ success: true, data: reportData });
+  } catch (err) {
+    console.error("[exportHodReport]", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
