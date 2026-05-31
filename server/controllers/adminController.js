@@ -2323,7 +2323,7 @@ export const exportPrincipalReport = async (req, res) => {
     ]);
 
     // Excluded system roles
-    const excludedRoles = new Set(["committee", "viewer", "superadmin"]);
+    const excludedRoles = new Set(["committee", "viewer", "superadmin", "principal", "principle", "viceprincipal", "vice principal", "vice-principal"]);
 
     // uid → submissions[]
     const subsByUser = {};
