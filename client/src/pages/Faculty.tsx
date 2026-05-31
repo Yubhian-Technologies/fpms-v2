@@ -571,90 +571,62 @@ export default function Faculty() {
       ];
       rows.push(headers);
 
+      const merges: XLSX.Range[] = [];
+      const addMerge = (c: number, r1: number, r2: number) => {
+        if (r2 > r1) merges.push({ s: { r: r1, c }, e: { r: r2, c } });
+      };
+
       for (const faculty of reportData) {
         if (faculty.subs.length === 0) {
           rows.push([faculty.name, "-", "-", "-", "-", "-", "-", "-", "-"]);
           continue;
         }
+
         const totalFinal = faculty.subs.reduce(
           (sum, s) => sum + Number(s.finalScore ?? 0),
           0,
         );
-        faculty.subs.forEach((sub, idx) => {
-          rows.push([
-            idx === 0 ? faculty.name : "",
-            sub.criteriaName || sub.formTitle || "-",
-            sub.taskName || sub.moduleName || "-",
-            sub.maxMarks ?? "-",
-            sub.claimedScore ?? "-",
-            sub.reviewerScore ?? "-",
-            sub.appealerScore ?? "-",
-            sub.finalScore ?? "-",
-            idx === faculty.subs.length - 1 ? totalFinal : "",
-          ]);
+
+        // Group subs by criteriaName to guarantee correct merge boundaries
+        const criteriaGroups: { key: string; subs: any[] }[] = [];
+        for (const sub of faculty.subs) {
+          const key = sub.criteriaName || sub.formTitle || "-";
+          if (criteriaGroups.length === 0 || criteriaGroups[criteriaGroups.length - 1].key !== key) {
+            criteriaGroups.push({ key, subs: [] });
+          }
+          criteriaGroups[criteriaGroups.length - 1].subs.push(sub);
+        }
+
+        const facultyRowStart = rows.length; // 0-based row index in sheet
+        let isFirstFacultyRow = true;
+
+        criteriaGroups.forEach(({ key, subs }) => {
+          const criteriaRowStart = rows.length;
+          subs.forEach((sub, subIdx) => {
+            const isLast =
+              sub === faculty.subs[faculty.subs.length - 1];
+            rows.push([
+              isFirstFacultyRow ? faculty.name : "",
+              subIdx === 0 ? key : "",
+              sub.taskName || sub.moduleName || "-",
+              sub.maxMarks ?? "-",
+              sub.claimedScore ?? "-",
+              sub.reviewerScore ?? "-",
+              sub.appealerScore ?? "-",
+              sub.finalScore ?? "-",
+              isLast ? totalFinal : "",
+            ]);
+            isFirstFacultyRow = false;
+          });
+          // Merge col B for this criteria group
+          addMerge(1, criteriaRowStart, rows.length - 1);
         });
+
+        // Merge col A for this faculty
+        addMerge(0, facultyRowStart, rows.length - 1);
       }
 
       const ws = XLSX.utils.aoa_to_sheet(rows);
-
-      // Merge cells for Faculty Name (col 0) and Modules (col 1) where consecutive rows repeat
-      const merges: XLSX.Range[] = [];
-      // Track merge ranges: [startRow, endRow] for each column
-      const trackMerge = (col: number, startRow: number, endRow: number) => {
-        if (endRow > startRow) merges.push({ s: { r: startRow, c: col }, e: { r: endRow, c: col } });
-      };
-
-      let nameStart = 1;
-      let moduleStart = 1;
-      let subModuleStart = 1;
-      let curName = "";
-      let curModule = "";
-      let curSubModule = "";
-
-      for (let i = 1; i < rows.length; i++) {
-        const rowName = rows[i][0];
-        const rowModule = rows[i][1];
-        const rowSubModule = rows[i][2];
-
-        // Faculty name: new faculty starts when name cell is non-empty
-        if (rowName !== "") {
-          trackMerge(0, nameStart, i - 1);
-          nameStart = i;
-          curName = rowName;
-          // Reset module + submodule groups on new faculty
-          trackMerge(1, moduleStart, i - 1);
-          moduleStart = i;
-          curModule = rowModule;
-          trackMerge(2, subModuleStart, i - 1);
-          subModuleStart = i;
-          curSubModule = rowSubModule;
-          continue;
-        }
-
-        // Module group changed
-        if (rowModule !== curModule) {
-          trackMerge(1, moduleStart, i - 1);
-          moduleStart = i;
-          curModule = rowModule;
-          // Also reset submodule group
-          trackMerge(2, subModuleStart, i - 1);
-          subModuleStart = i;
-          curSubModule = rowSubModule;
-          continue;
-        }
-
-        // Sub-module group changed within same module
-        if (rowSubModule !== curSubModule) {
-          trackMerge(2, subModuleStart, i - 1);
-          subModuleStart = i;
-          curSubModule = rowSubModule;
-        }
-      }
-      // Close final groups
-      trackMerge(0, nameStart, rows.length - 1);
-      trackMerge(1, moduleStart, rows.length - 1);
-      trackMerge(2, subModuleStart, rows.length - 1);
-
       ws["!merges"] = merges;
 
       // Column widths
