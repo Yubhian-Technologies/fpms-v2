@@ -1037,12 +1037,12 @@ export default function Dashboard() {
 
         const wb = XLSX.utils.book_new();
         const HEADERS = [
-          "Name of the Faculty", "Modules", "Sub Modules", "Tasks",
+          "S.No", "Name of the Faculty", "Modules", "Sub Modules", "Tasks",
           "Points", "Points Claimed", "Points given by Reviewer",
           "Appeal Points", "Final Points", "Total Points",
         ];
         const COL_WIDTHS = [
-          { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 }, { wch: 8 },
+          { wch: 6 }, { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 }, { wch: 8 },
           { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
         ];
 
@@ -1053,10 +1053,11 @@ export default function Dashboard() {
             if (r2 > r1) merges.push({ s: { r: r1, c }, e: { r: r2, c } });
           };
 
+          let sno = 1;
           for (const person of staffArr) {
             const subs: any[] = person.subs || [];
             if (subs.length === 0) {
-              rows.push([person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
+              rows.push([sno++, person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
               continue;
             }
             const totalFinal = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
@@ -1089,6 +1090,7 @@ export default function Dashboard() {
                 smSubs.forEach((sub: any, smIdx: number) => {
                   const isLast = sub === subs[subs.length - 1];
                   rows.push([
+                    isFirstFacultyRow ? sno : "",
                     isFirstFacultyRow ? person.name : "",
                     isFirstInCriteria ? criteriaKey : "",
                     smIdx === 0 ? smKey : "",
@@ -1103,11 +1105,13 @@ export default function Dashboard() {
                   isFirstFacultyRow = false;
                   isFirstInCriteria = false;
                 });
-                addMerge(2, smRowStart, rows.length - 1);
+                addMerge(3, smRowStart, rows.length - 1);
               }
-              addMerge(1, criteriaRowStart, rows.length - 1);
+              addMerge(2, criteriaRowStart, rows.length - 1);
             }
             addMerge(0, facultyRowStart, rows.length - 1);
+            addMerge(1, facultyRowStart, rows.length - 1);
+            sno++;
           }
           return { rows, merges };
         };

@@ -560,6 +560,7 @@ export default function Faculty() {
 
       const rows: any[][] = [];
       const headers = [
+        "S.No",
         "Name of the Faculty",
         "Modules",
         "Sub Modules",
@@ -578,9 +579,10 @@ export default function Faculty() {
         if (r2 > r1) merges.push({ s: { r: r1, c }, e: { r: r2, c } });
       };
 
+      let sno = 1;
       for (const faculty of reportData) {
         if (faculty.subs.length === 0) {
-          rows.push([faculty.name, "-", "-", "-", "-", "-", "-", "-", "-"]);
+          rows.push([sno++, faculty.name, "-", "-", "-", "-", "-", "-", "-", "-"]);
           continue;
         }
 
@@ -600,7 +602,7 @@ export default function Faculty() {
           ([key, subs]) => ({ key, subs }),
         );
 
-        const facultyRowStart = rows.length; // 0-based row index in sheet
+        const facultyRowStart = rows.length;
         let isFirstFacultyRow = true;
 
         criteriaGroups.forEach(({ key, subs }) => {
@@ -620,6 +622,7 @@ export default function Faculty() {
             smSubs.forEach((sub, smIdx) => {
               const isLast = sub === faculty.subs[faculty.subs.length - 1];
               rows.push([
+                isFirstFacultyRow ? sno : "",
                 isFirstFacultyRow ? faculty.name : "",
                 isFirstInCriteria ? key : "",
                 smIdx === 0 ? smKey : "",
@@ -634,16 +637,18 @@ export default function Faculty() {
               isFirstFacultyRow = false;
               isFirstInCriteria = false;
             });
-            // Merge col C for this sub-module group
-            addMerge(2, subModuleRowStart, rows.length - 1);
+            // Merge col D for this sub-module group
+            addMerge(3, subModuleRowStart, rows.length - 1);
           }
 
-          // Merge col B for this criteria group
-          addMerge(1, criteriaRowStart, rows.length - 1);
+          // Merge col C for this criteria group
+          addMerge(2, criteriaRowStart, rows.length - 1);
         });
 
-        // Merge col A for this faculty
+        // Merge col A (S.No) and col B (name) for this faculty
         addMerge(0, facultyRowStart, rows.length - 1);
+        addMerge(1, facultyRowStart, rows.length - 1);
+        sno++;
       }
 
       const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -651,7 +656,7 @@ export default function Faculty() {
 
       // Column widths
       ws["!cols"] = [
-        { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 35 }, { wch: 8 },
+        { wch: 6 }, { wch: 30 }, { wch: 25 }, { wch: 25 }, { wch: 35 }, { wch: 8 },
         { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
       ];
 
