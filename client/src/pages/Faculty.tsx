@@ -450,7 +450,8 @@ export default function Faculty() {
           if (!designation) {
             error += "Designation missing. ";
           } else if (!validDesignationNames.includes(designation.toLowerCase())) {
-            error += `Designation "${designation}" is not valid for this college. `;
+            const validList = designations.map((d) => d.name).join(", ");
+            error += `Designation "${designation}" is not valid. Valid: ${validList}. `;
           }
 
           return {
