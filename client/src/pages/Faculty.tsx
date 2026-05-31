@@ -584,7 +584,7 @@ export default function Faculty() {
           rows.push([
             idx === 0 ? faculty.name : "",
             sub.criteriaName || sub.formTitle || "-",
-            sub.moduleName || sub.taskName || sub.criteriaName || "-",
+            sub.taskName || sub.moduleName || "-",
             sub.maxMarks ?? "-",
             sub.claimedScore ?? "-",
             sub.reviewerScore ?? "-",
