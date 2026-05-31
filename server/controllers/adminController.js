@@ -2360,10 +2360,9 @@ export const exportPrincipalReport = async (req, res) => {
     // Group: deans → own sheet, rest → by department
     const deans = staff.filter((s) => isDean(s.role));
     const byDept = {};
-    staff.filter((s) => !isDean(s.role)).forEach((s) => {
-      const dept = s.department || "No Department";
-      if (!byDept[dept]) byDept[dept] = [];
-      byDept[dept].push(s);
+    staff.filter((s) => !isDean(s.role) && s.department).forEach((s) => {
+      if (!byDept[s.department]) byDept[s.department] = [];
+      byDept[s.department].push(s);
     });
 
     return res.json({
