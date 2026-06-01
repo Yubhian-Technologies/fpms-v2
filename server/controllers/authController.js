@@ -61,10 +61,18 @@ const isPrincipalRole = (value) => {
   return normalized === "principle";
 };
 
+const isDirectorRole = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "director";
+};
+
 const isVicePrincipalRole = (value) => {
   const normalized = normalizeAdminManagementRole(value);
   return normalized === "vice principle";
 };
+
+const isAdminLevelRole = (value) =>
+  isPrincipalRole(value) || isVicePrincipalRole(value) || isDirectorRole(value);
 
 const inferRoleFromTokenContext = async (decodedToken) => {
   if (decodedToken?.committeeMember) return "committee";
@@ -1314,10 +1322,7 @@ export const addAdmin = async (req, res) => {
     const normalizedExperience = Number(experience);
     const normalizedRole = normalizeAdminManagementRole(role || "principle");
 
-    if (
-      !isPrincipalRole(normalizedRole) &&
-      !isVicePrincipalRole(normalizedRole)
-    ) {
+    if (!isAdminLevelRole(normalizedRole)) {
       return res.status(400).json({
         success: false,
         message: "Invalid role",
@@ -1503,12 +1508,7 @@ export const getAllAdmins = async (req, res) => {
         id: doc.id,
         ...doc.data(),
       }))
-      .filter((item) => {
-        const normalizedRole = normalizeAdminManagementRole(item.role || "");
-        return (
-          isPrincipalRole(normalizedRole) || isVicePrincipalRole(normalizedRole)
-        );
-      });
+      .filter((item) => isAdminLevelRole(item.role || ""));
 
     return res.json({
       success: true,
@@ -1605,7 +1605,7 @@ export const updateAdmin = async (req, res) => {
       role !== undefined ? role : currentData.role || "principle",
     );
 
-    if (!isPrincipalRole(resolvedRole) && !isVicePrincipalRole(resolvedRole)) {
+    if (!isAdminLevelRole(resolvedRole)) {
       return res.status(400).json({
         success: false,
         message: "Invalid role",

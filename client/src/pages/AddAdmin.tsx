@@ -119,53 +119,51 @@ export default function AddPrincipal() {
     );
   };
 
+  const isDirectorRole = (value: string) => normalizeRole(value) === "director";
+
+  const isAdminLevelRole = (value: string) =>
+    isPrincipalRole(value) || isVicePrincipalRole(value) || isDirectorRole(value);
+
   const formatRoleForUi = (value: string) => {
     const normalized = normalizeRole(value);
-    if (normalized === "principle") return "principal";
+    if (normalized === "principle") return "Principal";
     if (
       normalized === "vice principle" ||
       normalized === "vice-principal" ||
       normalized === "viceprincipal"
     ) {
-      return "vice principal";
+      return "Vice Principal";
     }
+    if (normalized === "director") return "Director";
     return String(value || "");
   };
 
-  const principalRoleOption =
-    roleOptions.find((item) => isPrincipalRole(item.name)) ?? null;
-  const lockedRoleName = principalRoleOption?.name || "principle";
-  const lockedRoleDisplayName = formatRoleForUi(lockedRoleName);
-  const lockedRoleLevel = Number(principalRoleOption?.level ?? 1);
+  // All admin-level roles available for selection
+  const adminRoleOptions = roleOptions.filter((item) => isAdminLevelRole(item.name));
 
-  const occupiedCollegeNames = new Set(
+  // Only one principal per college; directors can share a college
+  const occupiedPrincipalColleges = new Set(
     principals
-      .map((principal) =>
-        String(principal.college || "")
-          .trim()
-          .toLowerCase(),
-      )
+      .filter((p) => isPrincipalRole(p.role || ""))
+      .map((p) => String(p.college || "").trim().toLowerCase())
       .filter(Boolean),
   );
 
   const availableCollegeOptions = collegeOptions.filter((college) => {
-    const normalizedCollegeName = String(college.name || "")
-      .trim()
-      .toLowerCase();
-
+    const normalizedCollegeName = String(college.name || "").trim().toLowerCase();
     if (!normalizedCollegeName) return false;
 
+    const selectedRoleIsDirector = isDirectorRole(formData.role);
+    if (selectedRoleIsDirector) return true; // directors not restricted by college
+
     if (editingId) {
-      const editingCollegeName = String(formData.college || "")
-        .trim()
-        .toLowerCase();
+      const editingCollegeName = String(formData.college || "").trim().toLowerCase();
       return (
-        !occupiedCollegeNames.has(normalizedCollegeName) ||
+        !occupiedPrincipalColleges.has(normalizedCollegeName) ||
         normalizedCollegeName === editingCollegeName
       );
     }
-
-    return !occupiedCollegeNames.has(normalizedCollegeName);
+    return !occupiedPrincipalColleges.has(normalizedCollegeName);
   });
 
   const roleNames = Array.from(new Set(roleOptions.map((item) => item.name)));
@@ -187,11 +185,7 @@ export default function AddPrincipal() {
           ...item,
           hasPhD: item.hasPhD ?? item.hasPhd ?? false,
         }))
-        .filter(
-          (item: any) =>
-            isPrincipalRole(item.role || "") &&
-            !isVicePrincipalRole(item.role || ""),
-        );
+        .filter((item: any) => isAdminLevelRole(item.role || ""));
       setPrincipals(normalized);
     } catch {
       toast({ title: "Failed to load principals", variant: "destructive" });
@@ -232,14 +226,16 @@ export default function AddPrincipal() {
   }, []);
 
   const resetForm = () => {
+    const defaultRole = adminRoleOptions[0]?.name || "principle";
+    const defaultLevel = Number(adminRoleOptions[0]?.level ?? 1);
     setFormData({
       name: "",
       email: "",
       phone: "",
       password: "",
       college: "",
-      role: lockedRoleName,
-      level: lockedRoleLevel,
+      role: defaultRole,
+      level: defaultLevel,
       dateOfJoining: "",
       experience: "",
       hasPhD: false,
@@ -268,8 +264,8 @@ export default function AddPrincipal() {
       phone: principal.phone || "",
       password: "",
       college: principal.college,
-      role: lockedRoleName,
-      level: lockedRoleLevel,
+      role: principal.role || adminRoleOptions[0]?.name || "principle",
+      level: Number(principal.level ?? adminRoleOptions[0]?.level ?? 1),
       dateOfJoining: joiningDate,
       experience: joiningDate
         ? String(calculateExperience(joiningDate))
@@ -307,11 +303,9 @@ export default function AddPrincipal() {
       return;
     }
 
-    if (!editingId) {
-      const selectedCollege = String(formData.college || "")
-        .trim()
-        .toLowerCase();
-      if (selectedCollege && occupiedCollegeNames.has(selectedCollege)) {
+    if (!editingId && isPrincipalRole(formData.role)) {
+      const selectedCollege = String(formData.college || "").trim().toLowerCase();
+      if (selectedCollege && occupiedPrincipalColleges.has(selectedCollege)) {
         toast({
           title: "Principal already exists",
           description: "Selected college already has a principal.",
@@ -343,13 +337,14 @@ export default function AddPrincipal() {
     setIsSaving(true);
 
     try {
+      const selectedRole = adminRoleOptions.find((r) => r.name === formData.role);
       const payload = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         college: formData.college,
-        role: lockedRoleName,
-        level: lockedRoleLevel,
+        role: formData.role,
+        level: Number(selectedRole?.level ?? formData.level),
         password: formData.password || undefined,
         dateOfJoining: formData.dateOfJoining || undefined,
         experience: Number(formData.experience),
@@ -358,10 +353,10 @@ export default function AddPrincipal() {
 
       if (editingId) {
         await api.put(`/api/committee/update/${editingId}`, payload);
-        toast({ title: "Principal updated successfully" });
+        toast({ title: `${formatRoleForUi(formData.role)} updated successfully` });
       } else {
         await api.post("/api/committee/admin-add", payload);
-        toast({ title: "Principal added successfully" });
+        toast({ title: `${formatRoleForUi(formData.role)} added successfully` });
       }
 
       await fetchPrincipals();
@@ -400,18 +395,18 @@ export default function AddPrincipal() {
 
   return (
     <DashboardLayout
-      title="Add Principal"
-      subtitle="Manage principals by college"
+      title="Add Admin"
+      subtitle="Manage principals and directors by college"
     >
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Principal Management</h1>
-            <p className="text-muted-foreground">Add and manage principals</p>
+            <h1 className="text-2xl font-bold">Admin Management</h1>
+            <p className="text-muted-foreground">Add and manage principals and directors</p>
           </div>
           {!isAddingPrincipal && (
             <Button onClick={startNewPrincipal}>
-              <Plus className="mr-2 h-4 w-4" /> Add Principal
+              <Plus className="mr-2 h-4 w-4" /> Add Admin
             </Button>
           )}
         </div>
@@ -420,7 +415,7 @@ export default function AddPrincipal() {
           <Card className="border-2 border-primary">
             <CardHeader>
               <CardTitle>
-                {editingId ? "Edit Principal" : "Add Principal"}
+                {editingId ? `Edit ${formatRoleForUi(formData.role)}` : "Add Admin"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -485,11 +480,28 @@ export default function AddPrincipal() {
                 </div>
                 <div className="space-y-2">
                   <Label>Role *</Label>
-                  <Input value={lockedRoleDisplayName} disabled />
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value) => {
+                      const opt = adminRoleOptions.find((r) => r.name === value);
+                      setFormData({ ...formData, role: value, level: Number(opt?.level ?? formData.level) });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {adminRoleOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.name}>
+                          {formatRoleForUi(opt.name)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Level *</Label>
-                  <Input value={String(lockedRoleLevel)} disabled />
+                  <Input value={String(formData.level)} disabled className="bg-muted" />
                 </div>
                 <div className="space-y-2">
                   <Label>Date of Joining *</Label>
@@ -529,7 +541,7 @@ export default function AddPrincipal() {
                       }
                       className="h-4 w-4"
                     />
-                    <span className="text-sm">Principal has completed PhD</span>
+                    <span className="text-sm">Has completed PhD</span>
                   </label>
                 </div>
                 <div className="space-y-2">
@@ -608,7 +620,7 @@ export default function AddPrincipal() {
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : null}
-                  {isSaving ? "Saving..." : "Save Principal"}
+                  {isSaving ? "Saving..." : editingId ? "Update" : "Save"}
                 </Button>
               </div>
             </CardContent>
@@ -620,7 +632,7 @@ export default function AddPrincipal() {
             <CardContent className="p-6 flex gap-4">
               <Users className="h-5 w-5" />
               <div>
-                <p>Total Principals</p>
+                <p>Total Admins</p>
                 <p className="text-2xl font-bold">{principals.length}</p>
               </div>
             </CardContent>
@@ -646,7 +658,7 @@ export default function AddPrincipal() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Principals</CardTitle>
+            <CardTitle>Admins</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
