@@ -60,7 +60,7 @@ const normalizeRoleForAccess = (role?: string) => {
     .toLowerCase();
 
   if (value.startsWith("dean")) return "dean";
-  if (value === "principal" || value === "principle" || value === "admin") {
+  if (value === "principal" || value === "principle" || value === "admin" || value === "director") {
     return "principal";
   }
   if (value === "internal committee" || value === "internal commitee") {
