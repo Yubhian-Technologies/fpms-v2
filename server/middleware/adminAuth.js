@@ -5,7 +5,8 @@ const isPrincipalRole = (value) => {
   return (
     normalized === "admin" ||
     normalized === "principle" ||
-    normalized === "principal"
+    normalized === "principal" ||
+    normalized === "director"
   );
 };
 
@@ -27,11 +28,11 @@ const isPrincipalOrVicePrincipalRole = (value) =>
   isPrincipalRole(value) || isVicePrincipalRole(value);
 
 const normalizeAdminRole = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "director") return "director";
   if (isPrincipalRole(value)) return "principle";
   if (isVicePrincipalRole(value)) return "vice principle";
-  return String(value || "")
-    .trim()
-    .toLowerCase();
+  return normalized;
 };
 
 export const adminAuth = async (req, res, next) => {

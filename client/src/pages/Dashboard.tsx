@@ -204,7 +204,8 @@ export default function Dashboard() {
           await personalFetch();
         } else if (
           user.role === "principle" ||
-          user.role === "vice principle"
+          user.role === "vice principle" ||
+          user.role === "director"
         ) {
           const res = await api.get("/api/admin/college-dashboard", {
             headers: { "x-user-id": user.uid, "x-user-role": user.role },
@@ -817,14 +818,14 @@ export default function Dashboard() {
   }
 
   if (
-    ["committee", "principle", "vice principle", "hod", "internal committee"].includes(
+    ["committee", "principle", "vice principle", "director", "hod", "internal committee"].includes(
       user?.role || "",
     )
   ) {
     const isHod = user?.role === "hod";
     const isInternalCommittee = user?.role === "internal committee";
     const isDean =
-      user?.role === "principle" || user?.role === "vice principle" || isInternalCommittee;
+      user?.role === "principle" || user?.role === "vice principle" || user?.role === "director" || isInternalCommittee;
 
     const groupedData = staffList
       .filter((staff: any) =>
@@ -1149,9 +1150,11 @@ export default function Dashboard() {
             ? "Principal View"
             : user.role === "vice principle"
               ? "Vice Principal View"
-              : user.role === "hod"
-                ? "HOD View"
-                : "Committee View"
+              : user.role === "director"
+                ? "Director View"
+                : user.role === "hod"
+                  ? "HOD View"
+                  : "Committee View"
         }
       >
         {user?.role !== "committee" && (
@@ -1432,7 +1435,7 @@ export default function Dashboard() {
 
                     const isLeaderRole = (role: string) => {
                       const r = String(role || "").toLowerCase().trim();
-                      return r === "principle" || r === "vice principle" || r.startsWith("dean");
+                      return r === "principle" || r === "vice principle" || r === "director" || r.startsWith("dean");
                     };
                     const leaders = detailStaff.filter((s: any) => isLeaderRole(s.role));
                     const deptStaff = detailStaff.filter((s: any) => !isLeaderRole(s.role));
@@ -2352,7 +2355,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {["committee", "principle", "vice principle", "hod", "internal committee"].includes(
+        {["committee", "principle", "vice principle", "director", "hod", "internal committee"].includes(
           user?.role || "",
         ) && (
           <div className="mt-10 mb-10 bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden">
