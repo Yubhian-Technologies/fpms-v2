@@ -105,7 +105,19 @@ export const adminAuth = async (req, res, next) => {
   try {
     const decodedFirebase = await auth.verifyIdToken(token);
     const firebaseRole = decodedFirebase.role || decodedFirebase.claims?.role;
-    const isPrincipal = isPrincipalOrVicePrincipalRole(firebaseRole);
+
+    // Always fetch Firestore doc — used for role fallback + college lookup
+    let userDocData = null;
+    try {
+      const userDoc = await db.collection("users").doc(decodedFirebase.uid).get();
+      if (userDoc.exists) userDocData = userDoc.data() || null;
+    } catch (docError) {}
+
+    // Resolve role: prefer Firestore (source of truth) over stale JWT claims
+    const resolvedFirestoreRole = userDocData?.role || firebaseRole || "";
+
+    const isPrincipal = isPrincipalOrVicePrincipalRole(resolvedFirestoreRole);
+    const isDirector = String(resolvedFirestoreRole || "").trim().toLowerCase() === "director";
     const hasPrincipalOrViceClaim = Boolean(
       decodedFirebase.principal ||
       decodedFirebase.vicePrincipal ||
@@ -113,9 +125,10 @@ export const adminAuth = async (req, res, next) => {
       decodedFirebase.claims?.vicePrincipal,
     );
     const isInternalCommittee =
-      String(firebaseRole || "").toLowerCase().includes("internal committee") ||
-      Boolean(decodedFirebase.internalCommittee || decodedFirebase.claims?.internalCommittee);
-    const isAuthorizedAdmin = isPrincipal || hasPrincipalOrViceClaim || isInternalCommittee;
+      String(resolvedFirestoreRole || "").toLowerCase().includes("internal committee") ||
+      Boolean(decodedFirebase.internalCommittee || decodedFirebase.claims?.internalCommittee) ||
+      Boolean(userDocData?.internalCommittee);
+    const isAuthorizedAdmin = isPrincipal || isDirector || hasPrincipalOrViceClaim || isInternalCommittee;
 
     if (!isAuthorizedAdmin) {
       return res.status(403).json({
@@ -123,15 +136,6 @@ export const adminAuth = async (req, res, next) => {
         message: "Principal/Vice Principal access only",
       });
     }
-
-    let userDocData = null;
-    try {
-      const userDoc = await db
-        .collection("users")
-        .doc(decodedFirebase.uid)
-        .get();
-      if (userDoc.exists) userDocData = userDoc.data() || null;
-    } catch (docError) {}
 
     // College lives in "admins" collection, not "users"
     let adminCollege =
@@ -183,7 +187,7 @@ export const adminAuth = async (req, res, next) => {
       id: decodedFirebase.uid,
       uid: decodedFirebase.uid,
       email: decodedFirebase.email,
-      role: normalizeAdminRole(firebaseRole),
+      role: normalizeAdminRole(resolvedFirestoreRole),
       college: adminCollege,
       department:
         decodedFirebase.department ||
