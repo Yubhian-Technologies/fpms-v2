@@ -222,7 +222,7 @@ export default function AddDean() {
           String(item.role || "")
             .trim()
             .toLowerCase()
-            .startsWith("dean"),
+            .includes("dean"),
         );
       setDeans(normalized);
     } catch {

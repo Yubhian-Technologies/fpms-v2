@@ -1435,7 +1435,7 @@ export default function Dashboard() {
 
                     const isLeaderRole = (role: string) => {
                       const r = String(role || "").toLowerCase().trim();
-                      return r === "principle" || r === "vice principle" || r === "director" || r.startsWith("dean");
+                      return r === "principle" || r === "vice principle" || r === "director" || r.includes("dean");
                     };
                     const leaders = detailStaff.filter((s: any) => isLeaderRole(s.role));
                     const deptStaff = detailStaff.filter((s: any) => !isLeaderRole(s.role));
@@ -1718,7 +1718,7 @@ export default function Dashboard() {
                   {(() => {
                     const deans = staffList.filter((s: any) => {
                       const r = String(s.role || "").toLowerCase();
-                      return r.startsWith("dean") || (!s.department && r !== "hod" && r !== "faculty");
+                      return r.includes("dean") || (!s.department && r !== "hod" && r !== "faculty");
                     });
                     if (deans.length === 0) return null;
                     return (

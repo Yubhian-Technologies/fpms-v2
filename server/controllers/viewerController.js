@@ -42,7 +42,7 @@ export const getViewerStats = async (req, res) => {
 
     // Roles that are system/admin accounts — excluded from all stats
     const excludedRoles = new Set(["committee", "viewer", "superadmin", "internal committee"]);
-    const isDeanRole = (r) => String(r || "").trim().toLowerCase().startsWith("dean");
+    const isDeanRole = (r) => String(r || "").trim().toLowerCase().includes("dean");
 
     // Build enriched staff list — skip accounts with no college and system roles
     const staff = usersSnap.docs

@@ -4,7 +4,7 @@ const isDeanRole = (value) => {
   const normalized = String(value || "")
     .trim()
     .toLowerCase();
-  return normalized === "dean" || normalized.startsWith("dean");
+  return normalized === "dean" || normalized.includes("dean");
 };
 
 export const deanAuth = async (req, res, next) => {

@@ -13,7 +13,7 @@ const isDeanRole = (value) =>
   String(value || "")
     .trim()
     .toLowerCase()
-    .startsWith("dean");
+    .includes("dean");
 
 const isHodRole = (value) => {
   const normalized = String(value || "")
@@ -304,7 +304,7 @@ export const addDean = async (req, res) => {
     if (!isDeanRole(normalizedRole)) {
       return res.status(400).json({
         success: false,
-        message: "Role must start with Dean",
+        message: "Role must include Dean",
       });
     }
 
@@ -1717,7 +1717,7 @@ export const updateDean = async (req, res) => {
       if (!normalizedRole || !isDeanRole(normalizedRole)) {
         return res.status(400).json({
           success: false,
-          message: "Role must start with Dean",
+          message: "Role must include Dean",
         });
       }
       updateData.role = normalizedRole;
@@ -2355,7 +2355,7 @@ export const exportPrincipalReport = async (req, res) => {
       })
       .filter(Boolean);
 
-    const isDean = (role) => String(role || "").toLowerCase().startsWith("dean");
+    const isDean = (role) => String(role || "").toLowerCase().includes("dean");
 
     // Group: deans → own sheet, rest → by department
     const deans = staff.filter((s) => isDean(s.role));
