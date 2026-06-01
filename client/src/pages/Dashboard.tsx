@@ -90,6 +90,7 @@ export default function Dashboard() {
   const [selectedCriteria, setSelectedCriteria] = useState<string>("All");
   const [selectedModule, setSelectedModule] = useState<string>("All");
   const [selectedCollegeDetail, setSelectedCollegeDetail] = useState<string | null>(null);
+  const [collegeDetailStaff, setCollegeDetailStaff] = useState<any[]>([]);
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [viewerStats, setViewerStats] = useState<any>(null);
@@ -1358,9 +1359,23 @@ export default function Dashboard() {
                         ? "border-primary shadow-md"
                         : "border-border hover:border-primary/40"
                     }`}
-                    onClick={() =>
-                      setSelectedCollegeDetail(isSelected ? null : collegeName)
-                    }
+                    onClick={async () => {
+                      if (isSelected) {
+                        setSelectedCollegeDetail(null);
+                        setCollegeDetailStaff([]);
+                      } else {
+                        setSelectedCollegeDetail(collegeName);
+                        try {
+                          const r = await api.get("/api/auth/dashboard-data", {
+                            params: { college: collegeName },
+                            headers: { "x-user-id": user.uid, "x-user-role": user.role },
+                          });
+                          setCollegeDetailStaff(r.data?.data?.staff || []);
+                        } catch {
+                          setCollegeDetailStaff(staffList.filter((s: any) => s.college === collegeName));
+                        }
+                      }
+                    }}
                   >
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-start gap-2 text-base">
@@ -1412,11 +1427,9 @@ export default function Dashboard() {
                         {selectedCollegeDetail}
                       </CardTitle>
                       <CardDescription>
-                        {staffList.filter(
-                          (s: any) =>
-                            (s.college || "Unknown College") === selectedCollegeDetail &&
-                            s.role !== "committee",
-                        ).length}{" "}
+                        {(collegeDetailStaff.length > 0 ? collegeDetailStaff : staffList.filter(
+                          (s: any) => (s.college || "Unknown College") === selectedCollegeDetail,
+                        )).filter((s: any) => s.role !== "committee").length}{" "}
                         staff — departments &amp; leadership
                       </CardDescription>
                     </div>
@@ -1427,11 +1440,9 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {(() => {
-                    const detailStaff = staffList.filter(
-                      (s: any) =>
-                        (s.college || "Unknown College") === selectedCollegeDetail &&
-                        s.role !== "committee",
-                    );
+                    const detailStaff = (collegeDetailStaff.length > 0 ? collegeDetailStaff : staffList.filter(
+                      (s: any) => (s.college || "Unknown College") === selectedCollegeDetail,
+                    )).filter((s: any) => s.role !== "committee");
 
                     const isLeaderRole = (role: string) => {
                       const r = String(role || "").toLowerCase().trim();

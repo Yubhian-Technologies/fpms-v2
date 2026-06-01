@@ -2261,12 +2261,13 @@ export const getCommitteeDashboard = async (req, res) => {
     // Fetch users — scoped to college when provided, hard-capped to prevent OOM
     let usersQuery = db.collection("users");
     if (filterCollege) usersQuery = usersQuery.where("college", "==", filterCollege);
-    const usersSnap = await usersQuery.limit(500).get();
+    // No limit when scoped to a specific college; cap at 1000 for all-college view
+    const usersSnap = await (filterCollege ? usersQuery : usersQuery.limit(1000)).get();
 
     // Fetch submissions — scoped to college when provided
     let subsQuery = db.collection("submissions");
     if (filterCollege) subsQuery = subsQuery.where("college", "==", filterCollege);
-    const submissionsSnap = await subsQuery.limit(2000).get();
+    const submissionsSnap = await (filterCollege ? subsQuery : subsQuery.limit(3000)).get();
 
     const submissionsMap = new Map();
     submissionsSnap.docs.forEach((doc) => {
