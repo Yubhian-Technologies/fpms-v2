@@ -36,12 +36,17 @@ import {
   AlertCircle,
   BarChart2,
   FileSpreadsheet,
+  Search,
+  TrendingUp,
+  CircleCheck,
+  CircleDot,
 } from "lucide-react";
 import { api } from "@/api/api";
 import { formatRoleLabel } from "@/lib/utils";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { DeadlineAlert } from "@/components/dashboard/DeadlineAlert";
@@ -93,6 +98,7 @@ export default function Dashboard() {
   const [collegeDetailStaff, setCollegeDetailStaff] = useState<any[]>([]);
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
+  const [hodSearch, setHodSearch] = useState<string>("");
   const [viewerStats, setViewerStats] = useState<any>(null);
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
@@ -1880,491 +1886,215 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── HOD: Department Staff Overview ── */}
+        {/* ── HOD: Department Faculty Dashboard ── */}
         {isHod && (
-          <Card className="shadow-sm rounded-xl overflow-hidden mt-8 mb-10">
-            <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-primary/5 to-primary/10">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                  <Building className="h-5 w-5 text-primary" />
-                  {isHod
-                    ? "Department Staff Overview"
-                    : "College → Role → Staff Overview"}
-                </CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  {isHod
-                    ? "Browse staff members in your department and their submissions"
-                    : "Browse institutions, roles, staff, and their detailed submissions with counts"}
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Accordion type="single" collapsible className="divide-y">
-              {Object.entries(groupedData).map(([collegeName, roles]: any) => {
-                const collegeStaffCount = (
-                  Object.values(roles) as any[]
-                ).reduce(
-                  (sum: number, staffArray: any) => sum + staffArray.length,
-                  0,
-                );
-                const collegeRolesCount = Object.keys(roles).length;
-                return (
-                  <AccordionItem key={collegeName} value={collegeName}>
-                    <AccordionTrigger className="px-6 py-4 text-xl font-bold hover:bg-muted/50 transition-colors data-[state=open]:bg-muted/30">
-                      <div className="flex justify-between w-full pr-4">
-                        <span>{collegeName}</span>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Users className="h-4 w-4" /> {collegeRolesCount}{" "}
-                            Roles
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <User className="h-4 w-4" /> {collegeStaffCount}{" "}
-                            Staff
-                          </span>
+          <div className="mt-8 mb-10 space-y-6">
+            {/* Header */}
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Department Faculty Overview
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {user?.department} · {staffList.length} faculty member{staffList.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            {/* Summary Stat Cards */}
+            {(() => {
+              const totalFaculty = staffList.length;
+              const submitted = staffList.filter((f: any) => (f.submissions?.length || 0) > 0).length;
+              const targetReached = staffList.filter((f: any) => {
+                if (!f.designationTarget) return false;
+                const score = (f.submissions || []).reduce((sum: number, s: any) => sum + (s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+                return score >= Number(f.designationTarget);
+              }).length;
+              const pendingReview = staffList.filter((f: any) =>
+                (f.submissions || []).some((s: any) => s.status === "submitted")
+              ).length;
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <Users className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{totalFaculty}</p>
+                          <p className="text-xs text-muted-foreground">Total Faculty</p>
                         </div>
                       </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-6 pt-4 bg-background">
-                      <Accordion type="single" collapsible className="divide-y">
-                        {Object.entries(roles).map(
-                          ([roleName, staffArray]: any) => {
-                            const roleStaffCount = staffArray.length;
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-500/10">
+                          <FileText className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{submitted}</p>
+                          <p className="text-xs text-muted-foreground">Submitted</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-green-500/10">
+                          <TrendingUp className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{targetReached}</p>
+                          <p className="text-xs text-muted-foreground">Target Reached</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-amber-500/10">
+                          <CircleDot className="h-5 w-5 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{pendingReview}</p>
+                          <p className="text-xs text-muted-foreground">Pending Review</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
+
+            {/* Faculty Table */}
+            <Card className="shadow-sm rounded-xl overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between gap-4 bg-gradient-to-r from-primary/5 to-primary/10">
+                <div>
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <Building className="h-5 w-5 text-primary" />
+                    Faculty Details
+                  </CardTitle>
+                  <CardDescription>Submission scores and status for each faculty member</CardDescription>
+                </div>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search faculty..."
+                    value={hodSearch}
+                    onChange={(e) => setHodSearch(e.target.value)}
+                    className="pl-9 bg-background"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {(() => {
+                  const filtered = staffList.filter((f: any) =>
+                    !hodSearch || (f.name || f.email || "").toLowerCase().includes(hodSearch.toLowerCase()) ||
+                    (f.designation || "").toLowerCase().includes(hodSearch.toLowerCase())
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-16 text-center text-muted-foreground">
+                        <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">No faculty found</p>
+                        {hodSearch && <p className="text-sm mt-1">Try a different search term</p>}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/40">
+                            <th className="text-left px-5 py-3 font-semibold text-muted-foreground w-10">#</th>
+                            <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Name</th>
+                            <th className="text-left px-5 py-3 font-semibold text-muted-foreground">Designation</th>
+                            <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Submissions</th>
+                            <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Score</th>
+                            <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Target</th>
+                            <th className="text-center px-5 py-3 font-semibold text-muted-foreground">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {filtered.map((faculty: any, idx: number) => {
+                            const subs = faculty.submissions || [];
+                            const totalSubs = subs.length;
+                            const finalScore = subs.reduce((sum: number, s: any) => sum + (s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+                            const maxScore = subs.reduce((sum: number, s: any) => sum + (s.maxMarks ?? 0), 0);
+                            const target = faculty.designationTarget ? Number(faculty.designationTarget) : null;
+                            const targetReached = target !== null && finalScore >= target;
+                            const hasAccepted = subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved");
+                            const hasPending = subs.some((s: any) => s.status === "submitted");
+                            const hasAppealed = subs.some((s: any) => s.status === "appealed");
+                            const progress = maxScore > 0 ? Math.min(100, (finalScore / maxScore) * 100) : 0;
+
                             return (
-                              <AccordionItem
-                                key={roleName}
-                                value={`${collegeName}-${roleName}`}
-                              >
-                                <AccordionTrigger className="px-5 py-3 text-lg font-semibold hover:bg-secondary/20 transition-colors data-[state=open]:bg-secondary/10">
-                                  <div className="flex justify-between w-full pr-4">
-                                    <span>{formatRoleLabel(roleName)}</span>
-                                    <Badge
-                                      variant="outline"
-                                      className="text-sm"
-                                    >
-                                      {roleStaffCount} Staff
-                                    </Badge>
+                              <tr key={faculty.id || faculty.uid || idx} className="hover:bg-muted/30 transition-colors">
+                                <td className="px-5 py-3.5 text-muted-foreground">{idx + 1}</td>
+                                <td className="px-5 py-3.5">
+                                  <div className="font-medium">{faculty.name || faculty.email}</div>
+                                  {faculty.email && faculty.name && (
+                                    <div className="text-xs text-muted-foreground">{faculty.email}</div>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3.5 text-muted-foreground">{faculty.designation || "—"}</td>
+                                <td className="px-5 py-3.5 text-center">
+                                  <span className="font-semibold">{totalSubs}</span>
+                                </td>
+                                <td className="px-5 py-3.5">
+                                  <div className="flex flex-col items-center gap-1 min-w-[90px]">
+                                    <span className="font-semibold text-sm">{finalScore}<span className="text-muted-foreground font-normal text-xs">/{maxScore}</span></span>
+                                    {maxScore > 0 && (
+                                      <Progress value={progress} className="h-1.5 w-20" />
+                                    )}
                                   </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="px-5 pb-4 bg-background">
-                                  <Accordion type="single" collapsible>
-                                    {staffArray.map((staff: any) => {
-                                      const staffSubmissionsCount =
-                                        staff.submissions?.length || 0;
-                                      let staffTotalFinal = 0;
-                                      let staffTotalMax = 0;
-                                      let staffTotalClaimed = 0;
-                                      let staffTotalReviewer = 0;
-                                      let staffAppealedCount = 0;
-                                      let staffCompletedCount = 0;
-
-                                      staff.submissions?.forEach((sub: any) => {
-                                        const effectiveFinal =
-                                          sub.finalScore ??
-                                          sub.reviewerScore ??
-                                          sub.claimedScore ??
-                                          0;
-                                        staffTotalFinal += effectiveFinal;
-                                        staffTotalMax += sub.maxMarks ?? 0;
-                                        staffTotalClaimed +=
-                                          sub.claimedScore ?? 0;
-                                        staffTotalReviewer +=
-                                          sub.reviewerScore ?? 0;
-                                        if (sub.status === "appealed")
-                                          staffAppealedCount++;
-                                        if (
-                                          sub.status === "accepted" ||
-                                          sub.status === "appeal-resolved"
-                                        )
-                                          staffCompletedCount++;
-                                      });
-
-                                      const staffProgress =
-                                        staffTotalMax > 0
-                                          ? (staffTotalFinal / staffTotalMax) *
-                                            100
-                                          : 0;
-                                      const staffCompletionRate =
-                                        staffSubmissionsCount > 0
-                                          ? (staffCompletedCount /
-                                              staffSubmissionsCount) *
-                                            100
-                                          : 0;
-
-                                      // Group submissions by criteria > module
-                                      const groupedSubmissions = (
-                                        staff.submissions || []
-                                      ).reduce((acc: any, sub: any) => {
-                                        const crit =
-                                          sub.criteriaName || "Other Criteria";
-                                        const mod = sub.moduleName || "General";
-
-                                        if (!acc[crit]) acc[crit] = {};
-                                        if (!acc[crit][mod])
-                                          acc[crit][mod] = [];
-                                        acc[crit][mod].push(sub);
-                                        return acc;
-                                      }, {});
-
-                                      return (
-                                        <AccordionItem
-                                          key={staff.id}
-                                          value={staff.id}
-                                          className="my-2"
-                                        >
-                                          <AccordionTrigger className="px-4 py-3 hover:bg-muted/30 rounded-md transition-colors data-[state=open]:bg-muted/20">
-                                            <div className="flex justify-between w-full pr-4">
-                                              <div className="flex items-center gap-3">
-                                                <User className="h-4 w-4 text-muted-foreground" />
-                                                {staff.name}
-                                              </div>
-                                              <Badge
-                                                variant="outline"
-                                                className="text-xs"
-                                              >
-                                                {staffSubmissionsCount}{" "}
-                                                Submissions
-                                              </Badge>
-                                            </div>
-                                          </AccordionTrigger>
-                                          <AccordionContent className="px-4 pt-4 pb-6 bg-background">
-                                            <Accordion
-                                              type="single"
-                                              collapsible
-                                              className="space-y-4"
-                                            >
-                                              <AccordionItem value="details">
-                                                <AccordionTrigger className="text-lg font-semibold flex items-center gap-2">
-                                                  <User className="h-5 w-5 text-primary" />{" "}
-                                                  Staff Details
-                                                </AccordionTrigger>
-                                                <AccordionContent>
-                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm p-4 border rounded-lg shadow-sm bg-card">
-                                                    <div>
-                                                      <span className="font-medium">
-                                                        Name:
-                                                      </span>{" "}
-                                                      {staff.name}
-                                                    </div>
-                                                    <div>
-                                                      <span className="font-medium">
-                                                        Email:
-                                                      </span>{" "}
-                                                      {staff.email}
-                                                    </div>
-                                                    <div>
-                                                      <span className="font-medium">
-                                                        Department:
-                                                      </span>{" "}
-                                                      {staff.department ||
-                                                        "N/A"}
-                                                    </div>
-                                                    <div>
-                                                      <span className="font-medium">
-                                                        College:
-                                                      </span>{" "}
-                                                      {staff.college}
-                                                    </div>
-                                                    <div>
-                                                      <span className="font-medium">
-                                                        Level:
-                                                      </span>{" "}
-                                                      {staff.level || "N/A"}
-                                                    </div>
-                                                    <div>
-                                                      <span className="font-medium">
-                                                        Role:
-                                                      </span>{" "}
-                                                      {staff.role || "N/A"}
-                                                    </div>
-                                                  </div>
-                                                </AccordionContent>
-                                              </AccordionItem>
-
-                                              {/* ─── Replaced Performance Summary with ScoreOverview ─── */}
-                                              <AccordionItem value="performance">
-                                                <AccordionTrigger className="text-lg font-semibold flex items-center gap-2">
-                                                  <BarChart2 className="h-5 w-5 text-primary" />{" "}
-                                                  Score Overview
-                                                </AccordionTrigger>
-                                                <AccordionContent>
-                                                  <div className="p-4 border rounded-lg shadow-sm bg-card">
-                                                    <ScoreOverview
-                                                      submissions={
-                                                        staff.submissions || []
-                                                      }
-                                                      userTarget={
-                                                        staff.designationTarget ||
-                                                        undefined
-                                                      }
-                                                      targetLabel={getStaffPhdLabel(
-                                                        staff,
-                                                      )}
-                                                    />
-                                                  </div>
-                                                </AccordionContent>
-                                              </AccordionItem>
-
-                                              <AccordionItem value="submissions">
-                                                <AccordionTrigger className="text-lg font-semibold flex items-center gap-2">
-                                                  <Award className="h-5 w-5 text-primary" />{" "}
-                                                  Submissions (
-                                                  {staffSubmissionsCount})
-                                                </AccordionTrigger>
-                                                <AccordionContent>
-                                                  <div className="p-4 border rounded-lg shadow-sm bg-card">
-                                                    <p className="text-sm text-muted-foreground mb-4">
-                                                      Grouped by Criteria and
-                                                      Module with detailed views
-                                                    </p>
-                                                    {Object.keys(
-                                                      groupedSubmissions,
-                                                    ).length === 0 ? (
-                                                      <div className="py-12 text-center text-muted-foreground border border-dashed rounded-lg">
-                                                        No submissions found
-                                                      </div>
-                                                    ) : (
-                                                      <Accordion
-                                                        type="single"
-                                                        collapsible
-                                                        className="space-y-4"
-                                                      >
-                                                        {Object.entries(
-                                                          groupedSubmissions,
-                                                        ).map(
-                                                          ([
-                                                            criteria,
-                                                            modules,
-                                                          ]: any) => {
-                                                            const criteriaModulesCount =
-                                                              Object.keys(
-                                                                modules,
-                                                              ).length;
-                                                            const criteriaSubsCount =
-                                                              (
-                                                                Object.values(
-                                                                  modules,
-                                                                ) as any[]
-                                                              ).reduce(
-                                                                (
-                                                                  sum: number,
-                                                                  subs: any,
-                                                                ) =>
-                                                                  sum +
-                                                                  subs.length,
-                                                                0,
-                                                              );
-                                                            return (
-                                                              <AccordionItem
-                                                                key={criteria}
-                                                                value={criteria}
-                                                              >
-                                                                <AccordionTrigger className="px-6 py-4 text-lg font-semibold hover:bg-muted/50 transition-colors data-[state=open]:bg-muted/30">
-                                                                  <div className="flex justify-between w-full pr-4">
-                                                                    <span>
-                                                                      {criteria}
-                                                                    </span>
-                                                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                                      <span className="flex items-center gap-1">
-                                                                        <BookOpen className="h-4 w-4" />{" "}
-                                                                        {
-                                                                          criteriaModulesCount
-                                                                        }{" "}
-                                                                        Modules
-                                                                      </span>
-                                                                      <span className="flex items-center gap-1">
-                                                                        <File className="h-4 w-4" />{" "}
-                                                                        {
-                                                                          criteriaSubsCount
-                                                                        }{" "}
-                                                                        Submissions
-                                                                      </span>
-                                                                    </div>
-                                                                  </div>
-                                                                </AccordionTrigger>
-                                                                <AccordionContent className="px-6 pb-6 pt-2 bg-background">
-                                                                  <Accordion
-                                                                    type="single"
-                                                                    collapsible
-                                                                    className="space-y-3"
-                                                                  >
-                                                                    {Object.entries(
-                                                                      modules,
-                                                                    ).map(
-                                                                      ([
-                                                                        moduleName,
-                                                                        subs,
-                                                                      ]: any) => {
-                                                                        const moduleSubsCount =
-                                                                          subs.length;
-                                                                        return (
-                                                                          <AccordionItem
-                                                                            key={
-                                                                              moduleName
-                                                                            }
-                                                                            value={`${criteria}-${moduleName}`}
-                                                                          >
-                                                                            <AccordionTrigger className="px-5 py-3 hover:bg-secondary/20 transition-colors data-[state=open]:bg-secondary/10">
-                                                                              <div className="flex justify-between w-full pr-4">
-                                                                                <div className="flex items-center gap-2">
-                                                                                  <BookOpen className="h-4 w-4 text-primary" />
-                                                                                  {
-                                                                                    moduleName
-                                                                                  }
-                                                                                </div>
-                                                                                <Badge
-                                                                                  variant="outline"
-                                                                                  className="ml-2 text-xs"
-                                                                                >
-                                                                                  {
-                                                                                    moduleSubsCount
-                                                                                  }{" "}
-                                                                                  item
-                                                                                  {moduleSubsCount !==
-                                                                                  1
-                                                                                    ? "s"
-                                                                                    : ""}
-                                                                                </Badge>
-                                                                              </div>
-                                                                            </AccordionTrigger>
-                                                                            <AccordionContent className="px-5 pb-5 pt-3 bg-background">
-                                                                              <div className="space-y-4">
-                                                                                {subs.map(
-                                                                                  (
-                                                                                    sub: any,
-                                                                                  ) => {
-                                                                                    const effectiveFinal =
-                                                                                      sub.finalScore ??
-                                                                                      sub.reviewerScore ??
-                                                                                      sub.claimedScore ??
-                                                                                      0;
-                                                                                    const subProgress =
-                                                                                      sub.maxMarks >
-                                                                                      0
-                                                                                        ? (effectiveFinal /
-                                                                                            sub.maxMarks) *
-                                                                                          100
-                                                                                        : 0;
-                                                                                    return (
-                                                                                      <Card
-                                                                                        key={
-                                                                                          sub.id
-                                                                                        }
-                                                                                        className="border shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden"
-                                                                                      >
-                                                                                        <CardHeader className="pb-2 bg-muted/10 px-4 py-3">
-                                                                                          <div className="flex justify-between items-start">
-                                                                                            <CardTitle className="text-base font-semibold">
-                                                                                              {
-                                                                                                sub.taskName
-                                                                                              }
-                                                                                            </CardTitle>
-                                                                                            {/* <Badge
-                                                                              variant={statusConfig[sub.status]?.variant || "outline"}
-                                                                              className="text-xs px-3 py-0.5"
-                                                                            >
-                                                                              {statusConfig[sub.status]?.label || sub.status}
-                                                                            </Badge> */}
-                                                                                          </div>
-                                                                                        </CardHeader>
-                                                                                        <CardContent className="px-4 py-3">
-                                                                                          <div className="space-y-4">
-                                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                                                                                              <p>
-                                                                                                <span className="font-medium">
-                                                                                                  Form:
-                                                                                                </span>{" "}
-                                                                                                {
-                                                                                                  sub.formTitle
-                                                                                                }
-                                                                                              </p>
-                                                                                              <p>
-                                                                                                <span className="font-medium">
-                                                                                                  Claimed:
-                                                                                                </span>{" "}
-                                                                                                {
-                                                                                                  sub.claimedScore
-                                                                                                }
-                                                                                              </p>
-                                                                                              <p>
-                                                                                                <span className="font-medium">
-                                                                                                  Reviewer:
-                                                                                                </span>{" "}
-                                                                                                {sub.reviewerScore ??
-                                                                                                  "—"}
-                                                                                              </p>
-                                                                                              <p>
-                                                                                                <span className="font-medium">
-                                                                                                  Final:
-                                                                                                </span>{" "}
-                                                                                                {sub.finalScore ??
-                                                                                                  sub.reviewerScore ??
-                                                                                                  sub.claimedScore ??
-                                                                                                  "Pending"}
-                                                                                              </p>
-                                                                                              <p>
-                                                                                                <span className="font-medium">
-                                                                                                  Max
-                                                                                                  Marks:
-                                                                                                </span>{" "}
-                                                                                                {
-                                                                                                  sub.maxMarks
-                                                                                                }
-                                                                                              </p>
-                                                                                              {/* {sub.createdAt && (
-                                                                                <p><span className="font-medium">Submitted:</span> {new Date(sub.createdAt.seconds * 1000).toLocaleDateString()}</p>
-                                                                              )} */}
-                                                                                            </div>
-                                                                                            {/* <div className="space-y-2">
-                                                                              <div className="flex justify-between text-sm">
-                                                                                <span>Progress</span>
-                                                                                <span>{subProgress.toFixed(1)}%</span>
-                                                                              </div>
-                                                                              <Progress value={subProgress} className="h-2" />
-                                                                            </div> */}
-                                                                                          </div>
-                                                                                        </CardContent>
-                                                                                      </Card>
-                                                                                    );
-                                                                                  },
-                                                                                )}
-                                                                              </div>
-                                                                            </AccordionContent>
-                                                                          </AccordionItem>
-                                                                        );
-                                                                      },
-                                                                    )}
-                                                                  </Accordion>
-                                                                </AccordionContent>
-                                                              </AccordionItem>
-                                                            );
-                                                          },
-                                                        )}
-                                                      </Accordion>
-                                                    )}
-                                                  </div>
-                                                </AccordionContent>
-                                              </AccordionItem>
-                                            </Accordion>
-                                          </AccordionContent>
-                                        </AccordionItem>
-                                      );
-                                    })}
-                                  </Accordion>
-                                </AccordionContent>
-                              </AccordionItem>
+                                </td>
+                                <td className="px-5 py-3.5 text-center">
+                                  {target !== null ? (
+                                    targetReached ? (
+                                      <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs">
+                                        <CircleCheck className="h-4 w-4" /> Reached
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">{finalScore}/{target}</span>
+                                    )
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-3.5 text-center">
+                                  {totalSubs === 0 ? (
+                                    <Badge variant="outline" className="text-xs">Not Submitted</Badge>
+                                  ) : hasAppealed ? (
+                                    <Badge variant="warning" className="text-xs">Appealed</Badge>
+                                  ) : hasPending ? (
+                                    <Badge variant="secondary" className="text-xs">Pending Review</Badge>
+                                  ) : hasAccepted ? (
+                                    <Badge variant="success" className="text-xs">Accepted</Badge>
+                                  ) : (
+                                    <Badge variant="default" className="text-xs">Under Review</Badge>
+                                  )}
+                                </td>
+                              </tr>
                             );
-                          },
-                        )}
-                      </Accordion>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-            </CardContent>
-          </Card>
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
         )}
+
 
         {["committee", "principle", "vice principle", "director", "hod", "internal committee"].includes(
           user?.role || "",
