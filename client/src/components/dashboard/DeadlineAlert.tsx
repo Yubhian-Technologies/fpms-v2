@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarClock, ClipboardCheck, MessageSquare, Lock, Loader2 } from "lucide-react";
+import { CalendarClock, ClipboardCheck, MessageSquare, Lock, Loader2, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-type Phase = "submission" | "evaluation" | "appeal" | "locked";
+type Phase = "submission" | "evaluation" | "appeal" | "appeal-review" | "locked";
 
 interface PhaseConfig {
   label: string;
@@ -44,6 +44,15 @@ const PHASE_CONFIG: Record<Phase, PhaseConfig> = {
     textColor: "text-purple-700 dark:text-purple-400",
     iconBg: "bg-purple-100 dark:bg-purple-900/30",
     iconColor: "text-purple-600",
+  },
+  "appeal-review": {
+    label: "Appeal Review Period",
+    icon: ShieldCheck,
+    borderColor: "border-l-orange-500",
+    bg: "bg-orange-50 dark:bg-orange-950/20",
+    textColor: "text-orange-700 dark:text-orange-400",
+    iconBg: "bg-orange-100 dark:bg-orange-900/30",
+    iconColor: "text-orange-600",
   },
   locked: {
     label: "Scores Locked",
@@ -85,6 +94,7 @@ export function DeadlineAlert() {
   const [deadline, setDeadline] = useState<string | null>(null);
   const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
   const [appealEnd, setAppealEnd] = useState<string | null>(null);
+  const [appealReviewEnd, setAppealReviewEnd] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("submission");
 
   useEffect(() => {
@@ -103,14 +113,17 @@ export function DeadlineAlert() {
         setDeadline(d.deadline || null);
         setEvaluationEnd(d.evaluationEnd || null);
         setAppealEnd(d.appealEnd || null);
+        setAppealReviewEnd(d.appealReviewEnd || null);
 
         const now = new Date();
         const dl = toEndOfDay(d.deadline);
         const ev = toEndOfDay(d.evaluationEnd);
         const ap = toEndOfDay(d.appealEnd);
+        const apRev = toEndOfDay(d.appealReviewEnd);
         if (!dl || now <= dl) setPhase("submission");
         else if (!ev || now <= ev) setPhase("evaluation");
         else if (!ap || now <= ap) setPhase("appeal");
+        else if (!apRev || now <= apRev) setPhase("appeal-review");
         else setPhase("locked");
       })
       .catch(() => {})
@@ -124,6 +137,7 @@ export function DeadlineAlert() {
     phase === "submission" ? deadline
     : phase === "evaluation" ? evaluationEnd
     : phase === "appeal" ? appealEnd
+    : phase === "appeal-review" ? appealReviewEnd
     : null;
 
   const daysLeft = daysUntil(phaseDate);
@@ -141,6 +155,10 @@ export function DeadlineAlert() {
       ? daysLeft !== null && daysLeft >= 0
         ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left to appeal`
         : "Appeal period ended"
+      : phase === "appeal-review"
+      ? daysLeft !== null && daysLeft >= 0
+        ? `Reviewers have ${daysLeft} day${daysLeft !== 1 ? "s" : ""} to resolve appeals`
+        : "Appeal review period ended"
       : "All scores are final";
 
   return (

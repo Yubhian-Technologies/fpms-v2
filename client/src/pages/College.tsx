@@ -35,6 +35,7 @@ interface College {
   assessmentEnd?: string;
   evaluationEnd?: string;
   appealEnd?: string;
+  appealReviewEnd?: string;
 }
 
 export default function College() {
@@ -85,6 +86,7 @@ export default function College() {
           assessmentEnd: item.assessmentEnd || null,
           evaluationEnd: item.evaluationEnd || null,
           appealEnd: item.appealEnd || null,
+          appealReviewEnd: item.appealReviewEnd || null,
         })),
       );
     } catch (error: any) {
@@ -142,6 +144,7 @@ export default function College() {
         assessmentEnd: newCollege.assessmentEnd || null,
         evaluationEnd: newCollege.evaluationEnd || null,
         appealEnd: newCollege.appealEnd || null,
+        appealReviewEnd: newCollege.appealReviewEnd || null,
       });
 
       await fetchColleges(true);
@@ -199,6 +202,7 @@ export default function College() {
         assessmentEnd: editForm.assessmentEnd || null,
         evaluationEnd: editForm.evaluationEnd || null,
         appealEnd: editForm.appealEnd || null,
+        appealReviewEnd: editForm.appealReviewEnd || null,
       });
 
       await fetchColleges(true);
@@ -459,7 +463,18 @@ export default function College() {
                         setNewCollege({ ...newCollege, appealEnd: event.target.value })
                       }
                     />
-                    <p className="text-xs text-muted-foreground">Faculty can appeal until this date; scores lock after</p>
+                    <p className="text-xs text-muted-foreground">Faculty can submit appeals until this date</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Appeal Review Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.appealReviewEnd?.split("T")[0] || ""}
+                      onChange={(event) =>
+                        setNewCollege({ ...newCollege, appealReviewEnd: event.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">Reviewers resolve appeals until this date; scores lock after</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Assessment Period Start</Label>
@@ -521,6 +536,7 @@ export default function College() {
                     <TableHead>Submission Deadline</TableHead>
                     <TableHead>Evaluation End</TableHead>
                     <TableHead>Appeal End</TableHead>
+                    <TableHead>Appeal Review End</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -630,6 +646,21 @@ export default function College() {
                           />
                         ) : college.appealEnd ? (
                           new Date(college.appealEnd).toLocaleDateString()
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingCollege === college.id ? (
+                          <Input
+                            type="date"
+                            value={editForm.appealReviewEnd?.split("T")[0] || ""}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, appealReviewEnd: event.target.value })
+                            }
+                          />
+                        ) : college.appealReviewEnd ? (
+                          new Date(college.appealReviewEnd).toLocaleDateString()
                         ) : (
                           "-"
                         )}

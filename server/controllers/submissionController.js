@@ -14,10 +14,12 @@ const getCollegePhase = (collegeDef) => {
   const deadline = toEndOfDay(collegeDef?.deadline);
   const evaluationEnd = toEndOfDay(collegeDef?.evaluationEnd);
   const appealEnd = toEndOfDay(collegeDef?.appealEnd);
+  const appealReviewEnd = toEndOfDay(collegeDef?.appealReviewEnd);
 
   if (!deadline || now <= deadline) return "submission";
   if (!evaluationEnd || now <= evaluationEnd) return "evaluation";
   if (!appealEnd || now <= appealEnd) return "appeal";
+  if (!appealReviewEnd || now <= appealReviewEnd) return "appeal-review";
   return "locked";
 };
 
@@ -30,7 +32,7 @@ const autoApproveAllColleges = async () => {
       (saData.colleges || [])
         .filter((c) => {
           const phase = getCollegePhase(c);
-          return phase === "appeal" || phase === "locked";
+          return phase === "appeal" || phase === "appeal-review" || phase === "locked";
         })
         .map((c) => autoApproveUnreviewedForCollege(String(c.name || "").trim()))
     );
@@ -49,7 +51,7 @@ const autoApproveUnreviewedForCollege = async (college) => {
       (c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase()
     );
     const phase = getCollegePhase(collegeDef);
-    if (phase !== "appeal" && phase !== "locked") return;
+    if (phase !== "appeal" && phase !== "appeal-review" && phase !== "locked") return;
 
     const snapshot = await db.collection("submissions")
       .where("college", "==", college)
@@ -352,6 +354,9 @@ export const submitTask = async (req, res) => {
       }
       if (phase === "appeal") {
         return res.status(403).json({ success: false, message: "Submission period has ended. Appeal period is now active." });
+      }
+      if (phase === "appeal-review") {
+        return res.status(403).json({ success: false, message: "Submission period has ended. Appeal review is in progress." });
       }
       if (phase === "locked") {
         return res.status(403).json({ success: false, message: "Scores are locked. No submissions are accepted." });
@@ -780,6 +785,9 @@ export const reviewSubmission = async (req, res) => {
       if (phase === "appeal") {
         return res.status(403).json({ success: false, message: "Evaluation period has ended. Reviews are no longer accepted." });
       }
+      if (phase === "appeal-review") {
+        return res.status(403).json({ success: false, message: "Evaluation period has ended. Reviews are no longer accepted." });
+      }
       if (phase === "locked") {
         return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
       }
@@ -853,6 +861,9 @@ export const raiseAppeal = async (req, res) => {
       const phase = getCollegePhase(collegeDefForAppeal);
       if (phase === "submission" || phase === "evaluation") {
         return res.status(403).json({ success: false, message: "Appeals are not open yet. The evaluation period must end first." });
+      }
+      if (phase === "appeal-review") {
+        return res.status(403).json({ success: false, message: "The appeal window has closed. No new appeals are accepted." });
       }
       if (phase === "locked") {
         return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
@@ -1077,7 +1088,7 @@ export const reviewAppeal = async (req, res) => {
 
     const submissionData = doc.data() || {};
 
-    // Phase check: appeal resolution only allowed during appeal phase
+    // Phase check: appeal resolution allowed during appeal AND appeal-review phases
     const saDataForAppealReview = await getSuperadminConfig();
     const collegeDefForAppealReview = (saDataForAppealReview.colleges || []).find(
       (c) => String(c?.name || "").trim().toLowerCase() === String(submissionData?.college || "").trim().toLowerCase()
@@ -1088,8 +1099,9 @@ export const reviewAppeal = async (req, res) => {
         return res.status(403).json({ success: false, message: "Appeal resolution is not available yet. Wait for the appeal period." });
       }
       if (phase === "locked") {
-        return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
+        return res.status(403).json({ success: false, message: "Scores are locked. The appeal review period has ended." });
       }
+      // "appeal" and "appeal-review" both allow resolution — fall through
     }
 
     const appealToRoleIds = Array.isArray(submissionData.appealToRoleIds)

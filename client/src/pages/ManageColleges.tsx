@@ -53,6 +53,7 @@ interface College {
   assessmentEnd?: string;
   evaluationEnd?: string;
   appealEnd?: string;
+  appealReviewEnd?: string;
 }
 
 interface CommitteeMember {
@@ -114,6 +115,7 @@ export default function ManageColleges() {
     assessmentEnd: "",
     evaluationEnd: "",
     appealEnd: "",
+    appealReviewEnd: "",
   });
 
   // Edit college state
@@ -519,6 +521,7 @@ export default function ManageColleges() {
         assessmentEnd: newCollege.assessmentEnd || null,
         evaluationEnd: newCollege.evaluationEnd || null,
         appealEnd: newCollege.appealEnd || null,
+        appealReviewEnd: newCollege.appealReviewEnd || null,
       });
 
       await fetchColleges(true);
@@ -534,6 +537,7 @@ export default function ManageColleges() {
         assessmentEnd: "",
         evaluationEnd: "",
         appealEnd: "",
+        appealReviewEnd: "",
       });
       setNewBranchInput("");
 
@@ -608,6 +612,7 @@ export default function ManageColleges() {
         assessmentEnd: editForm.assessmentEnd || null,
         evaluationEnd: editForm.evaluationEnd || null,
         appealEnd: editForm.appealEnd || null,
+        appealReviewEnd: editForm.appealReviewEnd || null,
       });
 
       await fetchColleges(true);
@@ -903,7 +908,18 @@ export default function ManageColleges() {
                         setNewCollege({ ...newCollege, appealEnd: e.target.value })
                       }
                     />
-                    <p className="text-xs text-muted-foreground">Faculty can appeal until this date; scores lock after</p>
+                    <p className="text-xs text-muted-foreground">Faculty can submit appeals until this date</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Appeal Review Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.appealReviewEnd ? newCollege.appealReviewEnd.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        setNewCollege({ ...newCollege, appealReviewEnd: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">Reviewers resolve appeals until this date; scores lock after</p>
                   </div>
                 </div>
 
@@ -1174,6 +1190,16 @@ export default function ManageColleges() {
                                 value={editForm.appealEnd ? editForm.appealEnd.slice(0, 10) : ""}
                                 onChange={(e) =>
                                   setEditForm({ ...editForm, appealEnd: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Appeal Review End</p>
+                              <Input
+                                type="date"
+                                value={editForm.appealReviewEnd ? editForm.appealReviewEnd.slice(0, 10) : ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, appealReviewEnd: e.target.value })
                                 }
                               />
                             </div>

@@ -602,6 +602,7 @@ export const createCollege = async (req, res) => {
       assessmentEnd,
       evaluationEnd,
       appealEnd,
+      appealReviewEnd,
     } = req.body;
 
     if (!name || !location || !code) {
@@ -625,6 +626,7 @@ export const createCollege = async (req, res) => {
       assessmentEnd: assessmentEnd ? new Date(assessmentEnd).toISOString() : null,
       evaluationEnd: evaluationEnd ? new Date(evaluationEnd).toISOString() : null,
       appealEnd: appealEnd ? new Date(appealEnd).toISOString() : null,
+      appealReviewEnd: appealReviewEnd ? new Date(appealReviewEnd).toISOString() : null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -653,7 +655,7 @@ export const createCollege = async (req, res) => {
 export const updateCollege = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, location, code, isActive, branches, deadline, assessmentStart, assessmentEnd, evaluationEnd, appealEnd } = req.body;
+    const { name, location, code, isActive, branches, deadline, assessmentStart, assessmentEnd, evaluationEnd, appealEnd, appealReviewEnd } = req.body;
 
     const { docRef, colleges } = await getSuperadminData();
     const index = colleges.findIndex((item) => item.id === id);
@@ -681,6 +683,8 @@ export const updateCollege = async (req, res) => {
       updates.evaluationEnd = evaluationEnd ? new Date(evaluationEnd).toISOString() : null;
     if (appealEnd !== undefined)
       updates.appealEnd = appealEnd ? new Date(appealEnd).toISOString() : null;
+    if (appealReviewEnd !== undefined)
+      updates.appealReviewEnd = appealReviewEnd ? new Date(appealReviewEnd).toISOString() : null;
 
     const nextColleges = [...colleges];
     nextColleges[index] = {

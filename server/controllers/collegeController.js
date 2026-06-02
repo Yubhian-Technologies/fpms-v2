@@ -121,6 +121,7 @@ export const getUserCollegeDeadline = async (req, res) => {
         assessmentEnd: collegeData.assessmentEnd || null,
         evaluationEnd: collegeData.evaluationEnd || null,
         appealEnd: collegeData.appealEnd || null,
+        appealReviewEnd: collegeData.appealReviewEnd || null,
       },
     });
   } catch (error) {

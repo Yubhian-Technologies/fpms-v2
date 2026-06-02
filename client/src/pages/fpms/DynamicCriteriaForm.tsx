@@ -189,14 +189,17 @@ export default function DynamicCriteriaForm() {
     ? "Evaluation in Progress"
     : currentPhase === "appeal"
     ? "Appeal Period Active"
+    : currentPhase === "appeal-review"
+    ? "Appeal Review in Progress"
     : currentPhase === "locked"
     ? "Scores Locked"
-    : {submissionClosedLabel};
+    : "Deadline Passed";
   const [assessmentStart, setAssessmentStart] = useState<string | null>(null);
   const [assessmentEnd, setAssessmentEnd] = useState<string | null>(null);
   const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
   const [appealEnd, setAppealEnd] = useState<string | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<"submission" | "evaluation" | "appeal" | "locked">("submission");
+  const [appealReviewEnd, setAppealReviewEnd] = useState<string | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<"submission" | "evaluation" | "appeal" | "appeal-review" | "locked">("submission");
 
   const storageKey = useMemo(() => {
     const userId = user?.id || "anonymous";
@@ -268,6 +271,7 @@ export default function DynamicCriteriaForm() {
         setAssessmentEnd(d.assessmentEnd || null);
         setEvaluationEnd(d.evaluationEnd || null);
         setAppealEnd(d.appealEnd || null);
+        setAppealReviewEnd(d.appealReviewEnd || null);
 
         if (deadlineStr) {
           const due = new Date(deadlineStr);
@@ -283,9 +287,11 @@ export default function DynamicCriteriaForm() {
         const dl = toEnd(d.deadline);
         const evEnd = toEnd(d.evaluationEnd);
         const apEnd = toEnd(d.appealEnd);
+        const apRevEnd = toEnd(d.appealReviewEnd);
         if (!dl || now <= dl) setCurrentPhase("submission");
         else if (!evEnd || now <= evEnd) setCurrentPhase("evaluation");
         else if (!apEnd || now <= apEnd) setCurrentPhase("appeal");
+        else if (!apRevEnd || now <= apRevEnd) setCurrentPhase("appeal-review");
         else setCurrentPhase("locked");
       }
     } catch (err) {
@@ -378,6 +384,7 @@ export default function DynamicCriteriaForm() {
         // Determine if can appeal (reviewed status and not already appealed/accepted)
         nextCanAppeal[taskId] =
           backendStatus === "reviewed" && !submission.isAppealed && currentPhase === "appeal";
+          // appeal-review phase: window closed, no new appeals accepted
 
         // Store review data
         if (
@@ -1028,9 +1035,17 @@ export default function DynamicCriteriaForm() {
               text: "text-purple-700",
               date: appealEnd,
             },
+            "appeal-review": {
+              label: "Appeal Review Period",
+              desc: `Appeals are being reviewed by evaluators until ${fmt(appealReviewEnd)}.`,
+              border: "border-l-orange-500",
+              bg: "bg-orange-50",
+              text: "text-orange-700",
+              date: appealReviewEnd,
+            },
             locked: {
               label: "Scores Locked",
-              desc: "The appeal period has ended. All scores are final.",
+              desc: "The appeal review period has ended. All scores are final.",
               border: "border-l-gray-500",
               bg: "bg-gray-50",
               text: "text-gray-700",
