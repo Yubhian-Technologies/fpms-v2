@@ -262,6 +262,22 @@ export const submitTask = async (req, res) => {
       finalEvidence = evidence || "";
     }
 
+    // Block new submissions after deadline
+    const saData = await getSuperadminConfig();
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === (college || "").trim().toLowerCase()
+    );
+    if (collegeDef?.deadline) {
+      const deadlineDate = new Date(collegeDef.deadline);
+      deadlineDate.setHours(23, 59, 59, 999);
+      if (new Date() > deadlineDate) {
+        return res.status(403).json({
+          success: false,
+          message: "Submission deadline has passed. No new submissions are accepted.",
+        });
+      }
+    }
+
     const workflowRules = await loadWorkflowRules(college);
     if (!workflowRules.length) {
       return res.status(400).json({
