@@ -110,6 +110,20 @@ const statusConfig: Record<
     variant: "success",
     icon: CheckCircle2,
   },
+  "auto-approved": {
+    label: "Claim Accepted",
+    variant: "success",
+    icon: CheckCircle2,
+  },
+};
+
+type Phase = "submission" | "evaluation" | "appeal" | "appeal-review" | "locked";
+
+const toEndOfDay = (s: string | null) => {
+  if (!s) return null;
+  const d = new Date(s);
+  d.setHours(23, 59, 59, 999);
+  return d;
 };
 
 export default function Submissions() {
@@ -117,6 +131,7 @@ export default function Submissions() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>("submission");
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
@@ -126,35 +141,43 @@ export default function Submissions() {
     reason: "",
   });
 
-  // Senior-dev effective score logic (exactly as you wanted)
-  // Priority: appealerScore > reviewerScore > claimedScore
-  const getEffectiveScore = (sub: Submission): number => {
+  // Priority: appealerScore > reviewerScore > null (no fallback to claimed)
+  const getEffectiveScore = (sub: Submission): number | null => {
     if (sub.appealerScore != null) return sub.appealerScore;
     if (sub.reviewerScore != null) return sub.reviewerScore;
-    return sub.claimedScore; // fallback when only claimed exists
+    return null;
   };
 
   useEffect(() => {
     if (!user || authLoading) return;
 
-    const fetchSubmissions = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await api.get("/api/submissions/my-submissions", {
-          headers: {
-            "x-user-id": user.uid || user.id,
-            "x-user-email": user.email || "",
-            "x-user-name": user.name || "",
-            "x-user-role": user.role || "faculty",
-            "x-college": user.college || "",
-            "x-department": user.department || "",
-          },
-        });
+        const [subResponse, deadlineResponse] = await Promise.all([
+          api.get("/api/submissions/my-submissions", {
+            headers: {
+              "x-user-id": user.uid || user.id,
+              "x-user-email": user.email || "",
+              "x-user-name": user.name || "",
+              "x-user-role": user.role || "faculty",
+              "x-college": user.college || "",
+              "x-department": user.department || "",
+            },
+          }),
+          api.get("/api/colleges/user-deadline", {
+            headers: {
+              "x-user-id": user.uid || user.id || "",
+              "x-user-role": user.role || "",
+              "x-college": user.college || "",
+            },
+          }),
+        ]);
 
-        if (response.data?.success) {
-          const sorted = [...(response.data.data || [])].sort((a, b) => {
+        if (subResponse.data?.success) {
+          const sorted = [...(subResponse.data.data || [])].sort((a, b) => {
             const ta = a.createdAt?.seconds * 1000 || 0;
             const tb = b.createdAt?.seconds * 1000 || 0;
             return tb - ta;
@@ -162,6 +185,20 @@ export default function Submissions() {
           setSubmissions(sorted);
         } else {
           setError("Failed to load submissions");
+        }
+
+        if (deadlineResponse.data?.success) {
+          const d = deadlineResponse.data.data;
+          const now = new Date();
+          const dl = toEndOfDay(d.deadline || null);
+          const ev = toEndOfDay(d.evaluationEnd || null);
+          const ap = toEndOfDay(d.appealEnd || null);
+          const apRev = toEndOfDay(d.appealReviewEnd || null);
+          if (!dl || now <= dl) setPhase("submission");
+          else if (!ev || now <= ev) setPhase("evaluation");
+          else if (!ap || now <= ap) setPhase("appeal");
+          else if (!apRev || now <= apRev) setPhase("appeal-review");
+          else setPhase("locked");
         }
       } catch (err: any) {
         console.error("Error:", err);
@@ -171,15 +208,20 @@ export default function Submissions() {
       }
     };
 
-    fetchSubmissions();
+    fetchData();
   }, [user, authLoading]);
+
+  // Achievement shows after evaluation ends; per-task final shows after appeal ends
+  const showAchievement =
+    phase === "appeal" || phase === "appeal-review" || phase === "locked";
+  const showPerTaskFinal = phase === "appeal-review" || phase === "locked";
 
   const totalClaimed = submissions.reduce(
     (sum, sub) => sum + sub.claimedScore,
     0,
   );
   const totalAwarded = submissions.reduce(
-    (sum, sub) => sum + getEffectiveScore(sub),
+    (sum, sub) => sum + (getEffectiveScore(sub) ?? 0),
     0,
   );
   const totalMax = submissions.reduce((sum, sub) => sum + sub.maxMarks, 0);
@@ -191,6 +233,7 @@ export default function Submissions() {
   const statusVisualConfig: Record<string, { color: string }> = {
     accepted: { color: "bg-emerald-500" },
     "appeal-resolved": { color: "bg-teal-500" },
+    "auto-approved": { color: "bg-green-400" },
     appealed: { color: "bg-amber-500" },
     reviewed: { color: "bg-blue-500" },
     submitted: { color: "bg-violet-500" },
@@ -266,11 +309,11 @@ export default function Submissions() {
 
       acc[crit].modules[mod].tasks.push(sub);
       acc[crit].modules[mod].totalClaimed += sub.claimedScore;
-      acc[crit].modules[mod].totalFinal += getEffectiveScore(sub);
+      acc[crit].modules[mod].totalFinal += getEffectiveScore(sub) ?? 0;
       acc[crit].modules[mod].totalMax += sub.maxMarks;
 
       acc[crit].totalClaimed += sub.claimedScore;
-      acc[crit].totalFinal += getEffectiveScore(sub);
+      acc[crit].totalFinal += getEffectiveScore(sub) ?? 0;
       acc[crit].totalMax += sub.maxMarks;
 
       return acc;
@@ -435,7 +478,7 @@ export default function Submissions() {
       y += 7;
       doc.text(`Claimed: ${sub.claimedScore} / ${sub.maxMarks}`, 25, y);
       y += 7;
-      doc.text(`Final: ${getEffectiveScore(sub)}`, 25, y);
+      doc.text(`Final: ${getEffectiveScore(sub) ?? "Pending"}`, 25, y);
       y += 7;
 
       if (sub.reviewerScore !== undefined) {
@@ -551,90 +594,59 @@ export default function Submissions() {
 
           <CardContent className="space-y-6">
             <div className="rounded-xl bg-muted/50 p-5">
-              <div className="mb-3 flex items-end justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Total Final Score
-                  </p>
-                  <p className="text-4xl font-bold text-primary">
-                    {totalAwarded}
-                    <span className="text-xl font-normal text-muted-foreground ml-1">
-                      /300
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-semibold text-emerald-600">
-                    {Math.round((totalAwarded / 300) * 100)}%
-                  </p>
-                  <p className="text-xs text-muted-foreground">Achievement</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    Score Progress
-                  </p>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{ width: `${achievementPercent}%` }}
-                    />
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>0</span>
-                    <span>75</span>
-                    <span>150</span>
-                    <span>225</span>
-                    <span>300</span>
-                  </div>
-                </div>
-
-                {/* <div>
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    Submission Status Mix
-                  </p>
-                  <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div className="flex h-full w-full">
-                      {statusDistribution.length > 0 ? (
-                        statusDistribution.map((item) => (
-                          <div
-                            key={item.status}
-                            className={item.color}
-                            style={{ width: `${item.percent}%` }}
-                            title={`${item.label}: ${item.count}`}
-                          />
-                        ))
-                      ) : (
-                        <div className="h-full w-full bg-slate-300" />
-                      )}
+              {showAchievement ? (
+                <>
+                  <div className="mb-3 flex items-end justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Total Final Score
+                      </p>
+                      <p className="text-4xl font-bold text-primary">
+                        {totalAwarded}
+                        <span className="text-xl font-normal text-muted-foreground ml-1">
+                          /300
+                        </span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-semibold text-emerald-600">
+                        {Math.round((totalAwarded / 300) * 100)}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">Achievement</p>
                     </div>
                   </div>
 
-                  <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
-                    {statusDistribution.length > 0 ? (
-                      statusDistribution.map((item) => (
-                        <div
-                          key={item.status}
-                          className="flex items-center gap-2"
-                        >
-                          <span
-                            className={`h-2.5 w-2.5 rounded-full ${item.color}`}
-                          />
-                          <span className="text-muted-foreground">
-                            {item.label}: {item.count}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground">
-                        No submissions available for status breakdown.
+                  <div className="space-y-4">
+                    <div>
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                        Score Progress
                       </p>
-                    )}
+                      <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-500"
+                          style={{ width: `${achievementPercent}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>0</span>
+                        <span>75</span>
+                        <span>150</span>
+                        <span>225</span>
+                        <span>300</span>
+                      </div>
+                    </div>
                   </div>
-                </div> */}
-              </div>
+                </>
+              ) : (
+                <div className="py-4 text-center text-muted-foreground">
+                  <p className="text-sm font-medium">
+                    Achievement scores will be available after the evaluation period ends.
+                  </p>
+                  <p className="text-xs mt-1">
+                    {submissions.length} submission{submissions.length !== 1 ? "s" : ""} recorded
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -666,8 +678,10 @@ export default function Submissions() {
                               {criteriaName}
                             </h3>
                             <p className="text-sm text-muted-foreground flex items-center gap-3 mt-1">
-                              {Object.keys(critData.modules).length} modules •{" "}
-                              {critData.totalFinal} / {critData.totalMax}
+                              {Object.keys(critData.modules).length} modules
+                              {showPerTaskFinal && (
+                                <> • {critData.totalFinal} / {critData.totalMax}</>
+                              )}
                               <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
                                 Criteria Max:{" "}
                                 {critData.criteriaTotalMarks || "0"}
@@ -676,7 +690,9 @@ export default function Submissions() {
                           </div>
                         </div>
                         <Badge className="font-bold text-sm">
-                          {critData.totalFinal} / {critData.criteriaTotalMarks}
+                          {showPerTaskFinal
+                            ? `${critData.totalFinal} / ${critData.criteriaTotalMarks}`
+                            : `— / ${critData.criteriaTotalMarks}`}
                         </Badge>
                       </div>
                     </AccordionTrigger>
@@ -702,8 +718,10 @@ export default function Submissions() {
                                     </Badge>
                                   </div>
                                   <Badge className="font-medium">
-                                    {modData.totalFinal} /{" "}
-                                    {modData.moduleTotalMarks}
+                                    {showPerTaskFinal
+                                      ? modData.totalFinal
+                                      : "—"}{" "}
+                                    / {modData.moduleTotalMarks}
                                     <span className="ml-2 text-xs opacity-75">
                                       Module Max:{" "}
                                       {modData.moduleTotalMarks || "0"}
@@ -749,14 +767,16 @@ export default function Submissions() {
                                             {sub.claimedScore}/{sub.maxMarks}
                                           </p>
                                         </div>
-                                        <div>
-                                          <p className="text-xs text-muted-foreground">
-                                            Final
-                                          </p>
-                                          <p className="font-medium">
-                                            {getEffectiveScore(sub)}
-                                          </p>
-                                        </div>
+                                        {showPerTaskFinal && (
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">
+                                              Final
+                                            </p>
+                                            <p className="font-medium">
+                                              {getEffectiveScore(sub) ?? "—"}
+                                            </p>
+                                          </div>
+                                        )}
                                         {sub.reviewerScore != null && (
                                           <div>
                                             <p className="text-xs text-muted-foreground">
@@ -1005,8 +1025,13 @@ export default function Submissions() {
                           <div className="flex items-center gap-5 shrink-0">
                             <div className="text-right min-w-[100px]">
                               <p className="font-bold text-primary text-lg">
-                                {getEffectiveScore(sub)}/{sub.maxMarks}
+                                {sub.claimedScore}/{sub.maxMarks}
                               </p>
+                              {showPerTaskFinal && getEffectiveScore(sub) != null && (
+                                <p className="text-xs text-muted-foreground">
+                                  Final: {getEffectiveScore(sub)}
+                                </p>
+                              )}
                             </div>
                             <Badge
                               variant={
@@ -1145,7 +1170,7 @@ export default function Submissions() {
                             <div className="flex items-center gap-5 shrink-0">
                               <div className="text-right min-w-[100px]">
                                 <p className="font-bold text-primary text-lg">
-                                  {getEffectiveScore(sub)}/{sub.maxMarks}
+                                  {getEffectiveScore(sub) ?? sub.claimedScore}/{sub.maxMarks}
                                 </p>
                               </div>
                               <Badge
