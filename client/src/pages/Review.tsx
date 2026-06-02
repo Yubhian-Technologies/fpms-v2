@@ -826,15 +826,6 @@ export default function Review() {
               )}
               <Button
                 size="sm"
-                variant="destructive"
-                onClick={() => handleDelete(item)}
-                disabled={deleting[id]}
-              >
-                {deleting[id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {deleting[id] ? "Deleting..." : "Delete"}
-              </Button>
-              <Button
-                size="sm"
                 onClick={() => handleReview(item)}
                 disabled={isReviewing || phase !== "evaluation"}
               >
@@ -845,16 +836,7 @@ export default function Review() {
               </Button>
             </div>
           ) : (
-            <div className="flex justify-end items-center gap-3 pt-1">
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => handleDelete(item)}
-                disabled={deleting[id]}
-              >
-                {deleting[id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {deleting[id] ? "Deleting..." : "Delete"}
-              </Button>
+            <div className="flex justify-end pt-1">
               <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                 {item.status === "appealed" ? "Appealed" : "Reviewed"}
               </Badge>
