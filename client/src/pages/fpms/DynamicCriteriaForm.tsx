@@ -1192,8 +1192,8 @@ export default function DynamicCriteriaForm() {
                                 Appeal Resolved
                               </Badge>
                             ) : taskStatus === "appealed" ? (
-                              <Badge className="bg-amber-500 text-white">
-                                Appealed
+                              <Badge className={currentPhase === "locked" ? "bg-gray-500 text-white" : "bg-amber-500 text-white"}>
+                                {currentPhase === "locked" ? "Appeal Expired" : "Appealed"}
                               </Badge>
                             ) : taskStatus === "reviewed" ? (
                               <Badge className="bg-blue-600 text-white">
@@ -1409,6 +1409,13 @@ export default function DynamicCriteriaForm() {
                             </div>
                           )}
 
+                        {/* Appeal expired notice */}
+                        {taskStatus === "appealed" && currentPhase === "locked" && (
+                          <div className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                            The appeal period has ended without resolution. Your original reviewed score stands.
+                          </div>
+                        )}
+
                         {/* Appeal Section */}
                         {taskStatus === "appeal-resolved" &&
                           taskAppealData[task.id] && (
@@ -1534,7 +1541,7 @@ export default function DynamicCriteriaForm() {
                                   : taskStatus === "appeal-resolved"
                                     ? "Appeal Resolved"
                                     : taskStatus === "appealed"
-                                      ? "Under Appeal"
+                                      ? (currentPhase === "locked" ? "Appeal Expired" : "Under Appeal")
                                       : "Submitted"}
                               </Badge>
                             )}
