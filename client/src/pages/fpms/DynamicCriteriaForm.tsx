@@ -1146,9 +1146,7 @@ export default function DynamicCriteriaForm() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
-                      {moduleItem.tasks.some((t) => t.marksType === "range")
-                        ? `points: ${moduleItem.totalMarks}`
-                        : `max points: ${moduleItem.totalMarks}`}
+                      {`max points: ${moduleItem.totalMarks}`}
                     </span>
                     {getModuleStatus(moduleItem) === "completed" ? (
                       <Badge className="bg-blue-800 text-white">
@@ -1401,7 +1399,7 @@ export default function DynamicCriteriaForm() {
                                 </label>
                                 <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900">
                                   {taskReviewData[task.id].reviewerScore}
-                                  {task.marksType !== "range" && ` / ${task.marks}`}
+                                  {` / ${task.marks || task.minMarks || 0}`}
                                 </div>
                               </div>
                               <div className="md:col-span-1">
@@ -1433,7 +1431,7 @@ export default function DynamicCriteriaForm() {
                                 </label>
                                 <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
                                   {taskAppealData[task.id].appealerScore}
-                                  {task.marksType !== "range" && ` / ${task.marks}`}
+                                  {` / ${task.marks || task.minMarks || 0}`}
                                 </div>
                               </div>
                               <div className="md:col-span-1">
