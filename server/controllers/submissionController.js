@@ -703,11 +703,14 @@ export const reviewSubmission = async (req, res) => {
     );
     if (collegeDefForReview) {
       const phase = getCollegePhase(collegeDefForReview);
-      if (phase === "locked") {
-        return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
+      if (phase === "submission") {
+        return res.status(403).json({ success: false, message: "Evaluation has not started yet. HODs can only review during the evaluation period." });
       }
       if (phase === "appeal") {
         return res.status(403).json({ success: false, message: "Evaluation period has ended. Reviews are no longer accepted." });
+      }
+      if (phase === "locked") {
+        return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
       }
     }
 
@@ -995,6 +998,22 @@ export const reviewAppeal = async (req, res) => {
     }
 
     const submissionData = doc.data() || {};
+
+    // Phase check: appeal resolution only allowed during appeal phase
+    const saDataForAppealReview = await getSuperadminConfig();
+    const collegeDefForAppealReview = (saDataForAppealReview.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === String(submissionData?.college || "").trim().toLowerCase()
+    );
+    if (collegeDefForAppealReview) {
+      const phase = getCollegePhase(collegeDefForAppealReview);
+      if (phase === "submission" || phase === "evaluation") {
+        return res.status(403).json({ success: false, message: "Appeal resolution is not available yet. Wait for the appeal period." });
+      }
+      if (phase === "locked") {
+        return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
+      }
+    }
+
     const appealToRoleIds = Array.isArray(submissionData.appealToRoleIds)
       ? submissionData.appealToRoleIds
       : [];
