@@ -33,6 +33,8 @@ interface College {
   deadline?: string;
   assessmentStart?: string;
   assessmentEnd?: string;
+  evaluationEnd?: string;
+  appealEnd?: string;
 }
 
 export default function College() {
@@ -81,6 +83,8 @@ export default function College() {
           deadline: item.deadline || null,
           assessmentStart: item.assessmentStart || null,
           assessmentEnd: item.assessmentEnd || null,
+          evaluationEnd: item.evaluationEnd || null,
+          appealEnd: item.appealEnd || null,
         })),
       );
     } catch (error: any) {
@@ -136,6 +140,8 @@ export default function College() {
         deadline: newCollege.deadline || null,
         assessmentStart: newCollege.assessmentStart || null,
         assessmentEnd: newCollege.assessmentEnd || null,
+        evaluationEnd: newCollege.evaluationEnd || null,
+        appealEnd: newCollege.appealEnd || null,
       });
 
       await fetchColleges(true);
@@ -191,6 +197,8 @@ export default function College() {
         deadline: editForm.deadline || null,
         assessmentStart: editForm.assessmentStart || null,
         assessmentEnd: editForm.assessmentEnd || null,
+        evaluationEnd: editForm.evaluationEnd || null,
+        appealEnd: editForm.appealEnd || null,
       });
 
       await fetchColleges(true);
@@ -422,7 +430,7 @@ export default function College() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Deadline</Label>
+                    <Label>Submission Deadline</Label>
                     <Input
                       type="date"
                       value={newCollege.deadline?.split("T")[0] || ""}
@@ -430,6 +438,28 @@ export default function College() {
                         setNewCollege({ ...newCollege, deadline: event.target.value })
                       }
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Evaluation Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.evaluationEnd?.split("T")[0] || ""}
+                      onChange={(event) =>
+                        setNewCollege({ ...newCollege, evaluationEnd: event.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">HODs can evaluate until this date</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Appeal Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.appealEnd?.split("T")[0] || ""}
+                      onChange={(event) =>
+                        setNewCollege({ ...newCollege, appealEnd: event.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">Faculty can appeal until this date; scores lock after</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Assessment Period Start</Label>
@@ -488,8 +518,9 @@ export default function College() {
                     <TableHead>Location</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead>Assessment Period</TableHead>
+                    <TableHead>Submission Deadline</TableHead>
+                    <TableHead>Evaluation End</TableHead>
+                    <TableHead>Appeal End</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -574,6 +605,36 @@ export default function College() {
                         )}
                       </TableCell>
                       <TableCell>
+                        {editingCollege === college.id ? (
+                          <Input
+                            type="date"
+                            value={editForm.evaluationEnd?.split("T")[0] || ""}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, evaluationEnd: event.target.value })
+                            }
+                          />
+                        ) : college.evaluationEnd ? (
+                          new Date(college.evaluationEnd).toLocaleDateString()
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingCollege === college.id ? (
+                          <Input
+                            type="date"
+                            value={editForm.appealEnd?.split("T")[0] || ""}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, appealEnd: event.target.value })
+                            }
+                          />
+                        ) : college.appealEnd ? (
+                          new Date(college.appealEnd).toLocaleDateString()
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden">
                         {editingCollege === college.id ? (
                           <div className="flex flex-col gap-1">
                             <Input
