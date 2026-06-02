@@ -86,6 +86,7 @@ const statusConfig: Record<
   accepted: { label: "Accepted", variant: "success" },
   appealed: { label: "Appealed", variant: "warning" },
   "appeal-resolved": { label: "Appeal Resolved", variant: "success" },
+  "auto-approved": { label: "Claim Accepted", variant: "success" },
 };
 
 export default function Dashboard() {
@@ -447,7 +448,7 @@ export default function Dashboard() {
     const rows = filteredData.map((sub: any) => {
       const staff = subToStaff[sub.id] || {};
       const finalScore =
-        sub.status === "accepted" || sub.status === "appeal-resolved"
+        sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved"
           ? (sub.finalScore ?? "")
           : "";
       const submittedAt = sub.createdAt?.seconds
@@ -883,7 +884,7 @@ export default function Dashboard() {
           totalFinalScore += getConfirmedScore(sub);
           totalMaxMarks += sub.maxMarks ?? 0;
           if (sub.status === "appealed") totalAppealed++;
-          if (sub.status === "accepted" || sub.status === "appeal-resolved")
+          if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "auto-approved")
             totalCompleted++;
         });
       });
@@ -900,7 +901,7 @@ export default function Dashboard() {
       personalReviewer += sub.reviewerScore ?? 0;
       personalFinal += getConfirmedScore(sub);
       personalMax += sub.maxMarks ?? 0;
-      if (sub.status === "accepted" || sub.status === "appeal-resolved")
+      if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "auto-approved")
         personalCompleted++;
       if (sub.status === "appealed") personalAppealed++;
     });
@@ -1350,7 +1351,7 @@ export default function Dashboard() {
                 );
                 const collegeCompleted = collegeSubs.filter(
                   (s: any) =>
-                    s.status === "accepted" || s.status === "appeal-resolved",
+                    s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "auto-approved",
                 ).length;
                 const collegeAppeals = collegeSubs.filter(
                   (s: any) => s.status === "appealed",
@@ -1490,7 +1491,7 @@ export default function Dashboard() {
                         0,
                       );
                       const done = subs.filter(
-                        (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved",
+                        (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved",
                       ).length;
                       const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
                       return (
@@ -1654,7 +1655,7 @@ export default function Dashboard() {
           // Summary counts across full staffList (unfiltered)
           const totalAllSubs = nonCommitteeStaff.flatMap((s: any) => s.submissions || []);
           const totalAppeals = totalAllSubs.filter((s: any) => s.status === "appealed").length;
-          const totalAccepted = totalAllSubs.filter((s: any) => s.status === "accepted" || s.status === "appeal-resolved").length;
+          const totalAccepted = totalAllSubs.filter((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved").length;
           const totalPending = totalAllSubs.filter((s: any) => s.status === "submitted").length;
           const totalTargetReached = nonCommitteeStaff.filter((s: any) => {
             if (!s.designationTarget) return false;
@@ -1828,7 +1829,7 @@ export default function Dashboard() {
                                 const targetReached = target !== null && score >= target;
                                 const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                                 const hasPending = subs.some((sub: any) => sub.status === "submitted");
-                                const hasAccepted = subs.some((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved");
+                                const hasAccepted = subs.some((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved");
                                 return (
                                   <tr key={s.id || s.uid || idx} className="hover:bg-muted/20 transition-colors">
                                     <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
@@ -2090,7 +2091,7 @@ export default function Dashboard() {
                         }).length;
                         const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
                         const deptCompleted = deptSubs.filter(
-                          (s: any) => s.status === "accepted" || s.status === "appeal-resolved",
+                          (s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved",
                         ).length;
                         const completionPct = deptSubs.length > 0
                           ? Math.round((deptCompleted / deptSubs.length) * 100)
@@ -2172,7 +2173,7 @@ export default function Dashboard() {
                                 {deans.map((s: any) => {
                                   const subs = s.submissions || [];
                                   const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
-                                  const accepted = subs.filter((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved").length;
+                                  const accepted = subs.filter((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved").length;
                                   const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
                                   return (
                                     <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
@@ -2232,7 +2233,7 @@ export default function Dashboard() {
                               0,
                             );
                             const done = subs.filter(
-                              (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved",
+                              (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved",
                             ).length;
                             const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
                             return (
@@ -2439,7 +2440,7 @@ export default function Dashboard() {
                             const maxScore = subs.reduce((sum: number, s: any) => sum + (s.maxMarks ?? 0), 0);
                             const target = faculty.designationTarget ? Number(faculty.designationTarget) : null;
                             const targetReached = target !== null && finalScore >= target;
-                            const hasAccepted = subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved");
+                            const hasAccepted = subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved");
                             const hasPending = subs.some((s: any) => s.status === "submitted");
                             const hasAppealed = subs.some((s: any) => s.status === "appealed");
                             const progress = maxScore > 0 ? Math.min(100, (finalScore / maxScore) * 100) : 0;
@@ -2835,7 +2836,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Final:</span>{" "}
-                      {sub.status === "accepted" || sub.status === "appeal-resolved"
+                      {sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved"
                         ? sub.finalScore
                         : "Pending"}
                     </div>
@@ -2873,7 +2874,7 @@ export default function Dashboard() {
     totalReviewer += sub.reviewerScore ?? 0;
     totalFinal += sub.finalScore ?? 0;
     totalMax += sub.maxMarks ?? 0;
-    if (sub.status === "accepted" || sub.status === "appeal-resolved")
+    if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved")
       completedCount++;
     if (sub.status === "appealed") appealedCount++;
   });

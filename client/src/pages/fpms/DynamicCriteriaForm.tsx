@@ -105,7 +105,8 @@ type TaskWorkflowStatus =
   | "reviewed"
   | "accepted"
   | "appealed"
-  | "appeal-resolved";
+  | "appeal-resolved"
+  | "auto-approved";
 
 const COLLAPSE_LIMIT = 120;
 
@@ -350,6 +351,8 @@ export default function DynamicCriteriaForm() {
           uiStatus = "appealed";
         } else if (backendStatus === "appeal-resolved") {
           uiStatus = "appeal-resolved";
+        } else if (backendStatus === "auto-approved") {
+          uiStatus = "auto-approved";
         }
 
         nextStatuses[taskId] = uiStatus;
@@ -456,7 +459,8 @@ export default function DynamicCriteriaForm() {
       allTasks.filter(
         (task) =>
           taskStatuses[task.id] === "submitted" ||
-          taskStatuses[task.id] === "reviewed",
+          taskStatuses[task.id] === "reviewed" ||
+          taskStatuses[task.id] === "auto-approved",
       ).length,
     [allTasks, taskStatuses],
   );
@@ -472,7 +476,8 @@ export default function DynamicCriteriaForm() {
       allTasks.filter(
         (task) =>
           taskStatuses[task.id] === "accepted" ||
-          taskStatuses[task.id] === "appeal-resolved",
+          taskStatuses[task.id] === "appeal-resolved" ||
+          taskStatuses[task.id] === "auto-approved",
       ).length,
     [allTasks, taskStatuses],
   );
@@ -484,6 +489,8 @@ export default function DynamicCriteriaForm() {
         return sum + Number(taskReviewData[task.id].reviewerScore || 0);
       } else if (status === "appeal-resolved" && taskAppealData[task.id]) {
         return sum + Number(taskAppealData[task.id].appealerScore || 0);
+      } else if (status === "auto-approved" && taskReviewData[task.id]) {
+        return sum + Number(taskReviewData[task.id].reviewerScore || 0);
       }
       return sum;
     }, 0);
@@ -506,7 +513,8 @@ export default function DynamicCriteriaForm() {
       status === "reviewed" ||
       status === "accepted" ||
       status === "appealed" ||
-      status === "appeal-resolved"
+      status === "appeal-resolved" ||
+      status === "auto-approved"
     ) {
       return true;
     }
@@ -535,7 +543,8 @@ export default function DynamicCriteriaForm() {
         status === "reviewed" ||
         status === "accepted" ||
         status === "appealed" ||
-        status === "appeal-resolved"
+        status === "appeal-resolved" ||
+        status === "auto-approved"
       );
     }).length;
     if (submittedCount === 0) return "not-started";
@@ -1187,6 +1196,10 @@ export default function DynamicCriteriaForm() {
                               <Badge className="bg-emerald-600 text-white">
                                 Accepted
                               </Badge>
+                            ) : taskStatus === "auto-approved" ? (
+                              <Badge className="bg-emerald-600 text-white">
+                                Claim Accepted
+                              </Badge>
                             ) : taskStatus === "appeal-resolved" ? (
                               <Badge className="bg-emerald-600 text-white">
                                 Appeal Resolved
@@ -1538,11 +1551,13 @@ export default function DynamicCriteriaForm() {
                               <Badge className="bg-gray-600 text-white px-4 py-2">
                                 {taskStatus === "accepted"
                                   ? "Accepted"
-                                  : taskStatus === "appeal-resolved"
-                                    ? "Appeal Resolved"
-                                    : taskStatus === "appealed"
-                                      ? (currentPhase === "locked" ? "Appeal Expired" : "Under Appeal")
-                                      : "Submitted"}
+                                  : taskStatus === "auto-approved"
+                                    ? "Claim Accepted"
+                                    : taskStatus === "appeal-resolved"
+                                      ? "Appeal Resolved"
+                                      : taskStatus === "appealed"
+                                        ? (currentPhase === "locked" ? "Appeal Expired" : "Under Appeal")
+                                        : "Submitted"}
                               </Badge>
                             )}
                           </div>

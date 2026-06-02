@@ -2,7 +2,7 @@ import { db } from "../config/firebase.js";
 import { getSuperadminConfig } from "../config/superadminCache.js";
 
 const getConfirmedScore = (sub) => {
-  if (sub.status === "accepted" || sub.status === "appeal-resolved") {
+  if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved") {
     return Number(sub.finalScore ?? sub.score ?? 0);
   }
   return 0;
@@ -68,7 +68,7 @@ export const getViewerStats = async (req, res) => {
           score,
           submissionCount: userSubs.length,
           acceptedCount: userSubs.filter(
-            (s) => s.status === "accepted" || s.status === "appeal-resolved",
+            (s) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved",
           ).length,
         };
       })

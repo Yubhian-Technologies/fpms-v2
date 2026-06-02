@@ -21,6 +21,47 @@ const getCollegePhase = (collegeDef) => {
   return "locked";
 };
 
+// Auto-approves all "submitted" (unreviewed) submissions for a college when
+// the evaluation period has ended. Idempotent — safe to call on every fetch.
+const autoApproveUnreviewedForCollege = async (college) => {
+  if (!college) return;
+  try {
+    const saData = await getSuperadminConfig();
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase()
+    );
+    const phase = getCollegePhase(collegeDef);
+    if (phase !== "appeal" && phase !== "locked") return;
+
+    const snapshot = await db.collection("submissions")
+      .where("college", "==", college)
+      .where("status", "==", "submitted")
+      .get();
+    if (snapshot.empty) return;
+
+    const now = new Date().toISOString();
+    const CHUNK = 400;
+    for (let i = 0; i < snapshot.docs.length; i += CHUNK) {
+      const batch = db.batch();
+      snapshot.docs.slice(i, i + CHUNK).forEach((doc) => {
+        const claimedScore = Number(doc.data().claimedScore ?? 0);
+        batch.update(doc.ref, {
+          status: "auto-approved",
+          reviewerScore: claimedScore,
+          finalScore: claimedScore,
+          reviewerReason: "Auto-approved: evaluation period ended without HOD review.",
+          reviewerId: "system",
+          reviewerRole: "system",
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error("autoApproveUnreviewedForCollege error:", err);
+  }
+};
+
 const normalizeRoleForWorkflow = (value) => {
   const role = String(value || "")
     .trim()
@@ -500,6 +541,9 @@ export const getMySubmissions = async (req, res) => {
         }
       } catch (_) {}
     }
+
+    // Auto-approve unreviewed submissions if evaluation period has ended
+    await autoApproveUnreviewedForCollege(userCollege);
 
     let query = db.collection("submissions").where("userId", "==", userId);
 
@@ -1146,7 +1190,7 @@ export const getUserTotal = async (req, res) => {
     let query = db
       .collection("submissions")
       .where("userId", "==", userId)
-      .where("status", "in", ["reviewed", "appeal-resolved"]);
+      .where("status", "in", ["reviewed", "appeal-resolved", "auto-approved"]);
 
     if (formId) query = query.where("formId", "==", formId);
 

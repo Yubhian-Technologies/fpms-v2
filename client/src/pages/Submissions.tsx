@@ -1123,7 +1123,7 @@ export default function Submissions() {
                 <Accordion type="multiple" className="space-y-3">
                   {submissions
                     .filter((s) =>
-                      ["accepted", "appeal-resolved"].includes(s.status),
+                      ["accepted", "appeal-resolved", "auto-approved"].includes(s.status),
                     )
                     .map((sub) => (
                       <AccordionItem
