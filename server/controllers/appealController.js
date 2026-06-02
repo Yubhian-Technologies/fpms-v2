@@ -48,6 +48,23 @@ export const submitAppeal = async (req, res) => {
       });
     }
 
+    // Block appeal if no internal committee is assigned for this college
+    const facultyCollege = req.faculty.college;
+    if (facultyCollege) {
+      const committeeSnap = await db.collection('users')
+        .where('college', '==', facultyCollege)
+        .where('role', 'in', ['committee', 'commitee'])
+        .limit(1)
+        .get();
+
+      if (committeeSnap.empty) {
+        return res.status(400).json({
+          success: false,
+          message: 'No internal committee has been assigned for your college. Please contact the principal before submitting an appeal.'
+        });
+      }
+    }
+
     await db.collection('appeals').add({
       module,
       facultyId,
