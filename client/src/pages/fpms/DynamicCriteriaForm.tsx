@@ -180,11 +180,16 @@ export default function DynamicCriteriaForm() {
     reason: "",
   });
 
-  // Deadline / phase state
+  // Deadline / phase state — currentPhase must be declared before submissionClosedLabel
   const [deadline, setDeadline] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
-  // Human-readable label for disabled submit buttons
+  const [assessmentStart, setAssessmentStart] = useState<string | null>(null);
+  const [assessmentEnd, setAssessmentEnd] = useState<string | null>(null);
+  const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
+  const [appealEnd, setAppealEnd] = useState<string | null>(null);
+  const [appealReviewEnd, setAppealReviewEnd] = useState<string | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<"submission" | "evaluation" | "appeal" | "appeal-review" | "locked">("submission");
   const submissionClosedLabel = currentPhase === "evaluation"
     ? "Evaluation in Progress"
     : currentPhase === "appeal"
@@ -194,12 +199,6 @@ export default function DynamicCriteriaForm() {
     : currentPhase === "locked"
     ? "Scores Locked"
     : "Deadline Passed";
-  const [assessmentStart, setAssessmentStart] = useState<string | null>(null);
-  const [assessmentEnd, setAssessmentEnd] = useState<string | null>(null);
-  const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
-  const [appealEnd, setAppealEnd] = useState<string | null>(null);
-  const [appealReviewEnd, setAppealReviewEnd] = useState<string | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<"submission" | "evaluation" | "appeal" | "appeal-review" | "locked">("submission");
 
   const storageKey = useMemo(() => {
     const userId = user?.id || "anonymous";
