@@ -106,7 +106,8 @@ type TaskWorkflowStatus =
   | "accepted"
   | "appealed"
   | "appeal-resolved"
-  | "auto-approved";
+  | "auto-approved"
+  | "returned";
 
 const COLLAPSE_LIMIT = 120;
 
@@ -175,6 +176,7 @@ export default function DynamicCriteriaForm() {
   const [taskAppealData, setTaskAppealData] = useState<
     Record<string, { appealerScore: number; appealerReason: string }>
   >({});
+  const [taskReturnReasons, setTaskReturnReasons] = useState<Record<string, string>>({});
   const [appealDialogOpen, setAppealDialogOpen] = useState(false);
   const [appealFormData, setAppealFormData] = useState({
     taskId: "",
@@ -339,6 +341,7 @@ export default function DynamicCriteriaForm() {
         string,
         { appealerScore: number; appealerReason: string }
       > = {};
+      const nextReturnReasons: Record<string, string> = {};
 
       submissionsData.forEach((submission) => {
         const taskId = submission.taskId;
@@ -360,6 +363,8 @@ export default function DynamicCriteriaForm() {
           uiStatus = "appeal-resolved";
         } else if (backendStatus === "auto-approved") {
           uiStatus = "auto-approved";
+        } else if (backendStatus === "returned") {
+          uiStatus = "returned";
         }
 
         nextStatuses[taskId] = uiStatus;
@@ -409,6 +414,11 @@ export default function DynamicCriteriaForm() {
           };
         }
 
+        // Store return reason if returned
+        if (backendStatus === "returned" && submission.returnReason) {
+          nextReturnReasons[taskId] = submission.returnReason;
+        }
+
         // Update progress with claimed data
         nextProgress[taskId] = {
           claimedScore: submission.claimedScore || 0,
@@ -425,6 +435,7 @@ export default function DynamicCriteriaForm() {
       setTaskProgress((prev) => ({ ...prev, ...nextProgress }));
       setTaskReviewData((prev) => ({ ...prev, ...nextReviewData }));
       setTaskAppealData((prev) => ({ ...prev, ...nextAppealData }));
+      setTaskReturnReasons((prev) => ({ ...prev, ...nextReturnReasons }));
 
       console.log("Synced task statuses:", nextStatuses);
       console.log("Synced task progress:", nextProgress);
@@ -1215,6 +1226,8 @@ export default function DynamicCriteriaForm() {
                               <Badge className="bg-blue-600 text-white">
                                 Reviewed
                               </Badge>
+                            ) : taskStatus === "returned" ? (
+                              <Badge className="bg-orange-500 text-white">Returned</Badge>
                             ) : taskStatus === "submitted" ? (
                               <Badge variant="secondary">Submitted</Badge>
                             ) : (
@@ -1395,8 +1408,18 @@ export default function DynamicCriteriaForm() {
                           </div>
                         </div>
 
+                        {/* Returned notice */}
+                        {taskStatus === "returned" && (
+                          <div className="rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+                            <p className="font-medium mb-0.5">Returned for revision</p>
+                            {taskReturnReasons[task.id] && (
+                              <p>{taskReturnReasons[task.id]}</p>
+                            )}
+                          </div>
+                        )}
+
                         {/* Reviewer Section */}
-                        {taskStatus !== "pending" &&
+                        {taskStatus !== "pending" && taskStatus !== "returned" &&
                           taskReviewData[task.id] && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                               <div>
@@ -1482,6 +1505,17 @@ export default function DynamicCriteriaForm() {
                                     : "Accept"}
                                 </Button>
                               </>
+                            ) : taskStatus === "returned" ? (
+                              <Button
+                                onClick={() => submitTask(moduleItem, task)}
+                                disabled={submittingTaskId === task.id || isDeadlinePassed}
+                                className="bg-orange-600 hover:bg-orange-700 text-white"
+                              >
+                                {submittingTaskId === task.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : null}
+                                {submittingTaskId === task.id ? "Resubmitting..." : "Resubmit Task"}
+                              </Button>
                             ) : taskStatus === "pending" ? (
                               <Button
                                 onClick={() => submitTask(moduleItem, task)}

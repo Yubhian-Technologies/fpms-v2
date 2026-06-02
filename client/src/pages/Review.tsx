@@ -157,6 +157,8 @@ export default function Review() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<Record<string, boolean>>({});
+  const [returning, setReturning] = useState<Record<string, boolean>>({});
+  const [returnReasonInputs, setReturnReasonInputs] = useState<Record<string, string>>({});
   const [reviewInputs, setReviewInputs] = useState<
     Record<string, { verifiedScore: string; remarks: string }>
   >({});
@@ -654,6 +656,27 @@ export default function Review() {
     }
   };
 
+  const handleReturn = async (item: SubmissionItem) => {
+    const id = String(item.id || "").trim();
+    if (!id) return;
+    setReturning((prev) => ({ ...prev, [id]: true }));
+    try {
+      await api.post(`/api/submissions/${id}/return`, {
+        returnReason: returnReasonInputs[id] || "",
+      });
+      setQueue((prev) => prev.filter((r) => r.id !== id));
+      toast({ title: "Returned for revision", description: "Faculty can now resubmit this task." });
+    } catch (err: any) {
+      toast({
+        title: "Failed",
+        description: err?.response?.data?.message || "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setReturning((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   const renderSubmissionCard = (
     item: SubmissionItem,
     type: "pending" | "reviewed",
@@ -797,22 +820,45 @@ export default function Review() {
           </div>
 
           {type === "pending" ? (
-            <div className="flex justify-end items-center gap-3 pt-2">
-              {phase !== "evaluation" && (
-                <p className="text-xs text-muted-foreground">
-                  {phase === "submission" ? "Evaluation not started yet" : "Evaluation period closed"}
-                </p>
-              )}
-              <Button
-                size="sm"
-                onClick={() => handleReview(item)}
-                disabled={isReviewing || phase !== "evaluation"}
-              >
-                {isReviewing && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <div className="space-y-3 pt-2">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Return reason (optional)</p>
+                <Textarea
+                  rows={2}
+                  placeholder="Reason for returning to faculty..."
+                  value={returnReasonInputs[id] || ""}
+                  onChange={(e) =>
+                    setReturnReasonInputs((prev) => ({ ...prev, [id]: e.target.value }))
+                  }
+                  className="min-h-[60px]"
+                />
+              </div>
+              <div className="flex justify-end items-center gap-3">
+                {phase !== "evaluation" && (
+                  <p className="text-xs text-muted-foreground">
+                    {phase === "submission" ? "Evaluation not started yet" : "Evaluation period closed"}
+                  </p>
                 )}
-                {isReviewing ? "Saving..." : "Submit Review"}
-              </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleReturn(item)}
+                  disabled={returning[id] || phase !== "evaluation"}
+                >
+                  {returning[id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {returning[id] ? "Returning..." : "Return for Revision"}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleReview(item)}
+                  disabled={isReviewing || phase !== "evaluation"}
+                >
+                  {isReviewing && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isReviewing ? "Saving..." : "Submit Review"}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex justify-end">

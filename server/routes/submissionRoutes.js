@@ -12,6 +12,7 @@ import {
   getResolvedAppeals,
   getUserTotal,
   updateSubmission,
+  returnForRevision,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 import upload from "../middleware/upload.js";
@@ -70,6 +71,7 @@ router.get("/user-total", getUserTotal);
 router.get("/review-queue", getReviewQueue);
 router.get("/my-reviewed", getReviewedSubmissions);
 router.post("/:id/review", reviewSubmission);
+router.post("/:id/return", returnForRevision);
 
 // Appeal reviewer endpoints
 router.get("/appeal-queue", getAppealQueue);
