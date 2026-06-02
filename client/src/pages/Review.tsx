@@ -157,8 +157,7 @@ export default function Review() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<Record<string, boolean>>({});
-  const [returning, setReturning] = useState<Record<string, boolean>>({});
-  const [returnReasonInputs, setReturnReasonInputs] = useState<Record<string, string>>({});
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
   const [reviewInputs, setReviewInputs] = useState<
     Record<string, { verifiedScore: string; remarks: string }>
   >({});
@@ -656,16 +655,15 @@ export default function Review() {
     }
   };
 
-  const handleReturn = async (item: SubmissionItem) => {
+  const handleDelete = async (item: SubmissionItem) => {
     const id = String(item.id || "").trim();
     if (!id) return;
-    setReturning((prev) => ({ ...prev, [id]: true }));
+    setDeleting((prev) => ({ ...prev, [id]: true }));
     try {
-      await api.post(`/api/submissions/${id}/return`, {
-        returnReason: returnReasonInputs[id] || "",
-      });
+      await api.delete(`/api/submissions/${id}`);
       setQueue((prev) => prev.filter((r) => r.id !== id));
-      toast({ title: "Returned for revision", description: "Faculty can now resubmit this task." });
+      setReviewedItems((prev) => prev.filter((r) => r.id !== id));
+      toast({ title: "Submission deleted", description: "Faculty can now resubmit this task." });
     } catch (err: any) {
       toast({
         title: "Failed",
@@ -673,7 +671,7 @@ export default function Review() {
         variant: "destructive",
       });
     } finally {
-      setReturning((prev) => ({ ...prev, [id]: false }));
+      setDeleting((prev) => ({ ...prev, [id]: false }));
     }
   };
 
@@ -820,53 +818,45 @@ export default function Review() {
           </div>
 
           {type === "pending" ? (
-            <div className="space-y-3 pt-2">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Return reason (optional)</p>
-                <Textarea
-                  rows={2}
-                  placeholder="Reason for returning to faculty..."
-                  value={returnReasonInputs[id] || ""}
-                  onChange={(e) =>
-                    setReturnReasonInputs((prev) => ({ ...prev, [id]: e.target.value }))
-                  }
-                  className="min-h-[60px]"
-                />
-              </div>
-              <div className="flex justify-end items-center gap-3">
-                {phase !== "evaluation" && (
-                  <p className="text-xs text-muted-foreground">
-                    {phase === "submission" ? "Evaluation not started yet" : "Evaluation period closed"}
-                  </p>
+            <div className="flex justify-end items-center gap-3 pt-2">
+              {phase !== "evaluation" && (
+                <p className="text-xs text-muted-foreground">
+                  {phase === "submission" ? "Evaluation not started yet" : "Evaluation period closed"}
+                </p>
+              )}
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleDelete(item)}
+                disabled={deleting[id]}
+              >
+                {deleting[id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {deleting[id] ? "Deleting..." : "Delete"}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleReview(item)}
+                disabled={isReviewing || phase !== "evaluation"}
+              >
+                {isReviewing && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleReturn(item)}
-                  disabled={returning[id] || phase !== "evaluation"}
-                >
-                  {returning[id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {returning[id] ? "Returning..." : "Return for Revision"}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => handleReview(item)}
-                  disabled={isReviewing || phase !== "evaluation"}
-                >
-                  {isReviewing && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {isReviewing ? "Saving..." : "Submit Review"}
-                </Button>
-              </div>
+                {isReviewing ? "Saving..." : "Submit Review"}
+              </Button>
             </div>
           ) : (
-            <div className="flex justify-end">
-              <Badge
-                variant="outline"
-                className="bg-blue-50 text-blue-700 border-blue-200"
+            <div className="flex justify-end items-center gap-3 pt-1">
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleDelete(item)}
+                disabled={deleting[id]}
               >
-                Reviewed
+                {deleting[id] && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {deleting[id] ? "Deleting..." : "Delete"}
+              </Button>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                {item.status === "appealed" ? "Appealed" : "Reviewed"}
               </Badge>
             </div>
           )}

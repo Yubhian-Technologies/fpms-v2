@@ -35,7 +35,6 @@ import {
   LinkIcon,
   User,
   Scale,
-  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatRoleLabel } from "@/lib/utils";
@@ -115,11 +114,6 @@ const statusConfig: Record<
     label: "Claim Accepted",
     variant: "success",
     icon: CheckCircle2,
-  },
-  returned: {
-    label: "Returned for Revision",
-    variant: "warning",
-    icon: RotateCcw,
   },
 };
 
@@ -243,7 +237,6 @@ export default function Submissions() {
     appealed: { color: "bg-amber-500" },
     reviewed: { color: "bg-blue-500" },
     submitted: { color: "bg-violet-500" },
-    returned: { color: "bg-orange-500" },
     pending: { color: "bg-slate-400" },
   };
 

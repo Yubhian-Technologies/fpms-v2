@@ -507,8 +507,8 @@ export const updateSubmission = async (req, res) => {
       });
     }
 
-    // 🔒 LOCK if reviewer has given score (unless HOD returned it for revision)
-    if (data.reviewerScore !== null && data.status !== "returned") {
+    // 🔒 LOCK if reviewer has given score
+    if (data.reviewerScore !== null) {
       return res.status(400).json({
         success: false,
         message: "Cannot edit after review",
@@ -521,28 +521,17 @@ export const updateSubmission = async (req, res) => {
       finalEvidence = req.file.path;
     }
 
-    const updatePayload = {
+    await docRef.update({
       description: description ?? data.description,
       claimedScore:
         claimedScore !== undefined ? Number(claimedScore) : data.claimedScore,
       evidence: finalEvidence,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    // When resubmitting after a "returned" review, reset to submitted and clear reviewer data
-    if (data.status === "returned") {
-      updatePayload.status = "submitted";
-      updatePayload.reviewerScore = null;
-      updatePayload.reviewerReason = null;
-      updatePayload.finalScore = null;
-      updatePayload.returnReason = null;
-    }
-
-    await docRef.update(updatePayload);
+    });
 
     return res.status(200).json({
       success: true,
-      message: data.status === "returned" ? "Task resubmitted successfully" : "Submission updated successfully",
+      message: "Submission updated successfully",
     });
   } catch (error) {
     console.error("updateSubmission error:", error);
@@ -1270,11 +1259,10 @@ export const getUserTotal = async (req, res) => {
   }
 };
 
-// Return a submission to faculty for revision
-export const returnForRevision = async (req, res) => {
+// Delete a submission so the faculty can resubmit fresh
+export const deleteSubmission = async (req, res) => {
   try {
     const { id } = req.params;
-    const { returnReason } = req.body;
 
     const docRef = db.collection("submissions").doc(id);
     const doc = await docRef.get();
@@ -1283,27 +1271,11 @@ export const returnForRevision = async (req, res) => {
       return res.status(404).json({ success: false, message: "Submission not found" });
     }
 
-    const data = doc.data();
+    await docRef.delete();
 
-    if (data.status !== "submitted") {
-      return res.status(400).json({
-        success: false,
-        message: "Only submitted (unreviewed) submissions can be returned for revision",
-      });
-    }
-
-    await docRef.update({
-      status: "returned",
-      returnReason: returnReason || "",
-      reviewerScore: null,
-      reviewerReason: null,
-      finalScore: null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return res.status(200).json({ success: true, message: "Submission returned for revision" });
+    return res.status(200).json({ success: true, message: "Submission deleted. Faculty can now resubmit." });
   } catch (error) {
-    console.error("returnForRevision error:", error);
+    console.error("deleteSubmission error:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
