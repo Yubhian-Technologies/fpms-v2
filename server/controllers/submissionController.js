@@ -21,6 +21,24 @@ const getCollegePhase = (collegeDef) => {
   return "locked";
 };
 
+// Runs auto-approval for every college whose evaluation period has passed.
+// Used when the caller (e.g. committee) has no single college context.
+const autoApproveAllColleges = async () => {
+  try {
+    const saData = await getSuperadminConfig();
+    await Promise.all(
+      (saData.colleges || [])
+        .filter((c) => {
+          const phase = getCollegePhase(c);
+          return phase === "appeal" || phase === "locked";
+        })
+        .map((c) => autoApproveUnreviewedForCollege(String(c.name || "").trim()))
+    );
+  } catch (err) {
+    console.error("autoApproveAllColleges error:", err);
+  }
+};
+
 // Auto-approves all "submitted" (unreviewed) submissions for a college when
 // the evaluation period has ended. Idempotent — safe to call on every fetch.
 const autoApproveUnreviewedForCollege = async (college) => {
@@ -632,6 +650,13 @@ export const getReviewQueue = async (req, res) => {
       });
     }
 
+    // Auto-approve unreviewed submissions if evaluation period has ended
+    if (college) {
+      await autoApproveUnreviewedForCollege(college);
+    } else if (isCommitteeRole(userRole)) {
+      await autoApproveAllColleges();
+    }
+
     let query = db
       .collection("submissions")
       .where("status", "==", "submitted")
@@ -941,6 +966,13 @@ export const getAppealQueue = async (req, res) => {
         success: false,
         message: "Principal college not found. Please login again.",
       });
+    }
+
+    // Auto-approve any missed unreviewed submissions before processing appeals
+    if (college) {
+      await autoApproveUnreviewedForCollege(college);
+    } else if (isCommitteeRole(userRole)) {
+      await autoApproveAllColleges();
     }
 
     let query = db.collection("submissions").where("status", "==", "appealed");
