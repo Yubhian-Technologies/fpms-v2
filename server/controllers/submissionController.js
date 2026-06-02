@@ -281,19 +281,21 @@ export const submitTask = async (req, res) => {
       finalEvidence = evidence || "";
     }
 
-    // Block new submissions after deadline
+    // Phase check: submissions only allowed during the submission phase (applies to all roles)
     const saData = await getSuperadminConfig();
     const collegeDef = (saData.colleges || []).find(
       (c) => String(c?.name || "").trim().toLowerCase() === (college || "").trim().toLowerCase()
     );
-    if (collegeDef?.deadline) {
-      const deadlineDate = new Date(collegeDef.deadline);
-      deadlineDate.setHours(23, 59, 59, 999);
-      if (new Date() > deadlineDate) {
-        return res.status(403).json({
-          success: false,
-          message: "Submission deadline has passed. No new submissions are accepted.",
-        });
+    if (collegeDef) {
+      const phase = getCollegePhase(collegeDef);
+      if (phase === "evaluation") {
+        return res.status(403).json({ success: false, message: "Submission period has ended. Evaluations are now in progress." });
+      }
+      if (phase === "appeal") {
+        return res.status(403).json({ success: false, message: "Submission period has ended. Appeal period is now active." });
+      }
+      if (phase === "locked") {
+        return res.status(403).json({ success: false, message: "Scores are locked. No submissions are accepted." });
       }
     }
 

@@ -183,6 +183,14 @@ export default function DynamicCriteriaForm() {
   const [deadline, setDeadline] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
+  // Human-readable label for disabled submit buttons
+  const submissionClosedLabel = currentPhase === "evaluation"
+    ? "Evaluation in Progress"
+    : currentPhase === "appeal"
+    ? "Appeal Period Active"
+    : currentPhase === "locked"
+    ? "Scores Locked"
+    : {submissionClosedLabel};
   const [assessmentStart, setAssessmentStart] = useState<string | null>(null);
   const [assessmentEnd, setAssessmentEnd] = useState<string | null>(null);
   const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
@@ -1470,7 +1478,7 @@ export default function DynamicCriteriaForm() {
                                 {submittingTaskId === task.id
                                   ? "Submitting..."
                                   : isDeadlinePassed
-                                    ? "Deadline Passed"
+                                    ? {submissionClosedLabel}
                                     : "Submit Task"}
                               </Button>
                             ) : taskStatus === "submitted" ? (
@@ -1500,7 +1508,7 @@ export default function DynamicCriteriaForm() {
                                   {submittingTaskId === task.id
                                     ? "Updating..."
                                     : isDeadlinePassed
-                                      ? "Deadline Passed"
+                                      ? {submissionClosedLabel}
                                       : "Update Task"}
                                 </Button>
                               ) : (
@@ -1515,7 +1523,7 @@ export default function DynamicCriteriaForm() {
                                   disabled={isDeadlinePassed}
                                 >
                                   {isDeadlinePassed
-                                    ? "Deadline Passed"
+                                    ? {submissionClosedLabel}
                                     : "Edit"}
                                 </Button>
                               )
@@ -1554,7 +1562,7 @@ export default function DynamicCriteriaForm() {
                       : submittingModuleId === moduleItem.id
                         ? "Submitting..."
                         : isDeadlinePassed
-                          ? "Deadline Passed"
+                          ? {submissionClosedLabel}
                           : "Submit Section"}
                   </Button>
                 </div>
@@ -1625,7 +1633,7 @@ export default function DynamicCriteriaForm() {
                   Submitting...
                 </>
               ) : isDeadlinePassed ? (
-                "Deadline Passed"
+                {submissionClosedLabel}
               ) : (
                 "Submit Appeal"
               )}
