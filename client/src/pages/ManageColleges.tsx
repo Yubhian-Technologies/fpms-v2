@@ -51,6 +51,8 @@ interface College {
   deadline?: string;
   assessmentStart?: string;
   assessmentEnd?: string;
+  evaluationEnd?: string;
+  appealEnd?: string;
 }
 
 interface CommitteeMember {
@@ -110,6 +112,8 @@ export default function ManageColleges() {
     deadline: "",
     assessmentStart: "",
     assessmentEnd: "",
+    evaluationEnd: "",
+    appealEnd: "",
   });
 
   // Edit college state
@@ -513,6 +517,8 @@ export default function ManageColleges() {
         deadline: newCollege.deadline || null,
         assessmentStart: newCollege.assessmentStart || null,
         assessmentEnd: newCollege.assessmentEnd || null,
+        evaluationEnd: newCollege.evaluationEnd || null,
+        appealEnd: newCollege.appealEnd || null,
       });
 
       await fetchColleges(true);
@@ -526,6 +532,8 @@ export default function ManageColleges() {
         deadline: "",
         assessmentStart: "",
         assessmentEnd: "",
+        evaluationEnd: "",
+        appealEnd: "",
       });
       setNewBranchInput("");
 
@@ -598,6 +606,8 @@ export default function ManageColleges() {
         deadline: editForm.deadline || null,
         assessmentStart: editForm.assessmentStart || null,
         assessmentEnd: editForm.assessmentEnd || null,
+        evaluationEnd: editForm.evaluationEnd || null,
+        appealEnd: editForm.appealEnd || null,
       });
 
       await fetchColleges(true);
@@ -872,6 +882,30 @@ export default function ManageColleges() {
                     />
                   </div>
                 </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Evaluation Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.evaluationEnd ? newCollege.evaluationEnd.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        setNewCollege({ ...newCollege, evaluationEnd: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">HODs can evaluate until this date (after submission deadline)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Appeal Period End</Label>
+                    <Input
+                      type="date"
+                      value={newCollege.appealEnd ? newCollege.appealEnd.slice(0, 10) : ""}
+                      onChange={(e) =>
+                        setNewCollege({ ...newCollege, appealEnd: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">Faculty can appeal until this date; scores lock after</p>
+                  </div>
+                </div>
 
                 <div className="space-y-3">
                   <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
@@ -1123,6 +1157,26 @@ export default function ManageColleges() {
                                 }
                               />
                             </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Evaluation End</p>
+                              <Input
+                                type="date"
+                                value={editForm.evaluationEnd ? editForm.evaluationEnd.slice(0, 10) : ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, evaluationEnd: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground font-medium">Appeal End</p>
+                              <Input
+                                type="date"
+                                value={editForm.appealEnd ? editForm.appealEnd.slice(0, 10) : ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, appealEnd: e.target.value })
+                                }
+                              />
+                            </div>
                           </div>
                         ) : (
                           <div className="text-sm space-y-1">
@@ -1130,6 +1184,10 @@ export default function ManageColleges() {
                             <p>{formatDate(college.deadline)}</p>
                             <p className="text-muted-foreground text-xs mt-1">Assessment</p>
                             <p>{formatDate(college.assessmentStart)} – {formatDate(college.assessmentEnd)}</p>
+                            <p className="text-muted-foreground text-xs mt-1">Evaluation End</p>
+                            <p>{formatDate(college.evaluationEnd)}</p>
+                            <p className="text-muted-foreground text-xs mt-1">Appeal End</p>
+                            <p>{formatDate(college.appealEnd)}</p>
                           </div>
                         )}
                       </TableCell>

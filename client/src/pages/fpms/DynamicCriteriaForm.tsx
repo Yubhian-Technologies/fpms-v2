@@ -179,12 +179,15 @@ export default function DynamicCriteriaForm() {
     reason: "",
   });
 
-  // Deadline state
+  // Deadline / phase state
   const [deadline, setDeadline] = useState<string | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [isDeadlinePassed, setIsDeadlinePassed] = useState(false);
   const [assessmentStart, setAssessmentStart] = useState<string | null>(null);
   const [assessmentEnd, setAssessmentEnd] = useState<string | null>(null);
+  const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
+  const [appealEnd, setAppealEnd] = useState<string | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<"submission" | "evaluation" | "appeal" | "locked">("submission");
 
   const storageKey = useMemo(() => {
     const userId = user?.id || "anonymous";
@@ -248,21 +251,33 @@ export default function DynamicCriteriaForm() {
           "x-college": user.college,
         },
       });
-      if (res.data.success && res.data.data.deadline) {
-        const deadlineStr = res.data.data.deadline;
-        setDeadline(deadlineStr);
-
-        const due = new Date(deadlineStr);
-        const now = new Date();
-        const diffTime = due.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        setDaysRemaining(diffDays);
-        setIsDeadlinePassed(diffDays < 0);
-      }
       if (res.data.success) {
-        setAssessmentStart(res.data.data.assessmentStart || null);
-        setAssessmentEnd(res.data.data.assessmentEnd || null);
+        const d = res.data.data;
+        const deadlineStr = d.deadline || null;
+        setDeadline(deadlineStr);
+        setAssessmentStart(d.assessmentStart || null);
+        setAssessmentEnd(d.assessmentEnd || null);
+        setEvaluationEnd(d.evaluationEnd || null);
+        setAppealEnd(d.appealEnd || null);
+
+        if (deadlineStr) {
+          const due = new Date(deadlineStr);
+          const now = new Date();
+          const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          setDaysRemaining(diffDays);
+          setIsDeadlinePassed(diffDays < 0);
+        }
+
+        // Derive current phase
+        const toEnd = (s: string | null) => { if (!s) return null; const d2 = new Date(s); d2.setHours(23, 59, 59, 999); return d2; };
+        const now = new Date();
+        const dl = toEnd(d.deadline);
+        const evEnd = toEnd(d.evaluationEnd);
+        const apEnd = toEnd(d.appealEnd);
+        if (!dl || now <= dl) setCurrentPhase("submission");
+        else if (!evEnd || now <= evEnd) setCurrentPhase("evaluation");
+        else if (!apEnd || now <= apEnd) setCurrentPhase("appeal");
+        else setCurrentPhase("locked");
       }
     } catch (err) {
       console.error("Deadline fetch error:", err);
@@ -351,7 +366,7 @@ export default function DynamicCriteriaForm() {
 
         // Determine if can appeal (reviewed status and not already appealed/accepted)
         nextCanAppeal[taskId] =
-          backendStatus === "reviewed" && !submission.isAppealed;
+          backendStatus === "reviewed" && !submission.isAppealed && currentPhase === "appeal";
 
         // Store review data
         if (
@@ -965,75 +980,66 @@ export default function DynamicCriteriaForm() {
       subtitle={`${payload.formTitle} • Maximum ${payload.criteria.totalMarks || totalMaxMarks} Points`}
     >
       <div className="space-y-6">
-        {deadline && (
-          <Card
-            className={`border-l-4 ${isDeadlinePassed ? "border-l-red-500 bg-red-50" : "border-l-amber-500 bg-amber-50"}`}
-          >
-            <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                <Clock
-                  className={`h-5 w-5 ${isDeadlinePassed ? "text-red-600" : "text-amber-600"}`}
-                />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Submission Deadline
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {new Date(deadline).toLocaleDateString("en-IN", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                {daysRemaining !== null && (
-                  <div
-                    className={`text-sm font-bold ${isDeadlinePassed ? "text-red-600" : "text-amber-700"}`}
-                  >
-                    {isDeadlinePassed
-                      ? `${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) !== 1 ? "s" : ""} overdue - Submission Locked`
-                      : `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining`}
+        {/* Phase banner */}
+        {(() => {
+          const fmt = (s: string | null) =>
+            s ? new Date(s).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "—";
+          const phases: Record<string, { label: string; desc: string; border: string; bg: string; text: string; date: string | null }> = {
+            submission: {
+              label: "Submission Period",
+              desc: daysRemaining !== null && daysRemaining >= 0
+                ? `${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining`
+                : "Deadline passed",
+              border: "border-l-amber-500",
+              bg: "bg-amber-50",
+              text: "text-amber-700",
+              date: deadline,
+            },
+            evaluation: {
+              label: "Evaluation Period",
+              desc: `HODs are reviewing submissions. Appeals open after ${fmt(evaluationEnd)}.`,
+              border: "border-l-blue-500",
+              bg: "bg-blue-50",
+              text: "text-blue-700",
+              date: evaluationEnd,
+            },
+            appeal: {
+              label: "Appeal Period",
+              desc: `You can appeal reviewed scores until ${fmt(appealEnd)}.`,
+              border: "border-l-purple-500",
+              bg: "bg-purple-50",
+              text: "text-purple-700",
+              date: appealEnd,
+            },
+            locked: {
+              label: "Scores Locked",
+              desc: "The appeal period has ended. All scores are final.",
+              border: "border-l-gray-500",
+              bg: "bg-gray-50",
+              text: "text-gray-700",
+              date: null,
+            },
+          };
+          const p = phases[currentPhase];
+          return (
+            <Card className={`border-l-4 ${p.border} ${p.bg}`}>
+              <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <Clock className={`h-5 w-5 ${p.text}`} />
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{p.label}</p>
+                    <p className={`text-sm font-semibold ${p.text}`}>{p.desc}</p>
                   </div>
+                </div>
+                {p.date && (
+                  <p className="text-xs text-muted-foreground">
+                    Until {fmt(p.date)}
+                  </p>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {(assessmentStart || assessmentEnd) && (
-          <Card className="border-l-4 border-l-blue-400 bg-blue-50">
-            <CardContent className="p-4 flex items-center gap-4">
-              <Clock className="h-5 w-5 text-blue-600 shrink-0" />
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Assessment Period
-                </p>
-                <p className="text-sm font-semibold text-blue-900">
-                  {assessmentStart
-                    ? new Date(assessmentStart).toLocaleDateString("en-IN", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    : "—"}
-                  {" – "}
-                  {assessmentEnd
-                    ? new Date(assessmentEnd).toLocaleDateString("en-IN", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    : "—"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <Card>
           <CardHeader>

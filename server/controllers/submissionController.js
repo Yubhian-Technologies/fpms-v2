@@ -2,6 +2,25 @@ import admin from "firebase-admin";
 import { db } from "../config/firebase.js";
 import { getSuperadminConfig } from "../config/superadminCache.js";
 
+// Returns current assessment phase based on college config dates
+const getCollegePhase = (collegeDef) => {
+  const toEndOfDay = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  };
+  const now = new Date();
+  const deadline = toEndOfDay(collegeDef?.deadline);
+  const evaluationEnd = toEndOfDay(collegeDef?.evaluationEnd);
+  const appealEnd = toEndOfDay(collegeDef?.appealEnd);
+
+  if (!deadline || now <= deadline) return "submission";
+  if (!evaluationEnd || now <= evaluationEnd) return "evaluation";
+  if (!appealEnd || now <= appealEnd) return "appeal";
+  return "locked";
+};
+
 const normalizeRoleForWorkflow = (value) => {
   const role = String(value || "")
     .trim()
@@ -676,6 +695,22 @@ export const reviewSubmission = async (req, res) => {
         .json({ success: false, message: "Submission not found" });
     }
 
+    // Phase check: block review after evaluation period ends
+    const subData = doc.data();
+    const saDataForReview = await getSuperadminConfig();
+    const collegeDefForReview = (saDataForReview.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === String(subData?.college || "").trim().toLowerCase()
+    );
+    if (collegeDefForReview) {
+      const phase = getCollegePhase(collegeDefForReview);
+      if (phase === "locked") {
+        return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
+      }
+      if (phase === "appeal") {
+        return res.status(403).json({ success: false, message: "Evaluation period has ended. Reviews are no longer accepted." });
+      }
+    }
+
     await docRef.update({
       status: "reviewed",
       reviewerScore: Number(reviewerScore),
@@ -733,6 +768,21 @@ export const raiseAppeal = async (req, res) => {
         success: false,
         message: "Appeal already submitted",
       });
+    }
+
+    // Phase check: appeals only allowed during the appeal period
+    const saDataForAppeal = await getSuperadminConfig();
+    const collegeDefForAppeal = (saDataForAppeal.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === String(data?.college || "").trim().toLowerCase()
+    );
+    if (collegeDefForAppeal) {
+      const phase = getCollegePhase(collegeDefForAppeal);
+      if (phase === "submission" || phase === "evaluation") {
+        return res.status(403).json({ success: false, message: "Appeals are not open yet. The evaluation period must end first." });
+      }
+      if (phase === "locked") {
+        return res.status(403).json({ success: false, message: "Scores are locked. The appeal period has ended." });
+      }
     }
 
     const workflowRules = await loadWorkflowRules(data.college);

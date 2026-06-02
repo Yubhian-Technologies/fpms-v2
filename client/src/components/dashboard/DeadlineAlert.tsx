@@ -1,132 +1,71 @@
-// src/components/DeadlineAlert.tsx
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  CalendarClock,
-  ArrowRight,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+import { CalendarClock, ClipboardCheck, MessageSquare, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface DeadlineAlertProps {
-  onCompleteClick?: () => void;
+type Phase = "submission" | "evaluation" | "appeal" | "locked";
+
+interface PhaseConfig {
+  label: string;
+  icon: React.ElementType;
+  borderColor: string;
+  bg: string;
+  textColor: string;
+  iconBg: string;
+  iconColor: string;
 }
 
-export function DeadlineAlert({ onCompleteClick }: DeadlineAlertProps) {
-  const { user } = useAuth();
+const PHASE_CONFIG: Record<Phase, PhaseConfig> = {
+  submission: {
+    label: "Submission Period",
+    icon: CalendarClock,
+    borderColor: "border-l-amber-500",
+    bg: "bg-amber-50 dark:bg-amber-950/20",
+    textColor: "text-amber-700 dark:text-amber-400",
+    iconBg: "bg-amber-100 dark:bg-amber-900/30",
+    iconColor: "text-amber-600",
+  },
+  evaluation: {
+    label: "Evaluation Period",
+    icon: ClipboardCheck,
+    borderColor: "border-l-blue-500",
+    bg: "bg-blue-50 dark:bg-blue-950/20",
+    textColor: "text-blue-700 dark:text-blue-400",
+    iconBg: "bg-blue-100 dark:bg-blue-900/30",
+    iconColor: "text-blue-600",
+  },
+  appeal: {
+    label: "Appeal Period",
+    icon: MessageSquare,
+    borderColor: "border-l-purple-500",
+    bg: "bg-purple-50 dark:bg-purple-950/20",
+    textColor: "text-purple-700 dark:text-purple-400",
+    iconBg: "bg-purple-100 dark:bg-purple-900/30",
+    iconColor: "text-purple-600",
+  },
+  locked: {
+    label: "Scores Locked",
+    icon: Lock,
+    borderColor: "border-l-gray-500",
+    bg: "bg-gray-50 dark:bg-gray-900/20",
+    textColor: "text-gray-700 dark:text-gray-400",
+    iconBg: "bg-gray-100 dark:bg-gray-800/30",
+    iconColor: "text-gray-600",
+  },
+};
 
-  const [deadline, setDeadline] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const toEndOfDay = (s: string | null) => {
+  if (!s) return null;
+  const d = new Date(s);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
 
-  useEffect(() => {
-    if (!user) {
-      setIsLoading(false);
-      setError("No user logged in");
-      return;
-    }
-
-    const userId = user.uid || user.id || "";
-    const role = user.role || "";
-    const college = user.college || "";
-
-    if (!userId) {
-      setIsLoading(false);
-      setError("User ID missing");
-      return;
-    }
-
-    const fetchDeadline = async () => {
-      try {
-        const res = await api.get("/api/colleges/user-deadline", {
-          headers: {
-            "x-user-id": userId,
-            "x-user-role": role,
-            "x-college": college,
-          },
-        });
-
-        if (res.data.success && res.data.data?.deadline) {
-          setDeadline(res.data.data.deadline);
-        } else {
-          setError("No deadline found");
-        }
-      } catch (err: any) {
-        setError("Failed to load deadline");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDeadline();
-  }, [user]);
-
-  const getDaysRemaining = (deadlineStr: string | null): number | null => {
-    if (!deadlineStr) return null;
-    try {
-      const due = new Date(deadlineStr);
-      if (isNaN(due.getTime())) return null;
-      due.setHours(23, 59, 59, 999);
-      const now = new Date();
-      const diffMs = due.getTime() - now.getTime();
-      return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    } catch {
-      return null;
-    }
-  };
-
-  const days = getDaysRemaining(deadline);
-  const noDeadline = days === null || error;
-
-  // ────────────────────────────────────────────────
-  // THEME LOGIC
-  // ────────────────────────────────────────────────
-
-  let cardClass =
-    "overflow-hidden shadow-sm border-l-6 border border-r border-t border-b";
-  let textClass = "";
-  let iconBg = "";
-  let iconColor = "";
-  let buttonClass = "";
-  let buttonVariant: "default" | "secondary" | "destructive" = "secondary";
-
-  if (!noDeadline && days !== null) {
-    if (days > 30) {
-      // GREEN THEME
-      cardClass += " border-l-green-600 border-left-6 bg-green-50 dark:bg-green-950/20";
-      textClass = "text-green-700 dark:text-green-400";
-      iconBg = "bg-green-100 dark:bg-green-900/30";
-      iconColor = "text-green-600 dark:text-green-400";
-      buttonVariant = "default";
-      buttonClass =
-        "bg-green-600 hover:bg-green-700 text-white";
-    } else if (days > 15 && days <= 30) {
-      // YELLOW THEME
-      cardClass += " border-l-yellow-500 border-l-6 bg-yellow-50 dark:bg-yellow-950/20";
-      textClass = "text-yellow-700 dark:text-yellow-400";
-      iconBg = "bg-yellow-100 dark:bg-yellow-900/30";
-      iconColor = "text-yellow-600 dark:text-yellow-400";
-      buttonVariant = "default";
-      buttonClass =
-        "bg-yellow-500 hover:bg-yellow-600 text-white";
-    } else {
-      // RED THEME (<=15 days)
-      cardClass += " border-l-red-600 bg-red-50 dark:bg-red-950/20";
-      textClass = "text-red-700 dark:text-red-400";
-      iconBg = "bg-red-100 dark:bg-red-900/30";
-      iconColor = "text-red-600 dark:text-red-400";
-      buttonVariant = "destructive";
-      buttonClass =
-        "bg-red-600 hover:bg-red-700 text-white";
-    }
-  }
-
-  const formattedDate = deadline
-    ? new Date(deadline).toLocaleDateString("en-IN", {
+const fmt = (s: string | null) =>
+  s
+    ? new Date(s).toLocaleDateString("en-IN", {
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -134,45 +73,101 @@ export function DeadlineAlert({ onCompleteClick }: DeadlineAlertProps) {
       })
     : "Not set";
 
-  const message = isLoading
-    ? "Loading deadline..."
-    : error
-    ? error
-    : noDeadline
-    ? "No deadline available"
-    : `${days} day${days !== 1 ? "s" : ""} remaining`;
+const daysUntil = (s: string | null): number | null => {
+  const d = toEndOfDay(s);
+  if (!d) return null;
+  return Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+};
+
+export function DeadlineAlert() {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [deadline, setDeadline] = useState<string | null>(null);
+  const [evaluationEnd, setEvaluationEnd] = useState<string | null>(null);
+  const [appealEnd, setAppealEnd] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>("submission");
+
+  useEffect(() => {
+    if (!user) { setIsLoading(false); return; }
+    api
+      .get("/api/colleges/user-deadline", {
+        headers: {
+          "x-user-id": user.uid || user.id || "",
+          "x-user-role": user.role || "",
+          "x-college": user.college || "",
+        },
+      })
+      .then((res) => {
+        if (!res.data.success) return;
+        const d = res.data.data;
+        setDeadline(d.deadline || null);
+        setEvaluationEnd(d.evaluationEnd || null);
+        setAppealEnd(d.appealEnd || null);
+
+        const now = new Date();
+        const dl = toEndOfDay(d.deadline);
+        const ev = toEndOfDay(d.evaluationEnd);
+        const ap = toEndOfDay(d.appealEnd);
+        if (!dl || now <= dl) setPhase("submission");
+        else if (!ev || now <= ev) setPhase("evaluation");
+        else if (!ap || now <= ap) setPhase("appeal");
+        else setPhase("locked");
+      })
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [user]);
+
+  const cfg = PHASE_CONFIG[phase];
+  const Icon = cfg.icon;
+
+  const phaseDate: string | null =
+    phase === "submission" ? deadline
+    : phase === "evaluation" ? evaluationEnd
+    : phase === "appeal" ? appealEnd
+    : null;
+
+  const daysLeft = daysUntil(phaseDate);
+
+  const phaseDesc =
+    phase === "submission"
+      ? daysLeft !== null && daysLeft >= 0
+        ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining to submit`
+        : "Deadline passed"
+      : phase === "evaluation"
+      ? daysLeft !== null && daysLeft >= 0
+        ? `HODs can evaluate for ${daysLeft} more day${daysLeft !== 1 ? "s" : ""}`
+        : "Evaluation period ended"
+      : phase === "appeal"
+      ? daysLeft !== null && daysLeft >= 0
+        ? `${daysLeft} day${daysLeft !== 1 ? "s" : ""} left to appeal`
+        : "Appeal period ended"
+      : "All scores are final";
 
   return (
-    <Card className={cn(cardClass)}>
+    <Card
+      className={cn(
+        "overflow-hidden shadow-sm border border-l-4",
+        cfg.borderColor,
+        cfg.bg,
+      )}
+    >
       <CardContent className="flex items-center justify-between p-5 gap-6 flex-wrap">
         <div className="flex items-center gap-4">
-          <div
-            className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-full",
-              iconBg
-            )}
-          >
+          <div className={cn("flex h-12 w-12 items-center justify-center rounded-full", cfg.iconBg)}>
             {isLoading ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
-              <CalendarClock className={cn("h-6 w-6", iconColor)} />
+              <Icon className={cn("h-6 w-6", cfg.iconColor)} />
             )}
           </div>
-
           <div>
-            <p className={cn("text-sm font-medium", textClass)}>
-              Submission Deadline
-            </p>
-            <p className="text-xl font-bold mt-0.5">
-              {isLoading ? "—" : formattedDate}
-            </p>
-            
+            <p className={cn("text-sm font-medium", cfg.textColor)}>{cfg.label}</p>
+            <p className="text-xl font-bold mt-0.5">{isLoading ? "—" : fmt(phaseDate)}</p>
           </div>
         </div>
-
-        <p className={cn("text-md mt-1 font-bold", textClass)}>
-              {message}
-            </p>
+        <p className={cn("text-sm font-bold", cfg.textColor)}>
+          {isLoading ? "Loading..." : phaseDesc}
+        </p>
       </CardContent>
     </Card>
   );
