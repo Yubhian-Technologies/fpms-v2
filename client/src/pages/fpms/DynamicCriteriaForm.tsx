@@ -132,9 +132,9 @@ function CollapsibleText({ text, className }: { text: string; className?: string
 function clampClaimedScore(value: number, task: TaskItem): number {
   if (!Number.isFinite(value)) return 0;
   const v = Math.max(0, value);
-  // "range" = Ref: no upper cap; "fixed" = Max: hard cap at task.marks
-  if (task.marksType === "range") return v;
-  return Math.min(v, Number(task.marks || 0));
+  const cap = Number(task.marks || task.minMarks || 0);
+  // Both "range" and "fixed" are capped at task.marks
+  return cap > 0 ? Math.min(v, cap) : v;
 }
 
 export default function DynamicCriteriaForm() {
@@ -602,19 +602,6 @@ export default function DynamicCriteriaForm() {
       const existingSubmissionId = taskSubmissionIds[task.id];
 
       const claimedNum = Number(progress.claimedScore || 0);
-
-      // Ref task: claimed must be 0 (not claiming) or ≥ minMarks
-      if (task.marksType === "range" && claimedNum > 0) {
-        const minRequired = Number(task.minMarks ?? 0);
-        if (claimedNum < minRequired) {
-          toast({
-            title: "Score below minimum",
-            description: `Claim either 0 (not applicable) or at least ${minRequired} marks for this task.`,
-            variant: "destructive",
-          });
-          return false;
-        }
-      }
 
       if (claimedNum > 0 && !progress.evidenceUrl) {
         toast({
@@ -1232,9 +1219,7 @@ export default function DynamicCriteriaForm() {
                               <Badge variant="outline">Pending</Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              {task.marksType === "range"
-                                ? `points: ${task.minMarks ?? 0}`
-                                : `max points: ${task.marks}`}
+                              max points: {task.marks || task.minMarks || 0}
                             </span>
                             {Array.isArray(taskSubmittedRoles[task.id]) &&
                             taskSubmittedRoles[task.id].length > 0 ? (
@@ -1297,22 +1282,17 @@ export default function DynamicCriteriaForm() {
                           <div>
                             <label className="text-sm font-medium block mb-1.5">
                               Claimed Score
-                              {task.marksType === "range" && (
-                                <span className="ml-2 text-xs text-blue-600 font-normal">
-                                  (points: {task.minMarks ?? 0})
-                                </span>
-                              )}
                             </label>
                             {taskFrozen ? (
                               <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
                                 {progress.claimedScore}
-                                {task.marksType !== "range" && ` / ${task.marks}`}
+                                {` / ${task.marks || task.minMarks || 0}`}
                               </div>
                             ) : (
                               <Input
                                 type="number"
                                 min={0}
-                                max={task.marksType !== "range" ? task.marks : undefined}
+                                max={task.marks || task.minMarks || undefined}
                                 value={progress.claimedScore}
                                 className="w-full"
                                 onChange={(e) =>
