@@ -132,8 +132,10 @@ function CollapsibleText({ text, className }: { text: string; className?: string
 function clampClaimedScore(value: number, task: TaskItem): number {
   if (!Number.isFinite(value)) return 0;
   const v = Math.max(0, value);
-  const cap = Number(task.marks || task.minMarks || 0);
-  // Both "range" and "fixed" are capped at task.marks
+  // "range" (Ref) tasks have no hard cap — faculty can claim above the reference points
+  if (task.marksType === "range") return v;
+  // "fixed" (Max) tasks are hard-capped at task.marks
+  const cap = Number(task.marks || 0);
   return cap > 0 ? Math.min(v, cap) : v;
 }
 
@@ -1146,7 +1148,9 @@ export default function DynamicCriteriaForm() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
-                      {`max points: ${moduleItem.totalMarks}`}
+                      {moduleItem.tasks.some((t) => t.marksType === "range")
+                        ? `points: ${moduleItem.totalMarks}`
+                        : `max points: ${moduleItem.totalMarks}`}
                     </span>
                     {getModuleStatus(moduleItem) === "completed" ? (
                       <Badge className="bg-blue-800 text-white">
@@ -1217,7 +1221,9 @@ export default function DynamicCriteriaForm() {
                               <Badge variant="outline">Pending</Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              max points: {task.marks || task.minMarks || 0}
+                              {task.marksType === "range"
+                                ? `points: ${task.minMarks || task.marks || 0}`
+                                : `max points: ${task.marks || 0}`}
                             </span>
                             {Array.isArray(taskSubmittedRoles[task.id]) &&
                             taskSubmittedRoles[task.id].length > 0 ? (
@@ -1284,13 +1290,13 @@ export default function DynamicCriteriaForm() {
                             {taskFrozen ? (
                               <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
                                 {progress.claimedScore}
-                                {` / ${task.marks || task.minMarks || 0}`}
+                                {task.marksType !== "range" && ` / ${task.marks}`}
                               </div>
                             ) : (
                               <Input
                                 type="number"
                                 min={0}
-                                max={task.marks || task.minMarks || undefined}
+                                max={task.marksType === "fixed" ? (task.marks || undefined) : undefined}
                                 value={progress.claimedScore}
                                 className="w-full"
                                 onChange={(e) =>
@@ -1399,7 +1405,7 @@ export default function DynamicCriteriaForm() {
                                 </label>
                                 <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900">
                                   {taskReviewData[task.id].reviewerScore}
-                                  {` / ${task.marks || task.minMarks || 0}`}
+                                  {task.marksType !== "range" && ` / ${task.marks}`}
                                 </div>
                               </div>
                               <div className="md:col-span-1">
@@ -1431,7 +1437,7 @@ export default function DynamicCriteriaForm() {
                                 </label>
                                 <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
                                   {taskAppealData[task.id].appealerScore}
-                                  {` / ${task.marks || task.minMarks || 0}`}
+                                  {task.marksType !== "range" && ` / ${task.marks}`}
                                 </div>
                               </div>
                               <div className="md:col-span-1">
