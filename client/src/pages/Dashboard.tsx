@@ -47,6 +47,14 @@ import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { DeadlineAlert } from "@/components/dashboard/DeadlineAlert";
@@ -99,6 +107,13 @@ export default function Dashboard() {
   const [selectedDeptDetail, setSelectedDeptDetail] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [hodSearch, setHodSearch] = useState<string>("");
+  const [cFilterCollege, setCFilterCollege] = useState<string>("All");
+  const [cFilterDept, setCFilterDept] = useState<string>("All");
+  const [cFilterDesig, setCFilterDesig] = useState<string>("All");
+  const [cFilterStatus, setCFilterStatus] = useState<string>("All");
+  const [cFilterRole, setCFilterRole] = useState<string>("All");
+  const [cSearch, setCSearch] = useState<string>("");
+  const [cActiveTab, setCActiveTab] = useState<string>("staff");
   const [viewerStats, setViewerStats] = useState<any>(null);
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
@@ -1588,6 +1603,400 @@ export default function Dashboard() {
             )}
           </div>
         )}
+
+        {/* ── COMMITTEE: Submissions & Staff Overview ── */}
+        {user?.role === "committee" && (() => {
+          const nonCommitteeStaff = staffList.filter(
+            (s: any) => s.role !== "committee" && s.college,
+          );
+
+          // Derive unique filter options from full dataset
+          const colleges = Array.from(new Set(nonCommitteeStaff.map((s: any) => s.college).filter(Boolean))).sort();
+          const depts = Array.from(new Set(
+            nonCommitteeStaff
+              .filter((s: any) => cFilterCollege === "All" || s.college === cFilterCollege)
+              .map((s: any) => s.department).filter(Boolean)
+          )).sort();
+          const desigs = Array.from(new Set(
+            nonCommitteeStaff
+              .filter((s: any) =>
+                (cFilterCollege === "All" || s.college === cFilterCollege) &&
+                (cFilterDept === "All" || s.department === cFilterDept)
+              )
+              .map((s: any) => s.designation).filter(Boolean)
+          )).sort();
+          const roles = Array.from(new Set(nonCommitteeStaff.map((s: any) => s.role).filter(Boolean))).sort();
+
+          // Apply all filters
+          const filteredStaff = nonCommitteeStaff.filter((s: any) => {
+            if (cFilterCollege !== "All" && s.college !== cFilterCollege) return false;
+            if (cFilterDept !== "All" && s.department !== cFilterDept) return false;
+            if (cFilterDesig !== "All" && s.designation !== cFilterDesig) return false;
+            if (cFilterRole !== "All" && s.role !== cFilterRole) return false;
+            if (cSearch) {
+              const q = cSearch.toLowerCase();
+              if (
+                !String(s.name || "").toLowerCase().includes(q) &&
+                !String(s.email || "").toLowerCase().includes(q) &&
+                !String(s.designation || "").toLowerCase().includes(q)
+              ) return false;
+            }
+            return true;
+          });
+
+          // All submissions from filtered staff, optionally filtered by status
+          const allSubs = filteredStaff.flatMap((s: any) =>
+            (s.submissions || []).map((sub: any) => ({ ...sub, staffName: s.name || s.email, staffRole: s.role, staffCollege: s.college, staffDept: s.department, staffDesig: s.designation }))
+          );
+          const filteredSubs = cFilterStatus === "All" ? allSubs : allSubs.filter((sub: any) => sub.status === cFilterStatus);
+          const appealSubs = allSubs.filter((sub: any) => sub.status === "appealed");
+
+          // Summary counts across full staffList (unfiltered)
+          const totalAllSubs = nonCommitteeStaff.flatMap((s: any) => s.submissions || []);
+          const totalAppeals = totalAllSubs.filter((s: any) => s.status === "appealed").length;
+          const totalAccepted = totalAllSubs.filter((s: any) => s.status === "accepted" || s.status === "appeal-resolved").length;
+          const totalPending = totalAllSubs.filter((s: any) => s.status === "submitted").length;
+          const totalTargetReached = nonCommitteeStaff.filter((s: any) => {
+            if (!s.designationTarget) return false;
+            const score = (s.submissions || []).reduce((sum: number, sub: any) => sum + (sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+            return score >= Number(s.designationTarget);
+          }).length;
+
+          const resetDeptFilters = () => {
+            setCFilterDept("All");
+            setCFilterDesig("All");
+          };
+
+          return (
+            <div className="mt-10 mb-6 space-y-6">
+              {/* Header */}
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Submissions &amp; Staff Overview
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Live view of all staff submissions across colleges — filter, search, and track
+                </p>
+              </div>
+
+              {/* Summary Stat Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {[
+                  { label: "Total Staff", value: nonCommitteeStaff.length, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+                  { label: "Submissions", value: totalAllSubs.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-500/10" },
+                  { label: "Pending Review", value: totalPending, icon: CircleDot, color: "text-amber-600", bg: "bg-amber-500/10" },
+                  { label: "Accepted", value: totalAccepted, icon: CircleCheck, color: "text-green-600", bg: "bg-green-500/10" },
+                  { label: "Appeals", value: totalAppeals, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
+                ].map(({ label, value, icon: Icon, color, bg }) => (
+                  <Card key={label} className="shadow-sm">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${bg}`}>
+                          <Icon className={`h-4 w-4 ${color}`} />
+                        </div>
+                        <div>
+                          <p className="text-xl font-bold">{value}</p>
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Filter Bar */}
+              <Card className="shadow-sm">
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex flex-wrap gap-3 items-end">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[180px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search name, email, designation..."
+                        value={cSearch}
+                        onChange={(e) => setCSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    {/* College */}
+                    <Select value={cFilterCollege} onValueChange={(v) => { setCFilterCollege(v); resetDeptFilters(); }}>
+                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="College" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Colleges</SelectItem>
+                        {colleges.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {/* Role */}
+                    <Select value={cFilterRole} onValueChange={setCFilterRole}>
+                      <SelectTrigger className="w-[140px]"><SelectValue placeholder="Role" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Roles</SelectItem>
+                        {roles.map((r: string) => <SelectItem key={r} value={r}>{formatRoleLabel(r)}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {/* Department */}
+                    <Select value={cFilterDept} onValueChange={(v) => { setCFilterDept(v); setCFilterDesig("All"); }}>
+                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="Department" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Departments</SelectItem>
+                        {depts.map((d: string) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {/* Designation */}
+                    <Select value={cFilterDesig} onValueChange={setCFilterDesig}>
+                      <SelectTrigger className="w-[160px]"><SelectValue placeholder="Designation" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Designations</SelectItem>
+                        {desigs.map((d: string) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {/* Status (for submissions tab) */}
+                    <Select value={cFilterStatus} onValueChange={setCFilterStatus}>
+                      <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Statuses</SelectItem>
+                        <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="reviewed">Under Review</SelectItem>
+                        <SelectItem value="accepted">Accepted</SelectItem>
+                        <SelectItem value="appealed">Appealed</SelectItem>
+                        <SelectItem value="appeal-resolved">Appeal Resolved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {/* Reset */}
+                    {(cSearch || cFilterCollege !== "All" || cFilterDept !== "All" || cFilterDesig !== "All" || cFilterRole !== "All" || cFilterStatus !== "All") && (
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setCSearch("");
+                        setCFilterCollege("All");
+                        setCFilterDept("All");
+                        setCFilterDesig("All");
+                        setCFilterRole("All");
+                        setCFilterStatus("All");
+                      }}>
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
+                  {filteredStaff.length !== nonCommitteeStaff.length && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Showing {filteredStaff.length} of {nonCommitteeStaff.length} staff
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Tabs: Staff | Submissions | Appeals */}
+              <Tabs value={cActiveTab} onValueChange={setCActiveTab}>
+                <TabsList className="mb-4">
+                  <TabsTrigger value="staff">Staff ({filteredStaff.length})</TabsTrigger>
+                  <TabsTrigger value="submissions">Submissions ({filteredSubs.length})</TabsTrigger>
+                  <TabsTrigger value="appeals">Appeals ({appealSubs.length})</TabsTrigger>
+                </TabsList>
+
+                {/* ── STAFF TAB ── */}
+                <TabsContent value="staff">
+                  <Card className="shadow-sm rounded-xl overflow-hidden">
+                    <CardContent className="p-0">
+                      {filteredStaff.length === 0 ? (
+                        <div className="py-16 text-center text-muted-foreground">
+                          <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                          <p>No staff match the current filters</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/40">
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Name</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Role</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">College</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Department</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Designation</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Subs</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Score</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Target</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {filteredStaff.map((s: any, idx: number) => {
+                                const subs = s.submissions || [];
+                                const score = subs.reduce((sum: number, sub: any) => sum + (sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+                                const maxScore = subs.reduce((sum: number, sub: any) => sum + (sub.maxMarks ?? 0), 0);
+                                const target = s.designationTarget ? Number(s.designationTarget) : null;
+                                const targetReached = target !== null && score >= target;
+                                const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+                                const hasPending = subs.some((sub: any) => sub.status === "submitted");
+                                const hasAccepted = subs.some((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved");
+                                return (
+                                  <tr key={s.id || s.uid || idx} className="hover:bg-muted/20 transition-colors">
+                                    <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="font-medium">{s.name || s.email}</div>
+                                      {s.name && s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
+                                    </td>
+                                    <td className="px-4 py-3 text-muted-foreground text-xs">{formatRoleLabel(s.role)}</td>
+                                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.college || "—"}</td>
+                                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.department || "—"}</td>
+                                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
+                                    <td className="px-4 py-3 text-center font-semibold">{subs.length}</td>
+                                    <td className="px-4 py-3 text-center">
+                                      <span className="font-semibold">{score}</span>
+                                      {maxScore > 0 && <span className="text-muted-foreground text-xs">/{maxScore}</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      {target !== null ? (
+                                        targetReached
+                                          ? <span className="inline-flex items-center gap-1 text-green-600 text-xs font-semibold"><CircleCheck className="h-3.5 w-3.5" /> Reached</span>
+                                          : <span className="text-xs text-muted-foreground">{score}/{target}</span>
+                                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      {subs.length === 0 ? (
+                                        <Badge variant="outline" className="text-xs">Not Submitted</Badge>
+                                      ) : hasAppealed ? (
+                                        <Badge variant="warning" className="text-xs">Appealed</Badge>
+                                      ) : hasPending ? (
+                                        <Badge variant="secondary" className="text-xs">Pending Review</Badge>
+                                      ) : hasAccepted ? (
+                                        <Badge variant="success" className="text-xs">Accepted</Badge>
+                                      ) : (
+                                        <Badge variant="default" className="text-xs">Under Review</Badge>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* ── SUBMISSIONS TAB ── */}
+                <TabsContent value="submissions">
+                  <Card className="shadow-sm rounded-xl overflow-hidden">
+                    <CardContent className="p-0">
+                      {filteredSubs.length === 0 ? (
+                        <div className="py-16 text-center text-muted-foreground">
+                          <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                          <p>No submissions match the current filters</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/40">
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Staff</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">College / Dept</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Form / Criteria</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Module / Task</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Claimed</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Reviewer</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Final</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {filteredSubs.map((sub: any, idx: number) => {
+                                const sc = statusConfig[sub.status] || { label: sub.status, variant: "outline" as const };
+                                return (
+                                  <tr key={sub.id || idx} className="hover:bg-muted/20 transition-colors">
+                                    <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
+                                    <td className="px-4 py-3">
+                                      <div className="font-medium text-sm">{sub.staffName}</div>
+                                      <div className="text-xs text-muted-foreground">{formatRoleLabel(sub.staffRole)}</div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="text-xs font-medium">{sub.staffCollege}</div>
+                                      <div className="text-xs text-muted-foreground">{sub.staffDept || "—"}</div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="text-xs font-medium">{sub.formTitle || "—"}</div>
+                                      <div className="text-xs text-muted-foreground">{sub.criteriaName || "—"}</div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="text-xs font-medium">{sub.moduleName || "—"}</div>
+                                      <div className="text-xs text-muted-foreground">{sub.taskName || "—"}</div>
+                                    </td>
+                                    <td className="px-4 py-3 text-center text-sm">{sub.claimedScore ?? "—"}</td>
+                                    <td className="px-4 py-3 text-center text-sm">{sub.reviewerScore ?? "—"}</td>
+                                    <td className="px-4 py-3 text-center font-semibold text-sm">{sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? "—"}</td>
+                                    <td className="px-4 py-3 text-center">
+                                      <Badge variant={sc.variant} className="text-xs">{sc.label}</Badge>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* ── APPEALS TAB ── */}
+                <TabsContent value="appeals">
+                  <Card className="shadow-sm rounded-xl overflow-hidden">
+                    <CardContent className="p-0">
+                      {appealSubs.length === 0 ? (
+                        <div className="py-16 text-center text-muted-foreground">
+                          <CircleCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                          <p>No active appeals</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/40">
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Staff</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">College / Dept</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Form / Criteria</th>
+                                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Task</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Claimed</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Reviewer Score</th>
+                                <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Max</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {appealSubs.map((sub: any, idx: number) => (
+                                <tr key={sub.id || idx} className="hover:bg-red-50/50 transition-colors">
+                                  <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium">{sub.staffName}</div>
+                                    <div className="text-xs text-muted-foreground">{formatRoleLabel(sub.staffRole)}</div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="text-xs font-medium">{sub.staffCollege}</div>
+                                    <div className="text-xs text-muted-foreground">{sub.staffDept || "—"}</div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="text-xs font-medium">{sub.formTitle || "—"}</div>
+                                    <div className="text-xs text-muted-foreground">{sub.criteriaName || "—"}</div>
+                                  </td>
+                                  <td className="px-4 py-3 text-xs">{sub.taskName || "—"}</td>
+                                  <td className="px-4 py-3 text-center text-sm">{sub.claimedScore ?? "—"}</td>
+                                  <td className="px-4 py-3 text-center text-sm">{sub.reviewerScore ?? "—"}</td>
+                                  <td className="px-4 py-3 text-center text-sm">{sub.maxMarks ?? "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          );
+        })()}
 
         {/* ── PRINCIPAL / VICE PRINCIPAL: Department-first layout ── */}
         {isDean && (
