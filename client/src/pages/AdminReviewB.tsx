@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCollegePhase } from "@/hooks/useCollegePhase";
+import { PhaseBanner } from "@/components/dashboard/PhaseBanner";
 
 type Criterion = {
   name: string;
@@ -35,6 +37,7 @@ type HodSubmission = {
 export default function AdminReviewB() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { phase, deadlineLabel } = useCollegePhase();
 
   const [data, setData] = useState<HodSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,7 +248,7 @@ export default function AdminReviewB() {
                                   ) : (
                                     <Button
                                       size="sm"
-                                      disabled={isVerifying}
+                                      disabled={isVerifying || phase !== "evaluation"}
                                       onClick={() =>
                                         verifyCriterion(
                                           hod.hodId,
@@ -286,6 +289,7 @@ export default function AdminReviewB() {
 
   return (
     <DashboardLayout title="Admin Review – Module 1">
+      <PhaseBanner phase={phase} deadlineLabel={deadlineLabel} allowedPhases={["evaluation"]} />
       <div className="space-y-6">
         <Input
           placeholder="Search by HOD name or department..."

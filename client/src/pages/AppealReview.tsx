@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCollegePhase } from "@/hooks/useCollegePhase";
+import { PhaseBanner } from "@/components/dashboard/PhaseBanner";
 import {
   Accordion,
   AccordionContent,
@@ -60,6 +62,7 @@ interface SubmissionItem {
 export default function AppealReview() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { phase, deadlineLabel } = useCollegePhase();
 
   const [queue, setQueue] = useState<SubmissionItem[]>([]);
   const [resolvedItems, setResolvedItems] = useState<SubmissionItem[]>([]);
@@ -558,7 +561,7 @@ export default function AppealReview() {
               <Button
                 size="sm"
                 onClick={() => handleAppealReview(item)}
-                disabled={isReviewing}
+                disabled={isReviewing || !["appeal", "appeal-review"].includes(phase)}
               >
                 {isReviewing && (
                   <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -577,6 +580,7 @@ export default function AppealReview() {
       title="Review Appeals"
       subtitle="Faculty Appeal Review Queue"
     >
+      <PhaseBanner phase={phase} deadlineLabel={deadlineLabel} allowedPhases={["appeal", "appeal-review"]} />
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card>

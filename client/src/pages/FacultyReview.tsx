@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCollegePhase } from "@/hooks/useCollegePhase";
+import { PhaseBanner } from "@/components/dashboard/PhaseBanner";
 import {
   Dialog,
   DialogContent,
@@ -122,6 +124,7 @@ function EvidenceViewer({ evidence }: { evidence: string | null }) {
 
 export default function FacultyReview() {
   const { toast } = useToast();
+  const { phase, deadlineLabel } = useCollegePhase();
 
   const [submissions, setSubmissions] = useState<ReviewerSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -402,7 +405,7 @@ export default function FacultyReview() {
               <Button
                 size="sm"
                 onClick={() => handleReview(item)}
-                disabled={isReviewing}
+                disabled={isReviewing || phase !== "evaluation"}
               >
                 {isReviewing && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -569,6 +572,7 @@ export default function FacultyReview() {
       title="Review Submissions"
       subtitle="Faculty Performance Review"
     >
+      <PhaseBanner phase={phase} deadlineLabel={deadlineLabel} allowedPhases={["evaluation"]} />
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>

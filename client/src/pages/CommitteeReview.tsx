@@ -3,6 +3,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-hot-toast";
+import { useCollegePhase } from "@/hooks/useCollegePhase";
+import { PhaseBanner } from "@/components/dashboard/PhaseBanner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +31,7 @@ interface HodAppeal {
 }
 
 const AppealCard = memo(
-  ({ appeal, expanded, input, onExpand, onChange, onSubmit }: any) => {
+  ({ appeal, expanded, input, onExpand, onChange, onSubmit, disabled }: any) => {
     const verified = appeal.verifiedByCommittee;
 
     return (
@@ -105,7 +107,7 @@ const AppealCard = memo(
                   }
                 />
 
-                <Button onClick={() => onSubmit(appeal)}>Verify Appeal</Button>
+                <Button onClick={() => onSubmit(appeal)} disabled={disabled}>Verify Appeal</Button>
               </div>
             )}
 
@@ -131,6 +133,7 @@ const AppealCard = memo(
 
 export default function CommitteeReview() {
   const { user, isLoading } = useAuth();
+  const { phase, deadlineLabel } = useCollegePhase();
   const [appeals, setAppeals] = useState<HodAppeal[]>([]);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [inputs, setInputs] = useState<any>({});
@@ -221,8 +224,11 @@ export default function CommitteeReview() {
   const pending = appeals.filter((a) => !a.verifiedByCommittee);
   const verified = appeals.filter((a) => a.verifiedByCommittee);
 
+  const appealPhaseBlocked = !["appeal", "appeal-review"].includes(phase);
+
   return (
     <DashboardLayout title="HOD Appeals">
+      <PhaseBanner phase={phase} deadlineLabel={deadlineLabel} allowedPhases={["appeal", "appeal-review"]} />
       {isPageLoading ? (
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -241,6 +247,7 @@ export default function CommitteeReview() {
                   onExpand={toggleExpand}
                   onChange={handleChange}
                   onSubmit={verifyAppeal}
+                  disabled={appealPhaseBlocked}
                 />
               ))}
               {pending.length === 0 && (
@@ -263,6 +270,7 @@ export default function CommitteeReview() {
                   onExpand={toggleExpand}
                   onChange={handleChange}
                   onSubmit={verifyAppeal}
+                  disabled={appealPhaseBlocked}
                 />
               ))}
               {verified.length === 0 && (
