@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, ClipboardCheck, Lock, Clock, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, TrendingUp } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+type Phase = "submission" | "evaluation" | "appeal" | "appeal-review" | "locked";
+
+const toEndOfDay = (s: string | null) => {
+  if (!s) return null;
+  const d = new Date(s);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
 
 interface SubmissionItem {
   id: string;
@@ -162,6 +170,8 @@ export default function Review() {
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<
     string | null
   >(null);
+  const [phase, setPhase] = useState<Phase>("submission");
+  const [deadlineLabel, setDeadlineLabel] = useState<string>("");
 
   const isHOD = (user?.role || "").toLowerCase() === "hod";
   const isCommittee = user?.role === "committee";
@@ -171,10 +181,33 @@ export default function Review() {
   const fetchQueue = async () => {
     setLoading(true);
     try {
-      const [pendingRes, reviewedRes] = await Promise.all([
+      const [pendingRes, reviewedRes, deadlineRes] = await Promise.all([
         api.get("/api/submissions/review-queue"),
         api.get("/api/submissions/my-reviewed"),
+        api.get("/api/colleges/user-deadline", {
+          headers: {
+            "x-user-id": user?.uid || user?.id || "",
+            "x-user-role": user?.role || "",
+            "x-college": user?.college || "",
+          },
+        }),
       ]);
+
+      if (deadlineRes.data?.success) {
+        const d = deadlineRes.data.data;
+        const now = new Date();
+        const dl = toEndOfDay(d.deadline || null);
+        const ev = toEndOfDay(d.evaluationEnd || null);
+        const ap = toEndOfDay(d.appealEnd || null);
+        const apRev = toEndOfDay(d.appealReviewEnd || null);
+        let p: Phase;
+        if (!dl || now <= dl) { p = "submission"; setDeadlineLabel(dl ? `Submission deadline: ${dl.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}` : ""); }
+        else if (!ev || now <= ev) { p = "evaluation"; setDeadlineLabel(ev ? `Evaluation ends: ${ev.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}` : ""); }
+        else if (!ap || now <= ap) { p = "appeal"; setDeadlineLabel(ap ? `Appeal deadline: ${ap.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}` : ""); }
+        else if (!apRev || now <= apRev) { p = "appeal-review"; setDeadlineLabel(apRev ? `Appeal review ends: ${apRev.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}` : ""); }
+        else { p = "locked"; setDeadlineLabel("All scores are locked."); }
+        setPhase(p);
+      }
 
       const pending = Array.isArray(pendingRes.data?.data)
         ? pendingRes.data.data
@@ -795,11 +828,16 @@ export default function Review() {
           </div>
 
           {type === "pending" ? (
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end items-center gap-3 pt-2">
+              {phase !== "evaluation" && (
+                <p className="text-xs text-muted-foreground">
+                  {phase === "submission" ? "Evaluation not started yet" : "Evaluation period closed"}
+                </p>
+              )}
               <Button
                 size="sm"
                 onClick={() => handleReview(item)}
-                disabled={isReviewing}
+                disabled={isReviewing || phase !== "evaluation"}
               >
                 {isReviewing && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -822,11 +860,56 @@ export default function Review() {
     );
   };
 
+  const phaseBanner = () => {
+    if (phase === "evaluation") return null;
+    const configs: Record<string, { icon: any; bg: string; border: string; text: string; msg: string }> = {
+      submission: {
+        icon: Clock,
+        bg: "bg-amber-50 dark:bg-amber-950/20",
+        border: "border-amber-400",
+        text: "text-amber-800 dark:text-amber-300",
+        msg: `Submission period is still open — faculty are still submitting. Evaluation window begins after the submission deadline passes. ${deadlineLabel}`,
+      },
+      appeal: {
+        icon: ClipboardCheck,
+        bg: "bg-purple-50 dark:bg-purple-950/20",
+        border: "border-purple-400",
+        text: "text-purple-800 dark:text-purple-300",
+        msg: `Evaluation period has ended. Faculty may now appeal their scores. ${deadlineLabel}`,
+      },
+      "appeal-review": {
+        icon: ClipboardCheck,
+        bg: "bg-orange-50 dark:bg-orange-950/20",
+        border: "border-orange-400",
+        text: "text-orange-800 dark:text-orange-300",
+        msg: `Appeal review period. No new appeals can be raised. ${deadlineLabel}`,
+      },
+      locked: {
+        icon: Lock,
+        bg: "bg-gray-50 dark:bg-gray-900/20",
+        border: "border-gray-400",
+        text: "text-gray-700 dark:text-gray-400",
+        msg: "All scores are final and locked. No further reviews or changes are permitted.",
+      },
+    };
+    const cfg = configs[phase];
+    if (!cfg) return null;
+    const Icon = cfg.icon;
+    return (
+      <div className={`flex items-start gap-3 rounded-lg border-l-4 ${cfg.border} ${cfg.bg} px-4 py-3 mb-6`}>
+        <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${cfg.text}`} />
+        <p className={`text-sm font-medium ${cfg.text}`}>{cfg.msg}</p>
+      </div>
+    );
+  };
+
   return (
     <DashboardLayout
       title="Review Submissions"
       subtitle="Faculty Performance Review"
     >
+      {phaseBanner()}
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
