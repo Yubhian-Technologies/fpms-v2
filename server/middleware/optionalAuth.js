@@ -9,6 +9,7 @@ export const optionalAuth = async (req, res, next) => {
     const userRole = req.headers['x-user-role'];
     const college = req.headers['x-college'];
     const department = req.headers['x-department'];
+    const internalCommittee = req.headers['x-internal-committee'] === 'true';
 
     if (userId) {
       req.user = {
@@ -19,6 +20,7 @@ export const optionalAuth = async (req, res, next) => {
         role: userRole || 'faculty',
         college: college || '',
         department: department || '',
+        internalCommittee,
       };
     }
 

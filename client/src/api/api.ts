@@ -59,6 +59,9 @@ api.interceptors.request.use((config) => {
       headers.set("x-user-role", user.role || "faculty");
       headers.set("x-college", user.college || "");
       headers.set("x-department", user.department || "");
+      if (user.internalCommittee === true) {
+        headers.set("x-internal-committee", "true");
+      }
     } catch (e) {
       console.error("Failed to parse user data:", e);
     }
