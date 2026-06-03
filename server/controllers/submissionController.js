@@ -480,7 +480,7 @@ export const submitTask = async (req, res) => {
 export const updateSubmission = async (req, res) => {
   try {
     const { id } = req.params; // submission ID from URL
-    const { description, claimedScore } = req.body;
+    const { description, claimedScore, evidence } = req.body;
 
     const userId = req.user?.uid || req.user?.id || req.headers["x-user-id"];
 
@@ -519,9 +519,11 @@ export const updateSubmission = async (req, res) => {
       });
     }
 
-    // If new file uploaded
+    // Prefer the Cloudinary URL sent in the body; fall back to a multer file, then keep old value
     let finalEvidence = data.evidence;
-    if (req.file) {
+    if (evidence && String(evidence).trim()) {
+      finalEvidence = String(evidence).trim();
+    } else if (req.file) {
       finalEvidence = req.file.path;
     }
 
