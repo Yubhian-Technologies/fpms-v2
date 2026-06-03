@@ -1921,6 +1921,24 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
     const superadminDoc = await superadminRef.get();
     const data = superadminDoc.exists ? superadminDoc.data() || {} : {};
 
+    // Lock workflow rules once the evaluation period has ended
+    const collegeDef = (Array.isArray(data.colleges) ? data.colleges : []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === college.toLowerCase(),
+    );
+    if (collegeDef) {
+      const toEOD = (s) => { if (!s) return null; const d = new Date(s); d.setHours(23,59,59,999); return d; };
+      const now = new Date();
+      const deadline = toEOD(collegeDef.deadline);
+      const evaluationEnd = toEOD(collegeDef.evaluationEnd);
+      const isPostEvaluation = deadline && now > deadline && evaluationEnd && now > evaluationEnd;
+      if (isPostEvaluation) {
+        return res.status(403).json({
+          success: false,
+          message: "Workflow rules are locked after the evaluation period ends.",
+        });
+      }
+    }
+
     const roles = Array.isArray(data.roles) ? data.roles : [];
     const roleNames = new Set(
       roles.map((item) => normalizeRoleKey(item?.name || "")).filter(Boolean),

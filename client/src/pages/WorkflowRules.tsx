@@ -18,10 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2, ChevronDown, Lock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
 import { formatRoleLabel } from "@/lib/utils";
+import { useCollegePhase } from "@/hooks/useCollegePhase";
 
 interface RoleOption {
   id?: string;
@@ -82,6 +83,8 @@ export default function WorkflowRules() {
   const [rules, setRules] = useState<WorkflowRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { phase } = useCollegePhase();
+  const isLocked = phase === "appeal" || phase === "appeal-review" || phase === "locked";
 
   const sortedRoles = useMemo(
     () =>
@@ -244,8 +247,16 @@ export default function WorkflowRules() {
       <div className="space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Role Routing Table</CardTitle>
-            <Button onClick={handleSave} disabled={isSaving || isLoading}>
+            <div className="space-y-1">
+              <CardTitle>Role Routing Table</CardTitle>
+              {isLocked && (
+                <p className="flex items-center gap-1.5 text-sm text-amber-600 font-medium">
+                  <Lock className="h-3.5 w-3.5" />
+                  Locked — workflow rules cannot be changed after the evaluation period ends.
+                </p>
+              )}
+            </div>
+            <Button onClick={handleSave} disabled={isSaving || isLoading || isLocked}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
             </Button>
           </CardHeader>
@@ -276,6 +287,7 @@ export default function WorkflowRules() {
                               <Button
                                 variant="outline"
                                 className="w-full justify-between"
+                                disabled={isLocked}
                               >
                                 <span className="truncate text-left">
                                   {renderSelectedRoles(item.submitToRoles)}
@@ -317,6 +329,7 @@ export default function WorkflowRules() {
                               <Button
                                 variant="outline"
                                 className="w-full justify-between"
+                                disabled={isLocked}
                               >
                                 <span className="truncate text-left">
                                   {renderSelectedRoles(item.appealToRoles)}
