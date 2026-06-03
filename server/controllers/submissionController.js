@@ -1034,12 +1034,13 @@ export const getAppealQueue = async (req, res) => {
       };
     });
 
-    const effectiveRoles = internalCommittee
-      ? [userRole, "internal committee"]
-      : [userRole];
-    const appeals = mappedAppeals.filter((item) =>
-      item.appealToRoleIds.some((r) => effectiveRoles.includes(r)),
-    );
+    // Internal committee members are college-wide appeal reviewers assigned by
+    // the principal — no workflow rule config needed, they see all college appeals.
+    const appeals = internalCommittee
+      ? mappedAppeals
+      : mappedAppeals.filter((item) =>
+          item.appealToRoleIds.some((r) => r === userRole),
+        );
 
     await Promise.all(
       appeals
@@ -1122,13 +1123,12 @@ export const reviewAppeal = async (req, res) => {
       normalizeRoleForWorkflow(role),
     );
 
-    const effectiveAppealerRoles = internalCommittee
-      ? [normalizedAppealerRole, "internal committee"]
-      : [normalizedAppealerRole];
-
+    // Internal committee members bypass appealToRoleIds — their assignment by
+    // the principal already authorises them for all college appeals.
     if (
       !normalizedAppealerRole ||
-      !normalizedAppealRoles.some((r) => effectiveAppealerRoles.includes(r))
+      (!internalCommittee &&
+        !normalizedAppealRoles.some((r) => r === normalizedAppealerRole))
     ) {
       return res.status(403).json({
         success: false,
