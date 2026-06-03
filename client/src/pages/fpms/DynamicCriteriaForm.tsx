@@ -1460,14 +1460,16 @@ export default function DynamicCriteriaForm() {
                                   onClick={() =>
                                     submitTaskAppeal(moduleItem, task)
                                   }
-                                  disabled={appealingTaskId === task.id}
+                                  disabled={appealingTaskId === task.id || currentPhase !== "appeal"}
                                 >
                                   {appealingTaskId === task.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                   ) : null}
                                   {appealingTaskId === task.id
                                     ? "Appealing..."
-                                    : "Appeal"}
+                                    : currentPhase !== "appeal"
+                                      ? submissionClosedLabel
+                                      : "Appeal"}
                                 </Button>
                                 <Button
                                   onClick={() => acceptReview(task)}
@@ -1643,7 +1645,7 @@ export default function DynamicCriteriaForm() {
               disabled={
                 appealingTaskId !== null ||
                 !appealFormData.reason.trim() ||
-                isDeadlinePassed
+                currentPhase !== "appeal"
               }
             >
               {appealingTaskId ? (
@@ -1651,7 +1653,7 @@ export default function DynamicCriteriaForm() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Submitting...
                 </>
-              ) : isDeadlinePassed ? (
+              ) : currentPhase !== "appeal" ? (
                 submissionClosedLabel
               ) : (
                 "Submit Appeal"
