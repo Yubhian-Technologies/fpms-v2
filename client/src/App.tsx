@@ -99,12 +99,15 @@ function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (
-    allowedRoles &&
-    user &&
-    !allowedRoles.includes(normalizeRoleForAccess(user.role))
-  ) {
-    return <Navigate to="/dashboard" replace />;
+  if (allowedRoles && user) {
+    const normalized = normalizeRoleForAccess(user.role);
+    // A user with internalCommittee flag also qualifies for "internal committee" routes
+    const effectiveRoles = user.internalCommittee
+      ? [normalized, "internal committee"]
+      : [normalized];
+    if (!allowedRoles.some((r) => effectiveRoles.includes(r))) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;
