@@ -48,11 +48,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const token = localStorage.getItem("token");
+    const validToken = token && token !== "null" && token !== "undefined" ? token : null;
 
-    if (storedUser && token) {
+    if (storedUser && validToken) {
       const parsed: User = JSON.parse(storedUser);
       setUser(parsed);
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      api.defaults.headers.common["Authorization"] = `Bearer ${validToken}`;
 
       // Self-heal: if principle has no college stored, fetch it from server
       const isPrinciple =
@@ -117,11 +118,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             college: res.data.user?.college ?? "",
           };
           res.data.user = userWithCollege;
-          localStorage.setItem("token", res.data.token);
+          if (res.data.token) {
+            localStorage.setItem("token", res.data.token);
+            api.defaults.headers.common["Authorization"] =
+              `Bearer ${res.data.token}`;
+          } else {
+            localStorage.removeItem("token");
+            delete api.defaults.headers.common["Authorization"];
+          }
           localStorage.setItem("user", JSON.stringify(res.data.user));
-
-          api.defaults.headers.common["Authorization"] =
-            `Bearer ${res.data.token}`;
           setUser(res.data.user);
 
           return res.data.user;

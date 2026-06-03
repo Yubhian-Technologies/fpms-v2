@@ -100,9 +100,27 @@ export const hodLogin = async (req, res) => {
       hodData.hasPhd,
     );
 
+    let token = null;
+    const apiKey = process.env.FIREBASE_WEB_API_KEY;
+    if (apiKey) {
+      try {
+        const firebaseRes = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, returnSecureToken: true }),
+          },
+        );
+        const firebaseData = await firebaseRes.json();
+        if (firebaseData?.idToken) token = firebaseData.idToken;
+      } catch (_) {}
+    }
+
     return res.status(200).json({
       success: true,
       message: "HOD login successful",
+      token,
       user: {
         id: hodDoc.id,
         uid: hodDoc.id,
