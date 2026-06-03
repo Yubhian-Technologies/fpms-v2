@@ -1495,7 +1495,7 @@ export default function DynamicCriteriaForm() {
                                 {submittingTaskId === task.id
                                   ? "Submitting..."
                                   : isDeadlinePassed
-                                    ? {submissionClosedLabel}
+                                    ? submissionClosedLabel
                                     : "Submit Task"}
                               </Button>
                             ) : taskStatus === "submitted" ? (
@@ -1525,7 +1525,7 @@ export default function DynamicCriteriaForm() {
                                   {submittingTaskId === task.id
                                     ? "Updating..."
                                     : isDeadlinePassed
-                                      ? {submissionClosedLabel}
+                                      ? submissionClosedLabel
                                       : "Update Task"}
                                 </Button>
                               ) : (
@@ -1540,7 +1540,7 @@ export default function DynamicCriteriaForm() {
                                   disabled={isDeadlinePassed}
                                 >
                                   {isDeadlinePassed
-                                    ? {submissionClosedLabel}
+                                    ? submissionClosedLabel
                                     : "Edit"}
                                 </Button>
                               )
@@ -1581,7 +1581,7 @@ export default function DynamicCriteriaForm() {
                       : submittingModuleId === moduleItem.id
                         ? "Submitting..."
                         : isDeadlinePassed
-                          ? {submissionClosedLabel}
+                          ? submissionClosedLabel
                           : "Submit Section"}
                   </Button>
                 </div>
@@ -1652,7 +1652,7 @@ export default function DynamicCriteriaForm() {
                   Submitting...
                 </>
               ) : isDeadlinePassed ? (
-                {submissionClosedLabel}
+                submissionClosedLabel
               ) : (
                 "Submit Appeal"
               )}
