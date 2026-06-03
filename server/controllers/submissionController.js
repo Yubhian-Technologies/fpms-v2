@@ -130,6 +130,7 @@ const resolveReviewerScope = async (req) => {
     department: String(
       req.user?.department || req.headers["x-department"] || "",
     ).trim(),
+    internalCommittee: req.user?.internalCommittee === true,
   };
 
   const token = parseBearerToken(req.headers?.authorization);
@@ -170,6 +171,9 @@ const resolveReviewerScope = async (req) => {
     if (!scope.college) scope.college = String(userData.college || "").trim();
     if (!scope.department) {
       scope.department = String(userData.department || "").trim();
+    }
+    if (userData.internalCommittee === true) {
+      scope.internalCommittee = true;
     }
   };
 
@@ -964,7 +968,7 @@ export const acceptReview = async (req, res) => {
 // Get appeal queue
 export const getAppealQueue = async (req, res) => {
   try {
-    const { userRole, college, department } = await resolveReviewerScope(req);
+    const { userRole, college, department, internalCommittee } = await resolveReviewerScope(req);
 
     if (!userRole) {
       return res
@@ -990,11 +994,11 @@ export const getAppealQueue = async (req, res) => {
 
     if (isPrincipalRole(userRole) && college) {
       query = query.where("college", "==", college);
-    } else if (isInternalCommitteeRole(userRole) && college) {
+    } else if ((isInternalCommitteeRole(userRole) || internalCommittee) && college) {
       query = query.where("college", "==", college);
     } else if (!isCommitteeRole(userRole)) {
       if (college) query = query.where("college", "==", college);
-      if (department) query = query.where("department", "==", department);
+      if (department && !internalCommittee) query = query.where("department", "==", department);
     }
 
     const snapshot = await query.get();
@@ -1030,8 +1034,11 @@ export const getAppealQueue = async (req, res) => {
       };
     });
 
+    const effectiveRoles = internalCommittee
+      ? [userRole, "internal committee"]
+      : [userRole];
     const appeals = mappedAppeals.filter((item) =>
-      item.appealToRoleIds.includes(userRole),
+      item.appealToRoleIds.some((r) => effectiveRoles.includes(r)),
     );
 
     await Promise.all(
@@ -1068,6 +1075,7 @@ export const reviewAppeal = async (req, res) => {
       userId: appealerId,
       userRole: appealerRole,
       college: reviewerCollege,
+      internalCommittee,
     } = await resolveReviewerScope(req);
     const normalizedAppealerRole = normalizeRoleForWorkflow(appealerRole);
 
@@ -1111,9 +1119,13 @@ export const reviewAppeal = async (req, res) => {
       normalizeRoleForWorkflow(role),
     );
 
+    const effectiveAppealerRoles = internalCommittee
+      ? [normalizedAppealerRole, "internal committee"]
+      : [normalizedAppealerRole];
+
     if (
       !normalizedAppealerRole ||
-      !normalizedAppealRoles.includes(normalizedAppealerRole)
+      !normalizedAppealRoles.some((r) => effectiveAppealerRoles.includes(r))
     ) {
       return res.status(403).json({
         success: false,
@@ -1123,7 +1135,8 @@ export const reviewAppeal = async (req, res) => {
 
     if (
       isPrincipalRole(normalizedAppealerRole) ||
-      isInternalCommitteeRole(normalizedAppealerRole)
+      isInternalCommitteeRole(normalizedAppealerRole) ||
+      internalCommittee
     ) {
       if (!reviewerCollege) {
         return res.status(403).json({
