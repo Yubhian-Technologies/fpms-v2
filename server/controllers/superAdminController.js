@@ -1415,3 +1415,36 @@ export const updateSuperAdminCredentials = async (req, res) => {
       .json({ success: false, message: error.message || "Server error" });
   }
 };
+
+export const getInternalCommittees = async (req, res) => {
+  try {
+    const snapshot = await db
+      .collection("users")
+      .where("internalCommittee", "==", true)
+      .get();
+
+    const members = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name || "",
+        email: data.email || "",
+        role: data.role || "",
+        college: data.college || "",
+        department: data.department || "",
+      };
+    });
+
+    const byCollege = members.reduce((acc, member) => {
+      const college = member.college || "Unknown";
+      if (!acc[college]) acc[college] = [];
+      acc[college].push(member);
+      return acc;
+    }, {});
+
+    return res.status(200).json({ success: true, data: byCollege });
+  } catch (error) {
+    console.error("Get internal committees error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

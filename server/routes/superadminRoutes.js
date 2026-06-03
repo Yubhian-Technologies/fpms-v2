@@ -11,6 +11,7 @@ import {
   getForms,
   getColleges,
   getCommitteeMember,
+  getInternalCommittees,
   getRoles,
   registerCommitteeMember,
   registerSuperAdmin,
@@ -45,6 +46,7 @@ superadminRouter.post(
   registerCommitteeMember,
 );
 superadminRouter.get("/committee-member", superadminAuth, getCommitteeMember);
+superadminRouter.get("/internal-committees", superadminAuth, getInternalCommittees);
 superadminRouter.put(
   "/committee-member",
   superadminAuth,

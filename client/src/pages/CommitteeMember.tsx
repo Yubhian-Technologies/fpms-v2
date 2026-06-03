@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, Loader2, UserCheck, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
@@ -16,6 +17,15 @@ interface CommitteeMemberData {
   phone: string;
   role: string;
   level: number;
+}
+
+interface InternalMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  college: string;
+  department: string;
 }
 
 const emptyForm = {
@@ -36,6 +46,8 @@ export default function CommitteeMember() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
+  const [internalByCollege, setInternalByCollege] = useState<Record<string, InternalMember[]>>({});
+  const [isLoadingInternal, setIsLoadingInternal] = useState(true);
 
   const fetchMember = async () => {
     try {
@@ -46,11 +58,22 @@ export default function CommitteeMember() {
     }
   };
 
+  const fetchInternalCommittees = async () => {
+    try {
+      const res = await api.get("/api/superadmin/internal-committees");
+      setInternalByCollege(res.data?.data ?? {});
+    } catch {
+      toast({ title: "Failed to load internal committee members", variant: "destructive" });
+    }
+  };
+
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      await fetchMember();
+      setIsLoadingInternal(true);
+      await Promise.all([fetchMember(), fetchInternalCommittees()]);
       setIsLoading(false);
+      setIsLoadingInternal(false);
     })();
   }, []);
 
@@ -141,6 +164,7 @@ export default function CommitteeMember() {
 
   return (
     <DashboardLayout title="Committee Member" subtitle="Manage the committee member account">
+      <div className="space-y-10">
       <div className="space-y-6 max-w-2xl">
         <div className="flex items-center justify-between">
           <div>
@@ -290,6 +314,49 @@ export default function CommitteeMember() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold">Internal Committee Members</h2>
+            <p className="text-sm text-muted-foreground">HODs assigned as internal committee per college</p>
+          </div>
+
+          {isLoadingInternal ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : Object.keys(internalByCollege).length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <UserCheck className="h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-muted-foreground text-sm">No internal committee members assigned yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            Object.entries(internalByCollege).sort(([a], [b]) => a.localeCompare(b)).map(([college, members]) => (
+              <Card key={college}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{college}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-start justify-between gap-4 rounded-md border p-3">
+                      <div className="space-y-0.5 min-w-0">
+                        <p className="font-medium text-sm truncate">{m.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                        {m.department && (
+                          <p className="text-xs text-muted-foreground">{m.department}</p>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="shrink-0 text-xs capitalize">{m.role}</Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
+      </div>
       </div>
 
       <DeleteConfirmationDialog
