@@ -86,12 +86,15 @@ export default function AppealReview() {
     normalizedUserRole === "principle" ||
     normalizedUserRole === "committee" ||
     normalizedUserRole === "internal committee" ||
-    normalizedUserRole.includes("vice");
+    normalizedUserRole.includes("vice") ||
+    !!user?.internalCommittee;
 
   const isCommittee =
     normalizedUserRole === "committee" ||
-    normalizedUserRole === "internal committee";
-  const isInternalCommittee = normalizedUserRole === "internal committee";
+    normalizedUserRole === "internal committee" ||
+    !!user?.internalCommittee;
+  const isInternalCommittee =
+    normalizedUserRole === "internal committee" || !!user?.internalCommittee;
   const currentUserCollege = String(user?.college || "")
     .trim()
     .toLowerCase();
@@ -171,7 +174,7 @@ export default function AppealReview() {
       return;
     }
     fetchQueue();
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, user?.internalCommittee]);
 
   if (!user) return null;
 
