@@ -67,7 +67,8 @@ const isReviewerOnlyRole = (value: string) => {
     key === "committee" ||
     key === "principle" ||
     key === "viceprinciple" ||
-    key === "viceprincipal"
+    key === "viceprincipal" ||
+    key === "internalcommittee"
   );
 };
 
@@ -288,7 +289,7 @@ export default function WorkflowRules() {
                               </DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {sortedRoles
-                                .filter((role) => role.name !== item.role)
+                                .filter((role) => role.name !== item.role && !isReviewerOnlyRole(role.name))
                                 .map((role) => (
                                   <DropdownMenuCheckboxItem
                                     key={`${item.role}-submit-${role.name}`}
