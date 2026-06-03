@@ -564,7 +564,7 @@ export default function AppealReview() {
               <Button
                 size="sm"
                 onClick={() => handleAppealReview(item)}
-                disabled={isReviewing || !["appeal", "appeal-review"].includes(phase)}
+                disabled={isReviewing || phase !== "appeal-review"}
               >
                 {isReviewing && (
                   <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -583,7 +583,7 @@ export default function AppealReview() {
       title="Review Appeals"
       subtitle="Faculty Appeal Review Queue"
     >
-      <PhaseBanner phase={phase} deadlineLabel={deadlineLabel} allowedPhases={["appeal", "appeal-review"]} />
+      <PhaseBanner phase={phase} deadlineLabel={deadlineLabel} allowedPhases={["appeal-review"]} />
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         <Card>

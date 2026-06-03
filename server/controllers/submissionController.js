@@ -1104,12 +1104,15 @@ export const reviewAppeal = async (req, res) => {
     if (collegeDefForAppealReview) {
       const phase = getCollegePhase(collegeDefForAppealReview);
       if (phase === "submission" || phase === "evaluation") {
-        return res.status(403).json({ success: false, message: "Appeal resolution is not available yet. Wait for the appeal period." });
+        return res.status(403).json({ success: false, message: "Appeal resolution is not available yet. Wait for the appeal period to end." });
+      }
+      if (phase === "appeal") {
+        return res.status(403).json({ success: false, message: "Appeal review has not started yet. Wait for the appeal period to end." });
       }
       if (phase === "locked") {
         return res.status(403).json({ success: false, message: "Scores are locked. The appeal review period has ended." });
       }
-      // "appeal" and "appeal-review" both allow resolution — fall through
+      // only "appeal-review" falls through
     }
 
     const appealToRoleIds = Array.isArray(submissionData.appealToRoleIds)
