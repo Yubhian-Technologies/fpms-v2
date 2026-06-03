@@ -18,6 +18,7 @@ import {
   Loader2,
   KeyRound,
   UserCheck,
+  CalendarClock,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -177,6 +178,12 @@ const getNavItems = (
       label: "Reports",
       href: "/reports",
       roles: [""],
+    },
+    {
+      icon: CalendarClock,
+      label: "College Deadlines",
+      href: "/college-deadlines",
+      roles: ["principle"],
     },
     {
       icon: Briefcase,

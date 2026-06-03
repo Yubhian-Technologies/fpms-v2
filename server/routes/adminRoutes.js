@@ -19,6 +19,7 @@ import {
   updateCollegeDesignations,
   getCollegeFacultyForReview,
   exportPrincipalReport,
+  updatePrincipalCollegeDeadlines,
 } from "../controllers/adminController.js";
 import { adminAuth } from "../middleware/adminAuth.js";
 
@@ -40,6 +41,7 @@ adminRouter.get(
 );
 adminRouter.get("/college-details", adminAuth, getPrincipalCollegeDetails);
 adminRouter.put("/college-branches", adminAuth, updatePrincipalCollegeBranches);
+adminRouter.put("/college-deadlines", adminAuth, updatePrincipalCollegeDeadlines);
 adminRouter.get("/designations", adminAuth, getCollegeDesignations);
 adminRouter.put("/designations", adminAuth, updateCollegeDesignations);
 

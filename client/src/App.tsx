@@ -51,6 +51,7 @@ import MyAppeals from "./pages/MyAppeals";
 import AddViewer from "./pages/AddViewer";
 import ChangePassword from "./pages/ChangePassword";
 import CommitteeMember from "./pages/CommitteeMember";
+import CollegeDeadlines from "./pages/CollegeDeadlines";
 
 const queryClient = new QueryClient();
 
@@ -240,6 +241,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["principal", "vice principal"]}>
             <WorkflowRules />
+          </ProtectedRoute>
+        }
+      ></Route>
+      <Route
+        path="/college-deadlines"
+        element={
+          <ProtectedRoute allowedRoles={["principal"]}>
+            <CollegeDeadlines />
           </ProtectedRoute>
         }
       ></Route>

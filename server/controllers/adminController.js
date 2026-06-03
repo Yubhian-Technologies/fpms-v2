@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
 import { getFirebaseIdToken } from "../utils/firebaseTokenHelper.js";
+import { invalidateSuperadminCache } from "../config/superadminCache.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const USERS_COLLECTION = "users";
@@ -1388,6 +1389,11 @@ export const getPrincipalCollegeDetails = async (req, res) => {
         name: matchedCollege?.name || principalCollege,
         code: matchedCollege?.code || "",
         branches,
+        assessmentStart: matchedCollege?.assessmentStart || null,
+        assessmentEnd: matchedCollege?.assessmentEnd || null,
+        evaluationEnd: matchedCollege?.evaluationEnd || null,
+        appealEnd: matchedCollege?.appealEnd || null,
+        appealReviewEnd: matchedCollege?.appealReviewEnd || null,
       },
     });
   } catch (error) {
@@ -2383,5 +2389,51 @@ export const exportPrincipalReport = async (req, res) => {
   } catch (err) {
     console.error("[exportPrincipalReport]", err);
     return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const updatePrincipalCollegeDeadlines = async (req, res) => {
+  try {
+    const principalCollege = String(req.admin?.college || "").trim();
+    if (!principalCollege) {
+      return res.status(400).json({ success: false, message: "Principal college not found. Please login again." });
+    }
+
+    const { assessmentStart, assessmentEnd, evaluationEnd, appealEnd, appealReviewEnd } = req.body;
+
+    const docRef = db.collection("superadmin").doc(SUPERADMIN_DOC_ID);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ success: false, message: "Configuration not found" });
+    }
+
+    const colleges = Array.isArray(docSnap.data()?.colleges) ? docSnap.data().colleges : [];
+    const index = colleges.findIndex(
+      (c) => String(c?.name || "").trim().toLowerCase() === principalCollege.toLowerCase(),
+    );
+
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: "College not found in configuration" });
+    }
+
+    const toISO = (val) => (val ? new Date(val).toISOString() : null);
+
+    const updates = {};
+    if (assessmentStart !== undefined) updates.assessmentStart = toISO(assessmentStart);
+    if (assessmentEnd !== undefined) updates.assessmentEnd = toISO(assessmentEnd);
+    if (evaluationEnd !== undefined) updates.evaluationEnd = toISO(evaluationEnd);
+    if (appealEnd !== undefined) updates.appealEnd = toISO(appealEnd);
+    if (appealReviewEnd !== undefined) updates.appealReviewEnd = toISO(appealReviewEnd);
+
+    const nextColleges = [...colleges];
+    nextColleges[index] = { ...nextColleges[index], ...updates, updatedAt: new Date().toISOString() };
+
+    await docRef.set({ colleges: nextColleges, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    invalidateSuperadminCache();
+
+    return res.status(200).json({ success: true, message: "Deadlines updated successfully" });
+  } catch (error) {
+    console.error("updatePrincipalCollegeDeadlines error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
