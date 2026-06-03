@@ -62,7 +62,7 @@ export const hodLogin = async (req, res) => {
     }
 
     const snapshot = await db
-      .collection("hods")
+      .collection("users")
       .where("email", "==", email)
       .limit(1)
       .get();
@@ -76,6 +76,14 @@ export const hodLogin = async (req, res) => {
 
     const hodDoc = snapshot.docs[0];
     const hodData = hodDoc.data();
+
+    const normalizedRole = String(hodData.role || "").trim().toLowerCase();
+    if (normalizedRole !== "hod" && !normalizedRole.startsWith("hod")) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, hodData.password);
 

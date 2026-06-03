@@ -62,7 +62,7 @@ export const adminLogin = async (req, res) => {
     }
 
     const snapshot = await db
-      .collection("admins")
+      .collection("users")
       .where("email", "==", email)
       .limit(1)
       .get();
@@ -76,6 +76,13 @@ export const adminLogin = async (req, res) => {
 
     const adminDoc = snapshot.docs[0];
     const adminData = adminDoc.data();
+
+    if (!isPrincipalManagementRole(adminData.role)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, adminData.password);
 
@@ -94,7 +101,7 @@ export const adminLogin = async (req, res) => {
         name: adminData.name,
         email: adminData.email,
         college: adminData.college,
-        role: "admin",
+        role: adminData.role || "admin",
       },
     });
   } catch (error) {
