@@ -288,7 +288,7 @@ export default function WorkflowRules() {
                               </DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {sortedRoles
-                                .filter((role) => role.name !== item.role && !isReviewerOnlyRole(role.name))
+                                .filter((role) => role.name !== item.role)
                                 .map((role) => (
                                   <DropdownMenuCheckboxItem
                                     key={`${item.role}-submit-${role.name}`}
