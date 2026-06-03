@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
+import { getFirebaseIdToken } from "../utils/firebaseTokenHelper.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const USERS_COLLECTION = "users";
@@ -93,22 +94,7 @@ export const adminLogin = async (req, res) => {
       });
     }
 
-    let token = null;
-    const apiKey = process.env.FIREBASE_WEB_API_KEY;
-    if (apiKey) {
-      try {
-        const firebaseRes = await fetch(
-          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password, returnSecureToken: true }),
-          },
-        );
-        const firebaseData = await firebaseRes.json();
-        if (firebaseData?.idToken) token = firebaseData.idToken;
-      } catch (_) {}
-    }
+    const token = await getFirebaseIdToken(adminDoc.id, email, password);
 
     return res.status(200).json({
       success: true,
