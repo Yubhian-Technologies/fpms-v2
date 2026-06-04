@@ -118,6 +118,7 @@ export const hodLogin = async (req, res) => {
         designation: hodData.designation || "",
         designationTarget,
         hasPhd: Boolean(hodData.hasPhd ?? false),
+        internalCommittee: Boolean(hodData.internalCommittee),
       },
     });
   } catch (error) {

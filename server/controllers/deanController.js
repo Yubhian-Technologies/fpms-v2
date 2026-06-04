@@ -112,6 +112,7 @@ export const deanLogin = async (req, res) => {
         designation: deanData.designation || "",
         designationTarget,
         hasPhd: Boolean(deanData.hasPhd ?? false),
+        internalCommittee: Boolean(deanData.internalCommittee),
       },
     });
   } catch (error) {

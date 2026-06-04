@@ -122,6 +122,7 @@ export const facultyLogin = async (req, res) => {
         designation: facultyData.designation,
         designationTarget,
         hasPhd: Boolean(facultyData.hasPhd ?? false),
+        internalCommittee: Boolean(facultyData.internalCommittee),
       },
     });
   } catch (error) {
