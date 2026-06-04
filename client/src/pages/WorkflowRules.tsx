@@ -75,7 +75,12 @@ const isReviewerOnlyRole = (value: string) => {
 
 const isAllowedAppealReviewerRole = (value: string) => {
   const key = normalizeRoleKey(value);
-  return key === "principle" || key === "viceprinciple" || key === "viceprincipal";
+  return (
+    key === "principle" ||
+    key === "viceprinciple" ||
+    key === "viceprincipal" ||
+    key === "internal committee"
+  );
 };
 
 export default function WorkflowRules() {
