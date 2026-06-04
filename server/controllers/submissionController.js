@@ -1038,8 +1038,9 @@ export const getAppealQueue = async (req, res) => {
 
     // Internal committee members are college-wide appeal reviewers assigned by
     // the principal — no workflow rule config needed, they see all college appeals.
+    // IC members cannot review their own appeals (conflict of interest).
     const appeals = internalCommittee
-      ? mappedAppeals
+      ? mappedAppeals.filter((item) => item.userId !== userId)
       : mappedAppeals.filter((item) =>
           item.appealToRoleIds.some((r) => r === userRole),
         );
@@ -1124,6 +1125,14 @@ export const reviewAppeal = async (req, res) => {
     const normalizedAppealRoles = appealToRoleIds.map((role) =>
       normalizeRoleForWorkflow(role),
     );
+
+    // IC members cannot review their own appeals.
+    if (internalCommittee && submissionData.userId === appealerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot review your own appeal",
+      });
+    }
 
     // Internal committee members bypass appealToRoleIds — their assignment by
     // the principal already authorises them for all college appeals.
