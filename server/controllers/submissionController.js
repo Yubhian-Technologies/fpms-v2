@@ -11,12 +11,13 @@ const getCollegePhase = (collegeDef) => {
     return d;
   };
   const now = new Date();
-  const deadline = toEndOfDay(collegeDef?.deadline);
+  // assessmentEnd is the principal-set field; deadline is the legacy committee-set field
+  const submissionEnd = toEndOfDay(collegeDef?.assessmentEnd || collegeDef?.deadline);
   const evaluationEnd = toEndOfDay(collegeDef?.evaluationEnd);
   const appealEnd = toEndOfDay(collegeDef?.appealEnd);
   const appealReviewEnd = toEndOfDay(collegeDef?.appealReviewEnd);
 
-  if (!deadline || now <= deadline) return "submission";
+  if (!submissionEnd || now <= submissionEnd) return "submission";
   if (!evaluationEnd || now <= evaluationEnd) return "evaluation";
   if (!appealEnd || now <= appealEnd) return "appeal";
   if (!appealReviewEnd || now <= appealReviewEnd) return "appeal-review";

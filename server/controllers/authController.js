@@ -1928,7 +1928,7 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
     if (collegeDef) {
       const toEOD = (s) => { if (!s) return null; const d = new Date(s); d.setHours(23,59,59,999); return d; };
       const now = new Date();
-      const deadline = toEOD(collegeDef.deadline);
+      const deadline = toEOD(collegeDef.assessmentEnd || collegeDef.deadline);
       const evaluationEnd = toEOD(collegeDef.evaluationEnd);
       const isPostEvaluation = deadline && now > deadline && evaluationEnd && now > evaluationEnd;
       if (isPostEvaluation) {

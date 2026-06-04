@@ -33,7 +33,7 @@ export function useCollegePhase() {
         if (!res.data?.success) return;
         const d = res.data.data;
         const now = new Date();
-        const dl = toEndOfDay(d.deadline || null);
+        const dl = toEndOfDay(d.assessmentEnd || d.deadline || null);
         const ev = toEndOfDay(d.evaluationEnd || null);
         const ap = toEndOfDay(d.appealEnd || null);
         const apRev = toEndOfDay(d.appealReviewEnd || null);
