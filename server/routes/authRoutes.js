@@ -21,6 +21,7 @@ import {
   getApplicableForms,
   getCriteriaModulesTasks,
   getCommitteeDashboard,
+  getCommitteeSummary,
   changePassword,
 } from "../controllers/authController.js";
 import {
@@ -53,6 +54,7 @@ authRouter.delete("/colleges/:id", committeeAuth, deleteCollege);
 authRouter.get("/roles", committeeAuth, getCommitteeRoles);
 authRouter.get("/admin-workflow-roles", adminAuth, getCommitteeRoles);
 authRouter.get("/dashboard-data", committeeAuth, getCommitteeDashboard);
+authRouter.get("/committee-summary", committeeAuth, getCommitteeSummary);
 authRouter.get(
   "/workflow-rules",
   adminAuth,

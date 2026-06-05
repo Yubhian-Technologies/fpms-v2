@@ -2257,6 +2257,74 @@ export const getCriteriaModulesTasks = async (req, res) => {
   }
 };
 
+// Returns aggregated per-college counts using lightweight select() queries — no cap, minimal bandwidth.
+// Used by the committee dashboard for accurate top-level stats and college cards.
+export const getCommitteeSummary = async (req, res) => {
+  try {
+    const saData = await getSuperadminConfig();
+    const collegeNames = (saData.colleges || []).map((c) => c.name).filter(Boolean);
+
+    // Fetch only the fields we need — no cap, much smaller transfer than full documents
+    const [usersSnap, subsSnap] = await Promise.all([
+      db.collection("users").select("college", "role", "uid").get(),
+      db.collection("submissions").select("college", "status", "userId").get(),
+    ]);
+
+    // Aggregate per-college user counts
+    const staffByCollege = {};
+    usersSnap.docs.forEach((doc) => {
+      const { college, role } = doc.data();
+      if (!college || role === "committee") return;
+      if (!staffByCollege[college]) staffByCollege[college] = { count: 0, roles: new Set() };
+      staffByCollege[college].count++;
+      if (role) staffByCollege[college].roles.add(role);
+    });
+
+    // Aggregate per-college submission counts
+    const subsByCollege = {};
+    subsSnap.docs.forEach((doc) => {
+      const { college, status } = doc.data();
+      if (!college) return;
+      if (!subsByCollege[college]) subsByCollege[college] = { total: 0, completed: 0, appealed: 0 };
+      subsByCollege[college].total++;
+      if (["accepted", "appeal-resolved", "auto-approved"].includes(status))
+        subsByCollege[college].completed++;
+      if (status === "appealed") subsByCollege[college].appealed++;
+    });
+
+    const colleges = collegeNames
+      .map((name) => {
+        const sc = staffByCollege[name] || { count: 0, roles: new Set() };
+        const ss = subsByCollege[name] || { total: 0, completed: 0, appealed: 0 };
+        return {
+          name,
+          staffCount: sc.count,
+          roleCount: sc.roles ? sc.roles.size : 0,
+          submissionCount: ss.total,
+          completedCount: ss.completed,
+          appealedCount: ss.appealed,
+          completionPct: ss.total > 0 ? Math.round((ss.completed / ss.total) * 100) : 0,
+        };
+      })
+      .filter((c) => c.staffCount > 0 || c.submissionCount > 0);
+
+    const totalStaff = colleges.reduce((s, c) => s + c.staffCount, 0);
+    const totalSubmissions = colleges.reduce((s, c) => s + c.submissionCount, 0);
+    const totalCompleted = colleges.reduce((s, c) => s + c.completedCount, 0);
+
+    return res.json({
+      success: true,
+      data: {
+        totals: { totalStaff, totalSubmissions, totalCompleted },
+        colleges,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 export const getCommitteeDashboard = async (req, res) => {
   try {
     const normDesig = (s) => String(s || "").trim().toLowerCase();

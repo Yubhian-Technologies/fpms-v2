@@ -123,6 +123,8 @@ export default function Dashboard() {
   // Submissions & Staff Overview: loaded on-demand when college filter is selected
   const [overviewStaff, setOverviewStaff] = useState<any[]>([]);
   const [isOverviewLoading, setIsOverviewLoading] = useState(false);
+  // Accurate total counts — loaded via lightweight select() queries (no cap)
+  const [committeeSummary, setCommitteeSummary] = useState<any>(null);
 
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [userTarget, setUserTarget] = useState<string>(
@@ -194,11 +196,17 @@ export default function Dashboard() {
           });
           if (res.data.success) setViewerStats(res.data.data);
         } else if (user.role === "committee") {
-          const res = await api.get("/api/auth/dashboard-data", {
-            headers: { "x-user-id": user.uid, "x-user-role": user.role },
-          });
+          const [res, summaryRes] = await Promise.all([
+            api.get("/api/auth/dashboard-data", {
+              headers: { "x-user-id": user.uid, "x-user-role": user.role },
+            }),
+            api.get("/api/auth/committee-summary", {
+              headers: { "x-user-id": user.uid, "x-user-role": user.role },
+            }),
+          ]);
           if (res.data.success) setCommitteeData(res.data.data);
           setStaffList(res.data.data.staff || []);
+          if (summaryRes.data.success) setCommitteeSummary(summaryRes.data.data);
         } else if (user.role === "internal committee") {
           try {
             const res = await api.get("/api/admin/college-dashboard", {
@@ -1331,86 +1339,84 @@ export default function Dashboard() {
               </Button>
             </div>
 
-            {/* Summary strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="shadow-sm">
-                <CardContent className="pt-5 pb-4 text-center">
-                  <p className="text-3xl font-bold text-primary">{Object.keys(groupedData).length}</p>
-                  <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                    <School className="h-3.5 w-3.5" /> Colleges
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm">
-                <CardContent className="pt-5 pb-4 text-center">
-                  <p className="text-3xl font-bold text-primary">{staffList.filter((s: any) => s.college && s.role !== "committee").length}</p>
-                  <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                    <Users className="h-3.5 w-3.5" /> Total Staff
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm">
-                <CardContent className="pt-5 pb-4 text-center">
-                  <p className="text-3xl font-bold text-primary">{totalSubmissions}</p>
-                  <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                    <FileText className="h-3.5 w-3.5" /> Submissions
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm">
-                <CardContent className="pt-5 pb-4 text-center">
-                  <p className="text-3xl font-bold text-primary">
-                    {totalSubmissions > 0 ? Math.round((totalCompleted / totalSubmissions) * 100) : 0}%
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                    <CheckCircle className="h-3.5 w-3.5" /> Completed
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Summary strip — counts come from committeeSummary (no cap) */}
+            {(() => {
+              const sumTotals = committeeSummary?.totals;
+              const sumColleges = committeeSummary?.colleges || [];
+              const displayStaff = sumTotals?.totalStaff ?? staffList.filter((s: any) => s.college && s.role !== "committee").length;
+              const displaySubs = sumTotals?.totalSubmissions ?? totalSubmissions;
+              const displayCompleted = sumTotals?.totalCompleted ?? totalCompleted;
+              const displayColleges = sumColleges.length > 0 ? sumColleges.length : Object.keys(groupedData).length;
+              const completedPct = displaySubs > 0 ? Math.round((displayCompleted / displaySubs) * 100) : 0;
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4 text-center">
+                      <p className="text-3xl font-bold text-primary">{displayColleges}</p>
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                        <School className="h-3.5 w-3.5" /> Colleges
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4 text-center">
+                      <p className="text-3xl font-bold text-primary">{displayStaff}</p>
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                        <Users className="h-3.5 w-3.5" /> Total Staff
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4 text-center">
+                      <p className="text-3xl font-bold text-primary">{displaySubs}</p>
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                        <FileText className="h-3.5 w-3.5" /> Submissions
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm">
+                    <CardContent className="pt-5 pb-4 text-center">
+                      <p className="text-3xl font-bold text-primary">{completedPct}%</p>
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                        <CheckCircle className="h-3.5 w-3.5" /> Completed
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
 
-            {/* College cards grid */}
+            {/* College cards grid — uses accurate summary data when loaded */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Object.entries(groupedData)
-                .filter(([collegeName]) => collegeName !== "Unknown College")
-                .map(([collegeName, roles]: any) => {
-                const collegeStaff = staffList.filter(
-                  (s: any) => (s.college || "Unknown College") === collegeName,
-                );
-                const collegeSubs = collegeStaff.flatMap(
-                  (s: any) => s.submissions || [],
-                );
-                const collegeCompleted = collegeSubs.filter(
-                  (s: any) =>
-                    s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "auto-approved",
-                ).length;
-                const collegeAppeals = collegeSubs.filter(
-                  (s: any) => s.status === "appealed",
-                ).length;
-                const completionPct =
-                  collegeSubs.length > 0
-                    ? Math.round((collegeCompleted / collegeSubs.length) * 100)
-                    : 0;
-                const staffWithTarget = collegeStaff.filter(
-                  (s: any) => s.designationTarget,
-                );
-                const targetsReached = staffWithTarget.filter((s: any) => {
-                  const achieved = (s.submissions || []).reduce(
-                    (sum: number, sub: any) =>
-                      sum + getConfirmedScore(sub),
-                    0,
-                  );
-                  return achieved >= Number(s.designationTarget);
-                }).length;
+              {(committeeSummary?.colleges?.length > 0
+                ? committeeSummary.colleges
+                : Object.entries(groupedData)
+                    .filter(([n]) => n !== "Unknown College")
+                    .map(([name, roles]: any) => {
+                      const cs = staffList.filter((s: any) => (s.college || "") === name);
+                      const subs = cs.flatMap((s: any) => s.submissions || []);
+                      const completed = subs.filter((s: any) =>
+                        ["accepted", "appeal-resolved", "auto-approved"].includes(s.status),
+                      ).length;
+                      const appealed = subs.filter((s: any) => s.status === "appealed").length;
+                      return {
+                        name,
+                        staffCount: cs.length,
+                        roleCount: Object.keys(roles).length,
+                        submissionCount: subs.length,
+                        completedCount: completed,
+                        appealedCount: appealed,
+                        completionPct: subs.length > 0 ? Math.round((completed / subs.length) * 100) : 0,
+                      };
+                    })
+              ).map((college: any) => {
+                const collegeName = college.name;
                 const isSelected = selectedCollegeDetail === collegeName;
-
                 return (
                   <Card
                     key={collegeName}
                     className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
-                      isSelected
-                        ? "border-primary shadow-md"
-                        : "border-border hover:border-primary/40"
+                      isSelected ? "border-primary shadow-md" : "border-border hover:border-primary/40"
                     }`}
                     onClick={async () => {
                       if (isSelected) {
@@ -1439,27 +1445,28 @@ export default function Dashboard() {
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-3 gap-2 text-center">
                         <div className="bg-muted/40 rounded-lg py-2">
-                          <p className="text-lg font-bold">{Object.keys(roles).length}</p>
+                          <p className="text-lg font-bold">{college.roleCount}</p>
                           <p className="text-xs text-muted-foreground">Roles</p>
                         </div>
                         <div className="bg-muted/40 rounded-lg py-2">
-                          <p className="text-lg font-bold">{collegeStaff.length}</p>
+                          <p className="text-lg font-bold">{college.staffCount}</p>
                           <p className="text-xs text-muted-foreground">Staff</p>
                         </div>
-                        <div className={`rounded-lg py-2 ${targetsReached === staffWithTarget.length && staffWithTarget.length > 0 ? "bg-green-100" : "bg-muted/40"}`}>
-                          <p className={`text-lg font-bold ${targetsReached === staffWithTarget.length && staffWithTarget.length > 0 ? "text-green-700" : ""}`}>
-                            {targetsReached}
-                            <span className="text-sm font-normal text-muted-foreground"> / {staffWithTarget.length}</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">Target Reached</p>
+                        <div className="bg-muted/40 rounded-lg py-2">
+                          <p className="text-lg font-bold">{college.completionPct}%</p>
+                          <p className="text-xs text-muted-foreground">Completion</p>
                         </div>
                       </div>
-                      {collegeAppeals > 0 && (
-                        <div className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          {collegeAppeals} pending appeal{collegeAppeals > 1 ? "s" : ""}
+                      <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                        <div className="bg-muted/30 rounded-md py-1.5">
+                          <span className="font-semibold">{college.submissionCount}</span>
+                          <span className="text-muted-foreground ml-1">Submissions</span>
                         </div>
-                      )}
+                        <div className={`rounded-md py-1.5 ${college.appealedCount > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"}`}>
+                          <span className="font-semibold">{college.appealedCount}</span>
+                          <span className="ml-1">Appeals</span>
+                        </div>
+                      </div>
                       <p className="text-right text-xs text-primary font-medium">
                         {isSelected ? "▲ Hide details" : "▼ View details"}
                       </p>
@@ -1638,10 +1645,12 @@ export default function Dashboard() {
 
         {/* ── COMMITTEE: Submissions & Staff Overview ── */}
         {user?.role === "committee" && (() => {
-          // College list for the dropdown comes from the already-loaded staffList (no submissions needed)
-          const allColleges = Array.from(new Set(
-            staffList.filter((s: any) => s.role !== "committee" && s.college).map((s: any) => s.college).filter(Boolean)
-          )).sort();
+          // College list for the dropdown — prefer summary data (complete) over capped staffList
+          const allColleges = committeeSummary?.colleges?.length > 0
+            ? committeeSummary.colleges.map((c: any) => c.name).sort()
+            : Array.from(new Set(
+                staffList.filter((s: any) => s.role !== "committee" && s.college).map((s: any) => s.college).filter(Boolean)
+              )).sort();
 
           // Detail data only available after college is selected
           const nonCommitteeStaff = overviewStaff.filter(
