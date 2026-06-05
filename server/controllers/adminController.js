@@ -1994,7 +1994,7 @@ export const getCollegeDashboard = async (req, res) => {
     }
 
     /* -------- FETCH SUBMISSIONS -------- */
-    const submissionsSnap = await db.collection("submissions").get();
+    const submissionsSnap = await db.collection("submissions").where("college", "==", college).get();
 
     const allSubmissions = submissionsSnap.docs.map((doc) => ({
       ...doc.data(),

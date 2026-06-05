@@ -26,10 +26,10 @@ export const getViewerStats = async (req, res) => {
       });
     });
 
-    // Fetch all users and submissions (up to scale limits)
+    // Fetch only the fields needed for aggregation — no cap, minimal transfer
     const [usersSnap, subsSnap] = await Promise.all([
-      db.collection("users").limit(2000).get(),
-      db.collection("submissions").limit(5000).get(),
+      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email").get(),
+      db.collection("submissions").select("userId", "college", "status", "finalScore", "score").get(),
     ]);
 
     // Build submissions map: userId -> submissions[]
