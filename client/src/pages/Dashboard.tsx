@@ -40,6 +40,7 @@ import {
   TrendingUp,
   CircleCheck,
   CircleDot,
+  Loader2,
 } from "lucide-react";
 import { api } from "@/api/api";
 import { formatRoleLabel } from "@/lib/utils";
@@ -119,6 +120,9 @@ export default function Dashboard() {
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
   >({});
+  // Submissions & Staff Overview: loaded on-demand when college filter is selected
+  const [overviewStaff, setOverviewStaff] = useState<any[]>([]);
+  const [isOverviewLoading, setIsOverviewLoading] = useState(false);
 
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [userTarget, setUserTarget] = useState<string>(
@@ -404,6 +408,33 @@ export default function Dashboard() {
 
     loadRoleFormColumns();
   }, [user?.role, user?.uid, staffList]);
+
+  // Load Submissions & Staff Overview data only when a college is selected
+  useEffect(() => {
+    if (user?.role !== "committee" || cFilterCollege === "All") {
+      setOverviewStaff([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setIsOverviewLoading(true);
+      try {
+        const res = await api.get("/api/auth/dashboard-data", {
+          params: { college: cFilterCollege },
+          headers: { "x-user-id": user.uid, "x-user-role": user.role },
+        });
+        if (!cancelled && res.data.success) {
+          setOverviewStaff(res.data.data.staff || []);
+        }
+      } catch {
+        if (!cancelled) setOverviewStaff([]);
+      } finally {
+        if (!cancelled) setIsOverviewLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [cFilterCollege, user?.role, user?.uid]);
 
   const applyFilter = () => {
     if (!committeeData) return;
@@ -1607,12 +1638,18 @@ export default function Dashboard() {
 
         {/* ── COMMITTEE: Submissions & Staff Overview ── */}
         {user?.role === "committee" && (() => {
-          const nonCommitteeStaff = staffList.filter(
+          // College list for the dropdown comes from the already-loaded staffList (no submissions needed)
+          const allColleges = Array.from(new Set(
+            staffList.filter((s: any) => s.role !== "committee" && s.college).map((s: any) => s.college).filter(Boolean)
+          )).sort();
+
+          // Detail data only available after college is selected
+          const nonCommitteeStaff = overviewStaff.filter(
             (s: any) => s.role !== "committee" && s.college,
           );
 
           // Derive unique filter options from full dataset
-          const colleges = Array.from(new Set(nonCommitteeStaff.map((s: any) => s.college).filter(Boolean))).sort();
+          const colleges = allColleges;
           const depts = Array.from(new Set(
             nonCommitteeStaff
               .filter((s: any) => cFilterCollege === "All" || s.college === cFilterCollege)
@@ -1684,11 +1721,11 @@ export default function Dashboard() {
               {/* Summary Stat Cards */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {[
-                  { label: "Total Staff", value: nonCommitteeStaff.length, icon: Users, color: "text-primary", bg: "bg-primary/10" },
-                  { label: "Submissions", value: totalAllSubs.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-500/10" },
-                  { label: "Pending Review", value: totalPending, icon: CircleDot, color: "text-amber-600", bg: "bg-amber-500/10" },
-                  { label: "Accepted", value: totalAccepted, icon: CircleCheck, color: "text-green-600", bg: "bg-green-500/10" },
-                  { label: "Appeals", value: totalAppeals, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
+                  { label: "Total Staff", value: cFilterCollege === "All" ? "—" : nonCommitteeStaff.length, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+                  { label: "Submissions", value: cFilterCollege === "All" ? "—" : totalAllSubs.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-500/10" },
+                  { label: "Pending Review", value: cFilterCollege === "All" ? "—" : totalPending, icon: CircleDot, color: "text-amber-600", bg: "bg-amber-500/10" },
+                  { label: "Accepted", value: cFilterCollege === "All" ? "—" : totalAccepted, icon: CircleCheck, color: "text-green-600", bg: "bg-green-500/10" },
+                  { label: "Appeals", value: cFilterCollege === "All" ? "—" : totalAppeals, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
                 ].map(({ label, value, icon: Icon, color, bg }) => (
                   <Card key={label} className="shadow-sm">
                     <CardContent className="pt-4 pb-3">
@@ -1787,6 +1824,22 @@ export default function Dashboard() {
               </Card>
 
               {/* Tabs: Staff | Submissions | Appeals */}
+              {cFilterCollege === "All" ? (
+                <Card className="shadow-sm">
+                  <CardContent className="py-16 text-center text-muted-foreground">
+                    <Filter className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">Select a college to load data</p>
+                    <p className="text-sm mt-1">Choose a college from the filter above to view staff and submissions</p>
+                  </CardContent>
+                </Card>
+              ) : isOverviewLoading ? (
+                <Card className="shadow-sm">
+                  <CardContent className="py-16 text-center text-muted-foreground">
+                    <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin text-primary" />
+                    <p className="text-sm">Loading data for {cFilterCollege}...</p>
+                  </CardContent>
+                </Card>
+              ) : (
               <Tabs value={cActiveTab} onValueChange={setCActiveTab}>
                 <TabsList className="mb-4">
                   <TabsTrigger value="staff">Staff ({filteredStaff.length})</TabsTrigger>
@@ -1995,6 +2048,7 @@ export default function Dashboard() {
                   </Card>
                 </TabsContent>
               </Tabs>
+              )}
             </div>
           );
         })()}
