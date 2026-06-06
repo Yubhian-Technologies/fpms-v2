@@ -1714,17 +1714,136 @@ export default function Dashboard() {
             setCFilterDesig("All");
           };
 
+          // ── Export Overview Excel (same format as principal report) ──
+          const exportOverviewExcel = () => {
+            if (cFilterCollege === "All" || nonCommitteeStaff.length === 0) return;
+
+            const HEADERS = [
+              "S.No", "Name of the Faculty", "Modules", "Sub Modules", "Tasks",
+              "Points", "Points Claimed", "Points given by Reviewer",
+              "Appeal Points", "Final Points", "Total Points",
+            ];
+            const COL_WIDTHS = [
+              { wch: 6 }, { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 }, { wch: 8 },
+              { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+            ];
+
+            const buildSheetRows = (staffArr: any[]) => {
+              const rows: any[][] = [HEADERS];
+              const merges: any[] = [];
+              const addMerge = (c: number, r1: number, r2: number) => {
+                if (r2 > r1) merges.push({ s: { r: r1, c }, e: { r: r2, c } });
+              };
+              let sno = 1;
+              for (const person of staffArr) {
+                const subs: any[] = (person.submissions || person.subs || []).slice().sort((a: any, b: any) => {
+                  const cn = String(a.criteriaName || "").localeCompare(String(b.criteriaName || ""));
+                  if (cn !== 0) return cn;
+                  const mn = String(a.moduleName || "").localeCompare(String(b.moduleName || ""));
+                  if (mn !== 0) return mn;
+                  return String(a.taskName || "").localeCompare(String(b.taskName || ""));
+                });
+                if (subs.length === 0) {
+                  rows.push([sno++, person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
+                  continue;
+                }
+                const totalFinal = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
+                const criteriaMap = new Map<string, any[]>();
+                for (const sub of subs) {
+                  const key = sub.criteriaName || sub.formTitle || "-";
+                  if (!criteriaMap.has(key)) criteriaMap.set(key, []);
+                  criteriaMap.get(key)!.push(sub);
+                }
+                const facultyRowStart = rows.length;
+                let isFirstFacultyRow = true;
+                for (const [criteriaKey, critSubs] of criteriaMap) {
+                  const criteriaRowStart = rows.length;
+                  const subModMap = new Map<string, any[]>();
+                  for (const sub of critSubs) {
+                    const smKey = sub.moduleName || "-";
+                    if (!subModMap.has(smKey)) subModMap.set(smKey, []);
+                    subModMap.get(smKey)!.push(sub);
+                  }
+                  let isFirstInCriteria = true;
+                  for (const [smKey, smSubs] of subModMap) {
+                    const smRowStart = rows.length;
+                    smSubs.forEach((sub: any, smIdx: number) => {
+                      const isLast = sub === subs[subs.length - 1];
+                      rows.push([
+                        isFirstFacultyRow ? sno : "",
+                        isFirstFacultyRow ? person.name : "",
+                        isFirstInCriteria ? criteriaKey : "",
+                        smIdx === 0 ? smKey : "",
+                        sub.taskName || "-",
+                        sub.maxMarks ?? "-",
+                        sub.claimedScore ?? "-",
+                        sub.reviewerScore ?? "-",
+                        sub.appealerScore ?? "-",
+                        sub.finalScore ?? "-",
+                        isLast ? totalFinal : "",
+                      ]);
+                      isFirstFacultyRow = false;
+                      isFirstInCriteria = false;
+                    });
+                    addMerge(3, smRowStart, rows.length - 1);
+                  }
+                  addMerge(2, criteriaRowStart, rows.length - 1);
+                }
+                addMerge(0, facultyRowStart, rows.length - 1);
+                addMerge(1, facultyRowStart, rows.length - 1);
+                sno++;
+              }
+              return { rows, merges };
+            };
+
+            const wb = XLSX.utils.book_new();
+            const isDean = (role: string) => String(role || "").toLowerCase().includes("dean");
+
+            const deans = nonCommitteeStaff.filter((s: any) => isDean(s.role));
+            const byDept: Record<string, any[]> = {};
+            nonCommitteeStaff.filter((s: any) => !isDean(s.role) && s.department).forEach((s: any) => {
+              if (!byDept[s.department]) byDept[s.department] = [];
+              byDept[s.department].push(s);
+            });
+
+            Object.entries(byDept).sort(([a], [b]) => a.localeCompare(b)).forEach(([dept, staff]) => {
+              const safeName = dept.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+              if (!staff.length) return;
+              const { rows, merges } = buildSheetRows(staff);
+              const ws = XLSX.utils.aoa_to_sheet(rows);
+              ws["!merges"] = merges;
+              ws["!cols"] = COL_WIDTHS;
+              XLSX.utils.book_append_sheet(wb, ws, safeName);
+            });
+            if (deans.length > 0) {
+              const { rows, merges } = buildSheetRows(deans);
+              const ws = XLSX.utils.aoa_to_sheet(rows);
+              ws["!merges"] = merges;
+              ws["!cols"] = COL_WIDTHS;
+              XLSX.utils.book_append_sheet(wb, ws, "Deans");
+            }
+            if (wb.SheetNames.length === 0) return;
+            XLSX.writeFile(wb, `${cFilterCollege.replace(/[/\\?*[\]:]/g, "-")}-report.xlsx`);
+          };
+
           return (
             <div className="mt-10 mb-6 space-y-6">
               {/* Header */}
-              <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Submissions &amp; Staff Overview
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Live view of all staff submissions across colleges — filter, search, and track
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Submissions &amp; Staff Overview
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Live view of all staff submissions across colleges — filter, search, and track
+                  </p>
+                </div>
+                {cFilterCollege !== "All" && nonCommitteeStaff.length > 0 && (
+                  <Button variant="outline" onClick={exportOverviewExcel} className="gap-2">
+                    <FileSpreadsheet className="h-4 w-4" /> Export Report
+                  </Button>
+                )}
               </div>
 
               {/* Summary Stat Cards */}
