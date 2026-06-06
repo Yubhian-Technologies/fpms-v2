@@ -2334,13 +2334,23 @@ export const getCommitteeDashboard = async (req, res) => {
     const filterCollege = String(req.query?.college || "").trim();
 
     // Build designation target map from cache — zero Firestore reads
+    // Uses PhD-aware keys (desig__phd / desig__nophd) so Asst.Prof. with and
+    // without PhD resolve to different targets. Name-only key is kept as a
+    // fallback for users whose hasPhd field is not set.
     const saData = await getSuperadminConfig();
     const collegeDesignationMap = {};
     (saData.colleges || []).forEach((c) => {
       const key = String(c?.name || "").trim().toLowerCase();
       collegeDesignationMap[key] = {};
       (c.designations || []).forEach((d) => {
-        if (d?.name) collegeDesignationMap[key][normDesig(d.name)] = d.target || "";
+        if (!d?.name) return;
+        const nameKey = normDesig(d.name);
+        const phdKey = `${nameKey}__${d.phd ? "phd" : "nophd"}`;
+        collegeDesignationMap[key][phdKey] = d.target || "";
+        // Name-only fallback: first entry wins (preserves old behaviour for users with no hasPhd)
+        if (!collegeDesignationMap[key][nameKey]) {
+          collegeDesignationMap[key][nameKey] = d.target || "";
+        }
       });
     });
 
@@ -2366,10 +2376,12 @@ export const getCommitteeDashboard = async (req, res) => {
       const data = doc.data();
       const collegeKey = String(data.college || "").trim().toLowerCase();
       const designTargetMap = collegeDesignationMap[collegeKey] || {};
+      const nameKey = normDesig(data.designation || "");
+      const phdKey = `${nameKey}__${data.hasPhd ? "phd" : "nophd"}`;
       return {
         ...data,
         id: doc.id,
-        designationTarget: designTargetMap[normDesig(data.designation || "")] || "",
+        designationTarget: designTargetMap[phdKey] || designTargetMap[nameKey] || "",
         submissions: submissionsMap.get(data.uid) || [],
       };
     });

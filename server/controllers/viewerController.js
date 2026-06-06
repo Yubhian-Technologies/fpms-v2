@@ -22,13 +22,19 @@ export const getViewerStats = async (req, res) => {
       collegeDesignationMap[key] = {};
       if (c?.code) collegeCodeMap[key] = String(c.code).trim().toUpperCase();
       (c.designations || []).forEach((d) => {
-        if (d?.name) collegeDesignationMap[key][normStr(d.name)] = Number(d.target) || 0;
+        if (!d?.name) return;
+        const nameKey = normStr(d.name);
+        const phdKey = `${nameKey}__${d.phd ? "phd" : "nophd"}`;
+        collegeDesignationMap[key][phdKey] = Number(d.target) || 0;
+        if (!collegeDesignationMap[key][nameKey]) {
+          collegeDesignationMap[key][nameKey] = Number(d.target) || 0;
+        }
       });
     });
 
     // Fetch only the fields needed for aggregation — no cap, minimal transfer
     const [usersSnap, subsSnap] = await Promise.all([
-      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email").get(),
+      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd").get(),
       db.collection("submissions").select("userId", "college", "status", "finalScore", "score").get(),
     ]);
 
@@ -53,7 +59,9 @@ export const getViewerStats = async (req, res) => {
         if (!college || excludedRoles.has(role)) return null;
         const collegeKey = normStr(college);
         const desigMap = collegeDesignationMap[collegeKey] || {};
-        const target = desigMap[normStr(data.designation)] || 0;
+        const nameKey = normStr(data.designation);
+        const phdKey = `${nameKey}__${data.hasPhd ? "phd" : "nophd"}`;
+        const target = desigMap[phdKey] || desigMap[nameKey] || 0;
         const userSubs = subsMap.get(data.uid) || [];
         const score = userSubs.reduce((sum, s) => sum + getConfirmedScore(s), 0);
         return {
