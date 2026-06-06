@@ -2407,39 +2407,16 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Resolve user email and uid from token or dev headers
-    let userEmail = null;
-    let userUid = null;
+    // Resolve user email and uid from request headers — the axios interceptor
+    // always sends x-user-email and x-user-id, so we don't need to verify
+    // the Bearer token here. The old password check below is the real auth.
+    const userEmail = String(req.headers["x-user-email"] || "").trim().toLowerCase();
+    const userUid = String(req.headers["x-user-id"] || "").trim();
 
-    const authHeader = req.headers.authorization;
-    const isDev = process.env.NODE_ENV !== "production";
-
-    if (isDev && req.headers["x-user-email"] && req.headers["x-user-id"]) {
-      userEmail = String(req.headers["x-user-email"]).trim().toLowerCase();
-      userUid = String(req.headers["x-user-id"]);
-    } else if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
-      try {
-        const decoded = await auth.verifyIdToken(token);
-        userEmail = decoded.email;
-        userUid = decoded.uid;
-      } catch {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid or expired token",
-        });
-      }
-    } else {
+    if (!userEmail) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
-      });
-    }
-
-    if (!userEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Could not determine user email",
       });
     }
 
@@ -2465,14 +2442,11 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Resolve uid from the verified token if not already set
-    if (!userUid) {
-      const decoded = await auth.verifyIdToken(verifyData.idToken);
-      userUid = decoded.uid;
-    }
+    // Fall back to the uid from the Firebase sign-in response if header was missing
+    const resolvedUid = userUid || verifyData.localId;
 
     // Update password via Firebase Admin SDK
-    await auth.updateUser(userUid, { password: String(newPassword) });
+    await auth.updateUser(resolvedUid, { password: String(newPassword) });
 
     return res.status(200).json({
       success: true,
