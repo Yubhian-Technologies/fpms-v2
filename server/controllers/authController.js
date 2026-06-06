@@ -2445,8 +2445,17 @@ export const changePassword = async (req, res) => {
     // Fall back to the uid from the Firebase sign-in response if header was missing
     const resolvedUid = userUid || verifyData.localId;
 
-    // Update password via Firebase Admin SDK
-    await auth.updateUser(resolvedUid, { password: String(newPassword) });
+    // Hash the new password for Firestore and update Firebase Auth in parallel
+    const newHash = await bcrypt.hash(String(newPassword), 10);
+
+    await Promise.all([
+      // Update Firebase Auth (used by unified-login)
+      auth.updateUser(resolvedUid, { password: String(newPassword) }),
+      // Update bcrypt hash in Firestore (used by role-specific bcrypt login endpoints)
+      // Without this, bcrypt login still accepts the old password and auto-repairs
+      // Firebase Auth back to the old password via getFirebaseIdToken.
+      db.collection("users").doc(resolvedUid).update({ password: newHash }),
+    ]);
 
     return res.status(200).json({
       success: true,
