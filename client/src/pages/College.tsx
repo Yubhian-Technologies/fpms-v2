@@ -533,7 +533,8 @@ export default function College() {
                     <TableHead>Location</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Submission Deadline</TableHead>
+                    <TableHead>Submission Start</TableHead>
+                    <TableHead>Submission End</TableHead>
                     <TableHead>Evaluation End</TableHead>
                     <TableHead>Appeal End</TableHead>
                     <TableHead>Appeal Review End</TableHead>
@@ -605,17 +606,34 @@ export default function College() {
                               : "Inactive"}
                         </Badge>
                       </TableCell>
+                      {/* Submission Start — set by principal */}
                       <TableCell>
                         {editingCollege === college.id ? (
                           <Input
                             type="date"
-                            value={editForm.deadline?.split("T")[0] || ""}
+                            value={editForm.assessmentStart?.split("T")[0] || ""}
                             onChange={(event) =>
-                              setEditForm({ ...editForm, deadline: event.target.value })
+                              setEditForm({ ...editForm, assessmentStart: event.target.value })
                             }
                           />
-                        ) : college.deadline ? (
-                          new Date(college.deadline).toLocaleDateString()
+                        ) : college.assessmentStart ? (
+                          new Date(college.assessmentStart).toLocaleDateString()
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      {/* Submission End — set by principal (assessmentEnd), fallback to legacy deadline */}
+                      <TableCell>
+                        {editingCollege === college.id ? (
+                          <Input
+                            type="date"
+                            value={(editForm.assessmentEnd || editForm.deadline)?.split("T")[0] || ""}
+                            onChange={(event) =>
+                              setEditForm({ ...editForm, assessmentEnd: event.target.value, deadline: event.target.value })
+                            }
+                          />
+                        ) : (college.assessmentEnd || college.deadline) ? (
+                          new Date((college.assessmentEnd || college.deadline)!).toLocaleDateString()
                         ) : (
                           "-"
                         )}
@@ -661,33 +679,6 @@ export default function College() {
                           />
                         ) : college.appealReviewEnd ? (
                           new Date(college.appealReviewEnd).toLocaleDateString()
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden">
-                        {editingCollege === college.id ? (
-                          <div className="flex flex-col gap-1">
-                            <Input
-                              type="date"
-                              value={editForm.assessmentStart?.split("T")[0] || ""}
-                              onChange={(event) =>
-                                setEditForm({ ...editForm, assessmentStart: event.target.value })
-                              }
-                            />
-                            <Input
-                              type="date"
-                              value={editForm.assessmentEnd?.split("T")[0] || ""}
-                              onChange={(event) =>
-                                setEditForm({ ...editForm, assessmentEnd: event.target.value })
-                              }
-                            />
-                          </div>
-                        ) : college.assessmentStart && college.assessmentEnd ? (
-                          <span className="text-sm">
-                            {new Date(college.assessmentStart).toLocaleDateString()} –{" "}
-                            {new Date(college.assessmentEnd).toLocaleDateString()}
-                          </span>
                         ) : (
                           "-"
                         )}
