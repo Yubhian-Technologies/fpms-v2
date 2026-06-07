@@ -55,17 +55,21 @@ function EvidenceViewer({ evidence }: { evidence: string | null }) {
   const url = evidence.trim();
   const lower = url.toLowerCase();
   const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(lower);
-  const isPdf =
-    /\.(pdf)$/i.test(lower) ||
-    lower.includes("drive.google.com") ||
-    lower.includes("docs.google.com");
+
+  // Only embed Drive FILE links (/file/d/) or Docs/Sheets/Slides.
+  // Folder links (/drive/folders/) and sharing links cannot be embedded —
+  // gview returns raw HTML for them, causing the code-dump display.
+  const isDriveFile = lower.includes("drive.google.com/file/d/");
+  const isDocsFile = lower.includes("docs.google.com");
+  const isPlainPdf = /\.(pdf)$/i.test(lower);
+  const isPdf = isDriveFile || isDocsFile || isPlainPdf;
 
   let embedUrl = url;
-  if (url.includes("drive.google.com/file/d/")) {
+  if (isDriveFile) {
     const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (match?.[1])
       embedUrl = `https://drive.google.com/file/d/${match[1]}/preview`;
-  } else if (isPdf && !url.includes("docs.google.com")) {
+  } else if (isPlainPdf) {
     embedUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
   }
 
