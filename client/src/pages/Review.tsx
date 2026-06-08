@@ -75,23 +75,37 @@ function EvidenceViewer({ evidence }: { evidence: string | null }) {
 
   const url = evidence.trim();
   const lower = url.toLowerCase();
+  // Strip query params / hash before checking extensions so URLs like
+  // …/file.pdf?fl_attachment=false are still recognised as PDFs.
+  const urlPath = lower.split("?")[0].split("#")[0];
 
-  const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(lower);
+  // Cloudinary-specific: /image/upload/ = displayable image; /raw/upload/ = raw
+  // file served with Content-Disposition: attachment by default → must route
+  // through gview so it renders inline instead of triggering a download.
+  const isCloudinaryImg =
+    lower.includes("res.cloudinary.com") &&
+    lower.includes("/image/upload/") &&
+    !/\.pdf$/i.test(urlPath);
+  const isCloudinaryRaw =
+    lower.includes("res.cloudinary.com") && lower.includes("/raw/upload/");
+
+  const isImage =
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(urlPath) || isCloudinaryImg;
 
   // Only embed Drive FILE links (/file/d/) or Docs/Sheets/Slides.
-  // Folder links (/drive/folders/) and sharing links (/open?id=) cannot be
-  // embedded — gview returns raw HTML for them, causing the code-dump display.
+  // Folder links (/drive/folders/) cannot be embedded — gview returns raw HTML.
   const isDriveFile = lower.includes("drive.google.com/file/d/");
   const isDocsFile = lower.includes("docs.google.com");
-  const isPlainPdf = /\.(pdf)$/i.test(lower);
-  const isPdf = isDriveFile || isDocsFile || isPlainPdf;
+  const isPlainPdf = /\.pdf$/i.test(urlPath);
+  const isPdf =
+    !isImage && (isDriveFile || isDocsFile || isPlainPdf || isCloudinaryRaw);
 
   let embedUrl = url;
   if (isDriveFile) {
     const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (match?.[1])
       embedUrl = `https://drive.google.com/file/d/${match[1]}/preview`;
-  } else if (isPlainPdf) {
+  } else if (isPlainPdf || isCloudinaryRaw) {
     embedUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
   }
 

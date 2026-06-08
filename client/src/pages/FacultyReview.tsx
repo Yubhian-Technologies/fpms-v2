@@ -54,22 +54,32 @@ function EvidenceViewer({ evidence }: { evidence: string | null }) {
 
   const url = evidence.trim();
   const lower = url.toLowerCase();
-  const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(lower);
+  const urlPath = lower.split("?")[0].split("#")[0];
+
+  const isCloudinaryImg =
+    lower.includes("res.cloudinary.com") &&
+    lower.includes("/image/upload/") &&
+    !/\.pdf$/i.test(urlPath);
+  const isCloudinaryRaw =
+    lower.includes("res.cloudinary.com") && lower.includes("/raw/upload/");
+
+  const isImage =
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(urlPath) || isCloudinaryImg;
 
   // Only embed Drive FILE links (/file/d/) or Docs/Sheets/Slides.
-  // Folder links (/drive/folders/) and sharing links cannot be embedded —
-  // gview returns raw HTML for them, causing the code-dump display.
+  // Folder links (/drive/folders/) cannot be embedded — gview returns raw HTML.
   const isDriveFile = lower.includes("drive.google.com/file/d/");
   const isDocsFile = lower.includes("docs.google.com");
-  const isPlainPdf = /\.(pdf)$/i.test(lower);
-  const isPdf = isDriveFile || isDocsFile || isPlainPdf;
+  const isPlainPdf = /\.pdf$/i.test(urlPath);
+  const isPdf =
+    !isImage && (isDriveFile || isDocsFile || isPlainPdf || isCloudinaryRaw);
 
   let embedUrl = url;
   if (isDriveFile) {
     const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (match?.[1])
       embedUrl = `https://drive.google.com/file/d/${match[1]}/preview`;
-  } else if (isPlainPdf) {
+  } else if (isPlainPdf || isCloudinaryRaw) {
     embedUrl = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
   }
 
