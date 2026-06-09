@@ -110,7 +110,7 @@ export function DeadlineAlert() {
       .then((res) => {
         if (!res.data.success) return;
         const d = res.data.data;
-        setDeadline(d.deadline || null);
+        setDeadline(d.assessmentEnd || d.deadline || null);
         setEvaluationEnd(d.evaluationEnd || null);
         setAppealEnd(d.appealEnd || null);
         setAppealReviewEnd(d.appealReviewEnd || null);
