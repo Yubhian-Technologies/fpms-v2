@@ -116,7 +116,7 @@ export function DeadlineAlert() {
         setAppealReviewEnd(d.appealReviewEnd || null);
 
         const now = new Date();
-        const dl = toEndOfDay(d.deadline);
+        const dl = toEndOfDay(d.assessmentEnd || d.deadline);
         const ev = toEndOfDay(d.evaluationEnd);
         const ap = toEndOfDay(d.appealEnd);
         const apRev = toEndOfDay(d.appealReviewEnd);

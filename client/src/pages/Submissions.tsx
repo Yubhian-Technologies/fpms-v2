@@ -190,7 +190,7 @@ export default function Submissions() {
         if (deadlineResponse.data?.success) {
           const d = deadlineResponse.data.data;
           const now = new Date();
-          const dl = toEndOfDay(d.deadline || null);
+          const dl = toEndOfDay(d.assessmentEnd || d.deadline || null);
           const ev = toEndOfDay(d.evaluationEnd || null);
           const ap = toEndOfDay(d.appealEnd || null);
           const apRev = toEndOfDay(d.appealReviewEnd || null);

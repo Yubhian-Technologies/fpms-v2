@@ -266,7 +266,7 @@ export default function DynamicCriteriaForm() {
       });
       if (res.data.success) {
         const d = res.data.data;
-        const deadlineStr = d.deadline || null;
+        const deadlineStr = d.assessmentEnd || d.deadline || null;
         setDeadline(deadlineStr);
         setAssessmentStart(d.assessmentStart || null);
         setAssessmentEnd(d.assessmentEnd || null);
@@ -285,7 +285,7 @@ export default function DynamicCriteriaForm() {
         // Derive current phase
         const toEnd = (s: string | null) => { if (!s) return null; const d2 = new Date(s); d2.setHours(23, 59, 59, 999); return d2; };
         const now = new Date();
-        const dl = toEnd(d.deadline);
+        const dl = toEnd(d.assessmentEnd || d.deadline);
         const evEnd = toEnd(d.evaluationEnd);
         const apEnd = toEnd(d.appealEnd);
         const apRevEnd = toEnd(d.appealReviewEnd);
