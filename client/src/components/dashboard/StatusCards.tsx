@@ -65,44 +65,35 @@ export function StatusCards({
   submissions = [],
   committeeData,
 }: StatusCardsProps) {
-  
-  if (
-    role !== "committee" &&
-    role !== "principle" &&
-    role !== "vice principle" 
-    
-  ) {
-    const totalSubmissions = submissions.length;
-    let overallScore = 0;
-let completedCount = 0;
-let appealedCount = 0;
+  const isPrincipalRole =
+    role === "principle" || role === "vice principle" || role === "director";
 
-submissions.forEach((sub: any) => {
-  const claimed = Number(sub.claimedScore ?? 0);
-const reviewer = sub.reviewerScore != null ? Number(sub.reviewerScore) : null;
-const final = sub.finalScore != null ? Number(sub.finalScore) : null;
-const appeal = sub.appealScore != null ? Number(sub.appealScore) : null;
+  // ── Principal / Vice Principal / Director: show college-wide aggregates ──
+  if (isPrincipalRole) {
+    const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+    const staff = (committeeData?.staff || []).filter(
+      (s: any) => !adminRoles.has(String(s.role || "").toLowerCase()),
+    );
 
-const effectiveScore =
-  appeal ?? final ?? reviewer ?? claimed;
+    let totalSubmissions = 0;
+    let totalScore = 0;
+    let totalTarget = 0;
+    let completedCount = 0;
+    let appealedCount = 0;
 
-overallScore += effectiveScore;
+    staff.forEach((s: any) => {
+      totalTarget += Number(s.designationTarget || 0);
+      (s.submissions || []).forEach((sub: any) => {
+        totalSubmissions++;
+        totalScore += Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0);
+        if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved")
+          completedCount++;
+        if (sub.status === "appealed" || sub.status === "appeal-resolved")
+          appealedCount++;
+      });
+    });
 
-  if (sub.status === "accepted" || sub.status === "appeal-resolved") {
-    completedCount++;
-  }
-
-  if (
-  sub.status === "appealed" ||
-  sub.status === "appeal-resolved"
-) {
-  appealedCount++;
-}
-});
-
- 
-    const completionRate =
-  overallScore > 0 ? (overallScore / 300) * 100 : 0;
+    const completionRate = totalTarget > 0 ? (totalScore / totalTarget) * 100 : 0;
 
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -110,58 +101,83 @@ overallScore += effectiveScore;
         <StatusCard title="Completed" value={completedCount} icon={CheckCircle} />
         <StatusCard title="Completion Rate" value={`${completionRate.toFixed(1)}%`} icon={BarChart2} />
         <StatusCard
-  title="Overall Score"
-  value={`${overallScore} / 300`}
-  subtitle={`${completionRate.toFixed(1)}% achieved`}
-  icon={AlertCircle}
-/>
+          title="Overall Score"
+          value={`${totalScore} / ${totalTarget}`}
+          subtitle={`${completionRate.toFixed(1)}% achieved`}
+          icon={AlertCircle}
+        />
         <StatusCard title="Appealed" value={appealedCount} icon={AlertCircle} />
       </div>
     );
   }
 
-  const rawStaff = committeeData?.staff || [];
-  const staffList =
-    role === "committee"
-      ? rawStaff.filter((s: any) => s.college && s.role !== "committee")
-      : rawStaff;
+  // ── Committee: show cross-college aggregates ──
+  if (role === "committee") {
+    const rawStaff = committeeData?.staff || [];
+    const staffList = rawStaff.filter((s: any) => s.college && s.role !== "committee");
 
-  const groupedData = staffList.reduce((acc: any, staff: any) => {
-    const collegeName = staff.college || "Unknown College";
-    const roleName = staff.role || "Unknown Role";
+    const groupedData = staffList.reduce((acc: any, staff: any) => {
+      const collegeName = staff.college || "Unknown College";
+      const roleName = staff.role || "Unknown Role";
+      if (!acc[collegeName]) acc[collegeName] = {};
+      if (!acc[collegeName][roleName]) acc[collegeName][roleName] = [];
+      acc[collegeName][roleName].push(staff);
+      return acc;
+    }, {});
 
-    if (!acc[collegeName]) acc[collegeName] = {};
-    if (!acc[collegeName][roleName]) acc[collegeName][roleName] = [];
-    acc[collegeName][roleName].push(staff);
-    return acc;
-  }, {});
-
-  const totalColleges = Object.keys(groupedData).length;
-  const totalRoles = [...new Set(staffList.map((s: any) => s.role))].length;
-  const totalStaff = staffList.length;
-
-  let totalSubmissions = 0;
-  let totalAppealed = 0;
-
-  staffList.forEach((staff: any) => {
-    staff.submissions?.forEach(() => totalSubmissions++);
-    staff.submissions?.forEach((sub: any) => {
-      if (
-  sub.status === "appealed" ||
-  sub.status === "appeal-resolved"
-) {
-  totalAppealed++;
-}
+    const totalColleges = Object.keys(groupedData).length;
+    const totalRoles = [...new Set(staffList.map((s: any) => s.role))].length;
+    const totalStaff = staffList.length;
+    let totalSubmissions = 0;
+    let totalAppealed = 0;
+    staffList.forEach((staff: any) => {
+      staff.submissions?.forEach(() => totalSubmissions++);
+      staff.submissions?.forEach((sub: any) => {
+        if (sub.status === "appealed" || sub.status === "appeal-resolved") totalAppealed++;
+      });
     });
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <StatusCard title="Total Colleges" value={totalColleges} icon={School} />
+        <StatusCard title="Total Roles" value={totalRoles} icon={Users} />
+        <StatusCard title="Total Staff" value={totalStaff} icon={User} />
+        <StatusCard title="Total Submissions" value={totalSubmissions} icon={Award} />
+        <StatusCard title="Appealed" value={totalAppealed} icon={AlertCircle} />
+      </div>
+    );
+  }
+
+  // ── HOD / Faculty: show personal submission stats ──
+  const totalSubmissions = submissions.length;
+  let overallScore = 0;
+  let completedCount = 0;
+  let appealedCount = 0;
+
+  submissions.forEach((sub: any) => {
+    const claimed = Number(sub.claimedScore ?? 0);
+    const reviewer = sub.reviewerScore != null ? Number(sub.reviewerScore) : null;
+    const final = sub.finalScore != null ? Number(sub.finalScore) : null;
+    const appeal = sub.appealScore != null ? Number(sub.appealScore) : null;
+    overallScore += appeal ?? final ?? reviewer ?? claimed;
+    if (sub.status === "accepted" || sub.status === "appeal-resolved") completedCount++;
+    if (sub.status === "appealed" || sub.status === "appeal-resolved") appealedCount++;
   });
+
+  const completionRate = overallScore > 0 ? (overallScore / 300) * 100 : 0;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      <StatusCard title="Total Colleges" value={totalColleges} icon={School} />
-      <StatusCard title="Total Roles" value={totalRoles} icon={Users} />
-      <StatusCard title="Total Staff" value={totalStaff} icon={User} />
       <StatusCard title="Total Submissions" value={totalSubmissions} icon={Award} />
-      <StatusCard title="Appealed" value={totalAppealed} icon={AlertCircle} />
+      <StatusCard title="Completed" value={completedCount} icon={CheckCircle} />
+      <StatusCard title="Completion Rate" value={`${completionRate.toFixed(1)}%`} icon={BarChart2} />
+      <StatusCard
+        title="Overall Score"
+        value={`${overallScore} / 300`}
+        subtitle={`${completionRate.toFixed(1)}% achieved`}
+        icon={AlertCircle}
+      />
+      <StatusCard title="Appealed" value={appealedCount} icon={AlertCircle} />
     </div>
   );
 }
