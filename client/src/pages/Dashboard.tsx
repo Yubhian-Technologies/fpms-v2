@@ -2409,9 +2409,10 @@ export default function Dashboard() {
                         {(() => {
                           const staffRow = (s: any) => {
                             const subs = s.submissions || [];
+                            // Use finalScore for accepted, reviewerScore for reviewed-pending, claimedScore for unreviewed
                             const achieved = subs.reduce(
                               (sum: number, sub: any) =>
-                                sum + getConfirmedScore(sub),
+                                sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
                               0,
                             );
                             const done = subs.filter(
