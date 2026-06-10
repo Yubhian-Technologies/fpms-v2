@@ -1281,11 +1281,16 @@ export default function Dashboard() {
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const pw = doc.internal.pageSize.getWidth();
-      const ph = doc.internal.pageSize.getHeight();
+      const pw = doc.internal.pageSize.getWidth();   // 297
+      const ph = doc.internal.pageSize.getHeight();  // 210
+      const ML = 14; const MR = 14;
+      const usableW = pw - ML - MR; // 269
+
+      // Column widths that sum to exactly usableW (269mm)
+      // S.No(12) + Name(100) + Desig(48) + Subs(22) + Score(22) + Target(22) + Status(43) = 269
+      const COL_WIDTHS = [12, 100, 48, 22, 22, 22, 43];
 
       const addPageHeader = (deptName?: string) => {
-        // College name
         doc.setFillColor(0, 31, 63);
         doc.rect(0, 0, pw, 18, "F");
         doc.setTextColor(255, 255, 255);
@@ -1296,28 +1301,67 @@ export default function Dashboard() {
         doc.setFont("helvetica", "normal");
         doc.text("Faculty Performance Report", pw / 2, 14, { align: "center" });
         doc.setTextColor(0, 0, 0);
-
-        let y = 24;
         if (deptName) {
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
-          doc.text(`Department: ${deptName}`, 14, y);
+          doc.text(`Department: ${deptName}`, ML, 24);
         }
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`Date: ${dateStr}`, pw - 14, y, { align: "right" });
+        doc.text(`Date: ${dateStr}`, pw - MR, 24, { align: "right" });
       };
+
+      const drawSignatures = (topY: number) => {
+        const hodX = pw * 0.22;
+        const principalX = pw * 0.78;
+        const boxH = 34;
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 31, 63);
+        doc.text("Verified & Forwarded by", hodX, topY, { align: "center" });
+        doc.text("Approved by", principalX, topY, { align: "center" });
+
+        ([
+          [hodX, "Head of Department", hodName],
+          [principalX, "Principal", principalName],
+        ] as [number, string, string][]).forEach(([x, role, name]) => {
+          const bx = x - 46; const by = topY + 4;
+          doc.setDrawColor(180, 180, 180);
+          doc.setFillColor(250, 250, 252);
+          doc.roundedRect(bx, by, 92, boxH, 1, 1, "FD");
+          doc.setFontSize(8.5);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(100, 100, 100);
+          doc.text("Signature:", bx + 4, by + 9);
+          doc.setDrawColor(160, 160, 160);
+          doc.line(bx + 26, by + 9, bx + 88, by + 9);
+          doc.text("Name:", bx + 4, by + 18);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text(name || "—", bx + 26, by + 18);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(100, 100, 100);
+          doc.text("Designation:", bx + 4, by + 27);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 31, 63);
+          doc.text(role, bx + 26, by + 27);
+        });
+        doc.setTextColor(0, 0, 0);
+      };
+
+      const SIG_BLOCK_H = 50; // label(6) + gap(4) + box(34) + padding(6)
+      const FOOTER_H = 10;
 
       const getStatusLabel = (subs: any[]) => {
         if (!subs.length) return "Not Submitted";
-        if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
         const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status));
+        if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
         if (hasAccepted && subs.some((s: any) => s.status === "submitted")) return "Partial";
         if (hasAccepted) return "Completed";
         return "Pending Review";
       };
 
-      // Dept tables
       let isFirst = true;
       for (const dept of depts) {
         if (!isFirst) doc.addPage();
@@ -1344,99 +1388,53 @@ export default function Dashboard() {
           head: [["S.No", "Name of the Faculty", "Designation", "Submissions", "Score", "Target", "Status"]],
           body: rows,
           startY: 30,
-          margin: { left: 14, right: 14 },
-          styles: { fontSize: 9, cellPadding: 3 },
+          margin: { left: ML, right: MR },
+          tableWidth: usableW,
+          styles: { fontSize: 9, cellPadding: 3, overflow: "linebreak" },
           headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center" },
           alternateRowStyles: { fillColor: [245, 247, 250] },
           columnStyles: {
-            0: { cellWidth: 12, halign: "center" },
-            1: { cellWidth: 65 },
-            2: { cellWidth: 30 },
-            3: { cellWidth: 26, halign: "center" },
-            4: { cellWidth: 22, halign: "center" },
-            5: { cellWidth: 22, halign: "center" },
-            6: { cellWidth: 38, halign: "center" },
+            0: { cellWidth: COL_WIDTHS[0], halign: "center" },
+            1: { cellWidth: COL_WIDTHS[1] },
+            2: { cellWidth: COL_WIDTHS[2] },
+            3: { cellWidth: COL_WIDTHS[3], halign: "center" },
+            4: { cellWidth: COL_WIDTHS[4], halign: "center" },
+            5: { cellWidth: COL_WIDTHS[5], halign: "center" },
+            6: { cellWidth: COL_WIDTHS[6], halign: "center" },
           },
           didDrawCell: (data: any) => {
             if (data.section === "body" && data.column.index === 6) {
               const val = String(data.cell.text?.[0] || "");
-              if (val.includes("Reached")) {
-                doc.setTextColor(22, 163, 74);
-              } else {
-                doc.setTextColor(0, 0, 0);
-              }
+              doc.setTextColor(val.includes("Reached") ? 22 : 0, val.includes("Reached") ? 163 : 0, val.includes("Reached") ? 74 : 0);
             }
           },
         });
+
+        // Draw signatures after the table — on same page if there's room, else new page
+        const tableEndY = (doc as any).lastAutoTable?.finalY ?? 30;
+        const roomLeft = ph - tableEndY - FOOTER_H;
+        let sigTop: number;
+        if (roomLeft >= SIG_BLOCK_H + 6) {
+          sigTop = tableEndY + 10;
+        } else {
+          doc.addPage();
+          addPageHeader(dept.name);
+          sigTop = 32;
+        }
+        drawSignatures(sigTop);
       }
 
-      // ── Signature page ──
-      doc.addPage();
-      addPageHeader();
-
-      // Summary box
-      const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
-      const allFaculty = depts.flatMap(d => d.staff).filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
-      const totalSubs = allFaculty.reduce((sum: number, s: any) => sum + (s.submissions?.length || 0), 0);
-      const totalReached = allFaculty.filter((s: any) => {
-        if (!s.designationTarget) return false;
-        const score = (s.submissions || []).reduce((sum: number, sub: any) =>
-          sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
-        return score >= Number(s.designationTarget);
-      }).length;
-
-      const sumY = 35;
-      doc.setFillColor(240, 245, 255);
-      doc.roundedRect(14, sumY, pw - 28, 22, 2, 2, "F");
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 31, 63);
-      doc.text(`Total Faculty: ${allFaculty.length}`, 22, sumY + 8);
-      doc.text(`Total Submissions: ${totalSubs}`, 22 + (pw - 28) / 3, sumY + 8);
-      doc.text(`Targets Reached: ${totalReached} / ${allFaculty.length}`, 22 + ((pw - 28) * 2) / 3, sumY + 8);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "normal");
-
-      // Signature blocks
-      const sigY = ph * 0.62;
-      const hodX = pw * 0.22;
-      const principalX = pw * 0.78;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Verified & Forwarded by", hodX, sigY - 12, { align: "center" });
-      doc.text("Approved by", principalX, sigY - 12, { align: "center" });
-
-      // Signature boxes
-      [[hodX, "Head of Department", hodName], [principalX, "Principal", principalName]].forEach(([x, role, name]) => {
-        doc.setDrawColor(180, 180, 180);
-        doc.rect(Number(x) - 45, sigY - 5, 90, 32);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-        doc.text("Signature:", Number(x) - 38, sigY + 4);
-        doc.line(Number(x) - 15, sigY + 4, Number(x) + 42, sigY + 4);
-        doc.text("Name:", Number(x) - 38, sigY + 13);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(String(name) || "—", Number(x) - 15, sigY + 13);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-        doc.text("Designation:", Number(x) - 38, sigY + 21);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(String(role), Number(x) - 15, sigY + 21);
-      });
-
-      // Page numbers
+      // Page numbers footer on every page
       const total = doc.getNumberOfPages();
       for (let i = 1; i <= total; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(120, 120, 120);
-        doc.text(`Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`,
-          pw / 2, ph - 5, { align: "center" });
+        doc.text(
+          `Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`,
+          pw / 2, ph - 4, { align: "center" },
+        );
       }
 
       doc.save(`${collegeName.replace(/[/\\?*[\]:]/g, "-")}-faculty-report.pdf`);
