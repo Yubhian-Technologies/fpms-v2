@@ -727,7 +727,10 @@ export const getHodDashboard = async (req, res) => {
   try {
     const { college, department } = req.hod;
 
-    const submissionsSnap = await db.collection("submissions").get();
+    const submissionsSnap = await db
+      .collection("submissions")
+      .where("college", "==", college)
+      .get();
 
     const allSubmissions = submissionsSnap.docs.map((doc) => ({
       ...doc.data(),
@@ -742,7 +745,7 @@ export const getHodDashboard = async (req, res) => {
       submissionsMap.get(sub.userId).push(sub);
     });
 
-    // Build designation → target map for this college
+    // Build PhD-aware designation → target map for this college
     const saDoc = await db
       .collection("superadmin")
       .doc(SUPERADMIN_DOC_ID)
@@ -756,7 +759,13 @@ export const getHodDashboard = async (req, res) => {
     );
     const designationTargetMap = {};
     (collegeDef?.designations || []).forEach((d) => {
-      if (d?.name) designationTargetMap[normDesig(d.name)] = d.target || "";
+      if (!d?.name) return;
+      const nameKey = normDesig(d.name);
+      const phdKey = `${nameKey}__${d.phd ? "phd" : "nophd"}`;
+      designationTargetMap[phdKey] = d.target || "";
+      if (!designationTargetMap[nameKey]) {
+        designationTargetMap[nameKey] = d.target || "";
+      }
     });
 
     const staffSnap = await db
@@ -768,11 +777,15 @@ export const getHodDashboard = async (req, res) => {
 
     const staff = staffSnap.docs.map((doc) => {
       const data = doc.data();
+      const nameKey = normDesig(data.designation || "");
+      const phdKey = `${nameKey}__${data.hasPhd ? "phd" : "nophd"}`;
       return {
         ...data,
         id: doc.id,
         designationTarget:
-          designationTargetMap[normDesig(data.designation || "")] || "",
+          designationTargetMap[phdKey] ||
+          designationTargetMap[nameKey] ||
+          "",
         submissions: submissionsMap.get(data.uid) || [],
       };
     });
