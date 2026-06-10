@@ -45,6 +45,7 @@ import {
 import { api } from "@/api/api";
 import { formatRoleLabel } from "@/lib/utils";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1271,6 +1272,251 @@ export default function Dashboard() {
       }
     };
 
+    // ── SHARED PDF BUILDER ──
+    const buildFacultyPDF = (
+      depts: { name: string; staff: any[] }[],
+      principalName: string,
+      hodName: string,
+    ) => {
+      const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+      const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
+
+      const addPageHeader = (deptName?: string) => {
+        // College name
+        doc.setFillColor(0, 31, 63);
+        doc.rect(0, 0, pw, 18, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.text(collegeName, pw / 2, 8, { align: "center" });
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text("Faculty Performance Report", pw / 2, 14, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+
+        let y = 24;
+        if (deptName) {
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.text(`Department: ${deptName}`, 14, y);
+        }
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Date: ${dateStr}`, pw - 14, y, { align: "right" });
+      };
+
+      const getStatusLabel = (subs: any[]) => {
+        if (!subs.length) return "Not Submitted";
+        if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
+        const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status));
+        if (hasAccepted && subs.some((s: any) => s.status === "submitted")) return "Partial";
+        if (hasAccepted) return "Completed";
+        return "Pending Review";
+      };
+
+      // Dept tables
+      let isFirst = true;
+      for (const dept of depts) {
+        if (!isFirst) doc.addPage();
+        isFirst = false;
+        addPageHeader(dept.name);
+
+        const rows = dept.staff.map((s: any, idx: number) => {
+          const subs = s.submissions || [];
+          const score = subs.reduce((sum: number, sub: any) =>
+            sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+          const targetReached = s.designationTarget && score >= Number(s.designationTarget);
+          return [
+            idx + 1,
+            s.name || s.email || "—",
+            s.designation || "—",
+            subs.length,
+            score,
+            s.designationTarget || "—",
+            targetReached ? "✓ Reached" : getStatusLabel(subs),
+          ];
+        });
+
+        autoTable(doc, {
+          head: [["S.No", "Name of the Faculty", "Designation", "Submissions", "Score", "Target", "Status"]],
+          body: rows,
+          startY: 30,
+          margin: { left: 14, right: 14 },
+          styles: { fontSize: 9, cellPadding: 3 },
+          headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center" },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          columnStyles: {
+            0: { cellWidth: 12, halign: "center" },
+            1: { cellWidth: 65 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 26, halign: "center" },
+            4: { cellWidth: 22, halign: "center" },
+            5: { cellWidth: 22, halign: "center" },
+            6: { cellWidth: 38, halign: "center" },
+          },
+          didDrawCell: (data: any) => {
+            if (data.section === "body" && data.column.index === 6) {
+              const val = String(data.cell.text?.[0] || "");
+              if (val.includes("Reached")) {
+                doc.setTextColor(22, 163, 74);
+              } else {
+                doc.setTextColor(0, 0, 0);
+              }
+            }
+          },
+        });
+      }
+
+      // ── Signature page ──
+      doc.addPage();
+      addPageHeader();
+
+      // Summary box
+      const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+      const allFaculty = depts.flatMap(d => d.staff).filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
+      const totalSubs = allFaculty.reduce((sum: number, s: any) => sum + (s.submissions?.length || 0), 0);
+      const totalReached = allFaculty.filter((s: any) => {
+        if (!s.designationTarget) return false;
+        const score = (s.submissions || []).reduce((sum: number, sub: any) =>
+          sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+        return score >= Number(s.designationTarget);
+      }).length;
+
+      const sumY = 35;
+      doc.setFillColor(240, 245, 255);
+      doc.roundedRect(14, sumY, pw - 28, 22, 2, 2, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 31, 63);
+      doc.text(`Total Faculty: ${allFaculty.length}`, 22, sumY + 8);
+      doc.text(`Total Submissions: ${totalSubs}`, 22 + (pw - 28) / 3, sumY + 8);
+      doc.text(`Targets Reached: ${totalReached} / ${allFaculty.length}`, 22 + ((pw - 28) * 2) / 3, sumY + 8);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+
+      // Signature blocks
+      const sigY = ph * 0.62;
+      const hodX = pw * 0.22;
+      const principalX = pw * 0.78;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Verified & Forwarded by", hodX, sigY - 12, { align: "center" });
+      doc.text("Approved by", principalX, sigY - 12, { align: "center" });
+
+      // Signature boxes
+      [[hodX, "Head of Department", hodName], [principalX, "Principal", principalName]].forEach(([x, role, name]) => {
+        doc.setDrawColor(180, 180, 180);
+        doc.rect(Number(x) - 45, sigY - 5, 90, 32);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Signature:", Number(x) - 38, sigY + 4);
+        doc.line(Number(x) - 15, sigY + 4, Number(x) + 42, sigY + 4);
+        doc.text("Name:", Number(x) - 38, sigY + 13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(String(name) || "—", Number(x) - 15, sigY + 13);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Designation:", Number(x) - 38, sigY + 21);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(String(role), Number(x) - 15, sigY + 21);
+      });
+
+      // Page numbers
+      const total = doc.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(120, 120, 120);
+        doc.text(`Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`,
+          pw / 2, ph - 5, { align: "center" });
+      }
+
+      doc.save(`${collegeName.replace(/[/\\?*[\]:]/g, "-")}-faculty-report.pdf`);
+    };
+
+    // ── PRINCIPAL PDF EXPORT ──
+    const exportPrincipalPDF = () => {
+      const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+      const faculty = staffList.filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
+
+      const deptMap: Record<string, any[]> = {};
+      const deans: any[] = [];
+      faculty.forEach((s: any) => {
+        if (String(s.role || "").toLowerCase().includes("dean")) deans.push(s);
+        else if (s.department) {
+          if (!deptMap[s.department]) deptMap[s.department] = [];
+          deptMap[s.department].push(s);
+        }
+      });
+
+      const depts = Object.entries(deptMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, staff]) => ({ name, staff }));
+      if (deans.length) depts.push({ name: "Deans", staff: deans });
+
+      buildFacultyPDF(depts, displayName, "Head of Department");
+    };
+
+    // ── HOD PDF EXPORT ──
+    const exportHodPDF = () => {
+      const dept = user.department || "Department";
+      buildFacultyPDF(
+        [{ name: dept, staff: staffList }],
+        "Principal",
+        user.name || user.email || "HOD",
+      );
+    };
+
+    // ── HOD EXCEL EXPORT ──
+    const exportHodExcel = () => {
+      const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+      const dept = user.department || "Department";
+      const NCOLS = 7;
+      const HEADERS = ["S.No", "Name of the Faculty", "Designation", "Submissions", "Score", "Target", "Status"];
+      const WIDTHS = [{ wch: 6 }, { wch: 32 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }];
+
+      const getStatus = (subs: any[]) => {
+        if (!subs.length) return "Not Submitted";
+        if (subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status)))
+          return subs.some((s: any) => s.status === "submitted") ? "Partially Reviewed" : "Completed";
+        if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
+        return "Pending Review";
+      };
+
+      const rows: any[][] = [
+        [collegeName, "", "", "", "", "", ""],
+        [dept, "", "", "", "", "", ""],
+        HEADERS,
+      ];
+      const merges: XLSX.Range[] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: NCOLS - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: NCOLS - 1 } },
+      ];
+      staffList.forEach((f: any, idx: number) => {
+        const subs = f.submissions || [];
+        const score = subs.reduce((sum: number, s: any) =>
+          sum + Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+        rows.push([idx + 1, f.name || f.email || "—", f.designation || "—",
+          subs.length, score, f.designationTarget || "—", getStatus(subs)]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!merges"] = merges;
+      ws["!cols"] = WIDTHS;
+      const wb = XLSX.utils.book_new();
+      const sheetName = dept.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, `${collegeName.replace(/[/\\?*[\]:]/g, "-")}-${sheetName}-report.xlsx`);
+    };
+
     return (
       <DashboardLayout
         title={`${displayName}'s Dashboard`}
@@ -2268,6 +2514,9 @@ export default function Dashboard() {
               <Button variant="outline" onClick={exportDetailedReport}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Detailed
               </Button>
+              <Button variant="outline" onClick={exportPrincipalPDF}>
+                <FileText className="mr-2 h-4 w-4" /> Export PDF
+              </Button>
             </div>
 
             {/* Summary strip */}
@@ -2644,14 +2893,22 @@ export default function Dashboard() {
                   </CardTitle>
                   <CardDescription>Submission scores and status for each faculty member</CardDescription>
                 </div>
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search faculty..."
-                    value={hodSearch}
-                    onChange={(e) => setHodSearch(e.target.value)}
-                    className="pl-9 bg-background"
-                  />
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <div className="relative w-48">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search faculty..."
+                      value={hodSearch}
+                      onChange={(e) => setHodSearch(e.target.value)}
+                      className="pl-9 bg-background"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={exportHodExcel}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Excel
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportHodPDF}>
+                    <FileText className="mr-2 h-4 w-4" /> Export PDF
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
