@@ -159,7 +159,7 @@ const getNavItems = (
       icon: ClipboardCheck,
       label: "Add Internal Committee",
       href: "/add-internal-committee",
-      roles: ["principle"],
+      roles: ["principle", "vice principle"],
     },
     {
       icon: ClipboardCheck,

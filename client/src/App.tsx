@@ -276,7 +276,7 @@ function AppRoutes() {
       <Route
         path="/add-internal-committee"
         element={
-          <ProtectedRoute allowedRoles={["principal"]}>
+          <ProtectedRoute allowedRoles={["principal", "vice principal"]}>
             <AddInternalCommittee />
           </ProtectedRoute>
         }

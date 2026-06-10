@@ -48,6 +48,8 @@ const isPrincipalManagementRole = (value) => {
   return (
     normalized === "principal" ||
     normalized === "principle" ||
+    normalized === "vice principal" ||
+    normalized === "vice principle" ||
     normalized === "admin"
   );
 };
