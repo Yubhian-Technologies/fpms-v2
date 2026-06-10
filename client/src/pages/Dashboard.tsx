@@ -484,62 +484,64 @@ export default function Dashboard() {
       });
     });
 
-    const rows = filteredData.map((sub: any) => {
+    // ── Sheet 1: Summary (one row per unique faculty in filtered results) ──
+    const seenFaculty = new Map<string, any>();
+    filteredData.forEach((sub: any) => {
       const staff = subToStaff[sub.id] || {};
-      const finalScore =
-        sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved"
-          ? (sub.finalScore ?? "")
-          : "";
-      const submittedAt = sub.createdAt?.seconds
-        ? new Date(sub.createdAt.seconds * 1000).toLocaleDateString("en-IN")
-        : "";
-      const reviewedAt = sub.updatedAt?.seconds
-        ? new Date(sub.updatedAt.seconds * 1000).toLocaleDateString("en-IN")
-        : "";
-
-      return {
-        "Staff Name": staff.name || sub.userName || "",
-        "Email": staff.email || sub.userEmail || "",
-        "Role": staff.role || sub.userRole || "",
-        "Department": staff.department || sub.department || "",
-        "College": staff.college || sub.college || "",
-        "Designation": staff.designation || "",
-        "Form": sub.formTitle || "",
-        "Criteria": sub.criteriaName || "",
-        "Module": sub.moduleName || "",
-        "Task": sub.taskName || "",
-        "Claimed Score": sub.claimedScore ?? "",
-        "Reviewer Score": sub.reviewerScore ?? "",
-        "Final Score": finalScore,
-        "Max Marks": sub.maxMarks ?? "",
-        "Status": sub.status || "",
-        "Appealed": sub.isAppealed ? "Yes" : "No",
-        "Appeal Reason": sub.appealReason || "",
-        "Requested Score": sub.appealRequestedScore ?? "",
-        "Appealer Score": sub.appealerScore ?? "",
-        "Description": sub.description || "",
-        "Evidence URL": sub.evidence || "",
-        "Submitted On": submittedAt,
-        "Last Updated": reviewedAt,
-      };
+      const uid = staff.uid || staff.id || sub.userId || sub.id;
+      if (!seenFaculty.has(uid)) seenFaculty.set(uid, { staff, subs: [] });
+      seenFaculty.get(uid)!.subs.push(sub);
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const summaryRows: any[][] = [["S.No", "Name of the Faculty", "Email", "Role", "Department", "Designation", "Submissions", "Score", "Target", "Status"]];
+    let sno = 1;
+    for (const { staff, subs } of seenFaculty.values()) {
+      const score = subs.reduce((sum: number, s: any) =>
+        sum + Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+      const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status));
+      const hasAppealed = subs.some((s: any) => s.status === "appealed");
+      const hasPending = subs.some((s: any) => s.status === "submitted");
+      const status = !subs.length ? "Not Submitted" : hasAppealed ? "Appealed" : hasPending ? "Pending Review" : hasAccepted ? "Completed" : "Under Review";
+      summaryRows.push([sno++, staff.name || "", staff.email || "", staff.role || "", staff.department || "", staff.designation || "", subs.length, score, staff.designationTarget || "—", status]);
+    }
 
-    // Auto-width columns
-    const colWidths = Object.keys(rows[0] || {}).map((key) => ({
-      wch: Math.max(
-        key.length,
-        ...rows.map((r: any) => String(r[key] || "").length),
-      ),
-    }));
-    worksheet["!cols"] = colWidths;
+    // ── Sheet 2: Detailed (one row per submission with all score columns) ──
+    const detailHeaders = ["S.No", "Staff Name", "Email", "Role", "Department", "Designation", "Criteria", "Module", "Task", "Max Points", "Claimed Score", "Reviewer Score", "Appeal Score", "Final Score", "Status"];
+    const detailRows: any[][] = [detailHeaders];
+    let dSno = 1;
+    filteredData.forEach((sub: any) => {
+      const staff = subToStaff[sub.id] || {};
+      detailRows.push([
+        dSno++,
+        staff.name || sub.userName || "",
+        staff.email || sub.userEmail || "",
+        staff.role || sub.userRole || "",
+        staff.department || sub.department || "",
+        staff.designation || "",
+        sub.criteriaName || sub.formTitle || "",
+        sub.moduleName || "",
+        sub.taskName || "",
+        sub.maxMarks ?? "",
+        sub.claimedScore ?? "",
+        sub.reviewerScore ?? "",
+        sub.appealerScore ?? "",
+        sub.finalScore ?? "",
+        sub.status || "",
+      ]);
+    });
 
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Submissions");
+    const wb = XLSX.utils.book_new();
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+    wsSummary["!cols"] = summaryRows[0].map((h: string) => ({ wch: Math.max(String(h).length + 2, 14) }));
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+    const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+    wsDetail["!cols"] = detailHeaders.map((h) => ({ wch: Math.max(String(h).length + 2, 14) }));
+    XLSX.utils.book_append_sheet(wb, wsDetail, "Detailed");
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `fpms-filtered-submissions-${dateStr}.xlsx`);
+    XLSX.writeFile(wb, `fpms-filtered-report-${dateStr}.xlsx`);
   };
 
   if (loading) {
@@ -1093,39 +1095,114 @@ export default function Dashboard() {
       });
     };
 
-    const exportPrincipalReport = async () => {
+    // ── SUMMARY REPORT: one row per faculty, dept sheets with college/dept header ──
+    const exportPrincipalReport = () => {
+      const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+      const NCOLS = 7;
+      const SUMMARY_HEADERS = ["S.No", "Name of the Faculty", "Designation", "Submissions", "Score", "Target", "Status"];
+      const SUMMARY_WIDTHS = [{ wch: 6 }, { wch: 32 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }];
+
+      const getStatus = (subs: any[]) => {
+        if (!subs.length) return "Not Submitted";
+        if (subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved")) {
+          return subs.some((s: any) => s.status === "submitted") ? "Partially Reviewed" : "Completed";
+        }
+        if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
+        return "Pending Review";
+      };
+
+      const buildSummarySheet = (deptName: string, staffArr: any[]) => {
+        const rows: any[][] = [
+          [collegeName, "", "", "", "", "", ""],
+          [deptName, "", "", "", "", "", ""],
+          SUMMARY_HEADERS,
+        ];
+        const merges: XLSX.Range[] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: NCOLS - 1 } },
+          { s: { r: 1, c: 0 }, e: { r: 1, c: NCOLS - 1 } },
+        ];
+        let sno = 1;
+        for (const s of staffArr) {
+          const subs = s.submissions || [];
+          const score = subs.reduce((sum: number, sub: any) =>
+            sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+          rows.push([sno++, s.name || s.email || "—", s.designation || "—",
+            subs.length, score, s.designationTarget || "—", getStatus(subs)]);
+        }
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws["!merges"] = merges;
+        ws["!cols"] = SUMMARY_WIDTHS;
+        // Bold the title rows
+        return ws;
+      };
+
+      const wb = XLSX.utils.book_new();
+      const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+      const faculty = staffList.filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
+
+      const deptMap: Record<string, any[]> = {};
+      const deans: any[] = [];
+      faculty.forEach((s: any) => {
+        if (String(s.role || "").toLowerCase().includes("dean")) {
+          deans.push(s);
+        } else if (s.department) {
+          if (!deptMap[s.department]) deptMap[s.department] = [];
+          deptMap[s.department].push(s);
+        }
+      });
+
+      Object.entries(deptMap).sort(([a], [b]) => a.localeCompare(b)).forEach(([dept, arr]) => {
+        const safeName = dept.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+        XLSX.utils.book_append_sheet(wb, buildSummarySheet(dept, arr), safeName);
+      });
+      if (deans.length) {
+        XLSX.utils.book_append_sheet(wb, buildSummarySheet("Deans", deans), "Deans");
+      }
+      if (wb.SheetNames.length === 0) return;
+      XLSX.writeFile(wb, `${collegeName.replace(/[/\\?*[\]:]/g, "-")}-summary-report.xlsx`);
+    };
+
+    // ── DETAILED REPORT: hierarchical modules/submodules/tasks with all scores ──
+    const exportDetailedReport = async () => {
       try {
         const res = await api.get("/api/admin/export-report");
         const { deans, byDept } = res.data?.data || { deans: [], byDept: {} };
+        const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
 
         const wb = XLSX.utils.book_new();
-        const HEADERS = [
+        const DETAIL_HEADERS = [
           "S.No", "Name of the Faculty", "Modules", "Sub Modules", "Tasks",
-          "Points", "Points Claimed", "Points given by Reviewer",
-          "Appeal Points", "Final Points", "Total Points",
+          "Max Points", "Claimed Score", "Reviewer Score", "Appeal Score", "Final Score", "Total Score",
         ];
-        const COL_WIDTHS = [
-          { wch: 6 }, { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 }, { wch: 8 },
-          { wch: 15 }, { wch: 22 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
+        const DETAIL_WIDTHS = [
+          { wch: 6 }, { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 },
+          { wch: 10 }, { wch: 14 }, { wch: 15 }, { wch: 13 }, { wch: 12 }, { wch: 12 },
         ];
 
-        const buildSheetRows = (staffArr: any[]) => {
-          const rows: any[][] = [HEADERS];
-          const merges: XLSX.Range[] = [];
+        const buildDetailSheet = (deptName: string, staffArr: any[]) => {
+          const titleRows: any[][] = [
+            [collegeName, ...Array(DETAIL_HEADERS.length - 1).fill("")],
+            [deptName, ...Array(DETAIL_HEADERS.length - 1).fill("")],
+            DETAIL_HEADERS,
+          ];
+          const merges: XLSX.Range[] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: DETAIL_HEADERS.length - 1 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: DETAIL_HEADERS.length - 1 } },
+          ];
           const addMerge = (c: number, r1: number, r2: number) => {
             if (r2 > r1) merges.push({ s: { r: r1, c }, e: { r: r2, c } });
           };
+          const rows: any[][] = [...titleRows];
 
           let sno = 1;
           for (const person of staffArr) {
             const subs: any[] = person.subs || [];
+            const totalScore = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
             if (subs.length === 0) {
               rows.push([sno++, person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
               continue;
             }
-            const totalFinal = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
 
-            // Group by criteriaName
             const criteriaMap = new Map<string, any[]>();
             for (const sub of subs) {
               const key = sub.criteriaName || sub.formTitle || "-";
@@ -1133,29 +1210,25 @@ export default function Dashboard() {
               criteriaMap.get(key)!.push(sub);
             }
 
-            const facultyRowStart = rows.length;
-            let isFirstFacultyRow = true;
-
+            const facStart = rows.length;
+            let firstFac = true;
             for (const [criteriaKey, critSubs] of criteriaMap) {
-              const criteriaRowStart = rows.length;
-
-              // Group by moduleName within criteria
+              const critStart = rows.length;
               const subModMap = new Map<string, any[]>();
               for (const sub of critSubs) {
                 const smKey = sub.moduleName || "-";
                 if (!subModMap.has(smKey)) subModMap.set(smKey, []);
                 subModMap.get(smKey)!.push(sub);
               }
-
-              let isFirstInCriteria = true;
+              let firstCrit = true;
               for (const [smKey, smSubs] of subModMap) {
-                const smRowStart = rows.length;
+                const smStart = rows.length;
                 smSubs.forEach((sub: any, smIdx: number) => {
                   const isLast = sub === subs[subs.length - 1];
                   rows.push([
-                    isFirstFacultyRow ? sno : "",
-                    isFirstFacultyRow ? person.name : "",
-                    isFirstInCriteria ? criteriaKey : "",
+                    firstFac ? sno : "",
+                    firstFac ? person.name : "",
+                    firstCrit ? criteriaKey : "",
                     smIdx === 0 ? smKey : "",
                     sub.taskName || "-",
                     sub.maxMarks ?? "-",
@@ -1163,44 +1236,38 @@ export default function Dashboard() {
                     sub.reviewerScore ?? "-",
                     sub.appealerScore ?? "-",
                     sub.finalScore ?? "-",
-                    isLast ? totalFinal : "",
+                    isLast ? totalScore : "",
                   ]);
-                  isFirstFacultyRow = false;
-                  isFirstInCriteria = false;
+                  firstFac = false;
+                  firstCrit = false;
                 });
-                addMerge(3, smRowStart, rows.length - 1);
+                addMerge(3, smStart, rows.length - 1);
               }
-              addMerge(2, criteriaRowStart, rows.length - 1);
+              addMerge(2, critStart, rows.length - 1);
             }
-            addMerge(0, facultyRowStart, rows.length - 1);
-            addMerge(1, facultyRowStart, rows.length - 1);
+            addMerge(0, facStart, rows.length - 1);
+            addMerge(1, facStart, rows.length - 1);
             sno++;
           }
-          return { rows, merges };
-        };
 
-        const addSheet = (name: string, staffArr: any[]) => {
-          const safeName = name.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
-          if (!staffArr.length) return;
-          const { rows, merges } = buildSheetRows(staffArr);
           const ws = XLSX.utils.aoa_to_sheet(rows);
           ws["!merges"] = merges;
-          ws["!cols"] = COL_WIDTHS;
-          XLSX.utils.book_append_sheet(wb, ws, safeName);
+          ws["!cols"] = DETAIL_WIDTHS;
+          return ws;
         };
 
-        // One sheet per department
-        Object.entries(byDept).sort(([a], [b]) => a.localeCompare(b)).forEach(([dept, staff]) => {
-          addSheet(dept, staff as any[]);
+        Object.entries(byDept).sort(([a], [b]) => a.localeCompare(b)).forEach(([dept, arr]) => {
+          const safeName = dept.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+          if ((arr as any[]).length)
+            XLSX.utils.book_append_sheet(wb, buildDetailSheet(dept, arr as any[]), safeName);
         });
-
-        // Deans sheet
-        if (deans.length > 0) addSheet("Deans", deans);
+        if ((deans as any[]).length)
+          XLSX.utils.book_append_sheet(wb, buildDetailSheet("Deans", deans), "Deans");
 
         if (wb.SheetNames.length === 0) return;
-        XLSX.writeFile(wb, "principal_report.xlsx");
+        XLSX.writeFile(wb, `${collegeName.replace(/[/\\?*[\]:]/g, "-")}-detailed-report.xlsx`);
       } catch {
-        // silent — toast not available here without hook, rely on network error boundary
+        // silent
       }
     };
 
@@ -2196,7 +2263,10 @@ export default function Dashboard() {
                 </p>
               </div>
               <Button variant="outline" onClick={exportPrincipalReport}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Report
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Summary
+              </Button>
+              <Button variant="outline" onClick={exportDetailedReport}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Detailed
               </Button>
             </div>
 
