@@ -1453,24 +1453,8 @@ export default function DynamicCriteriaForm() {
 
                         <div className="flex justify-end pt-1">
                           <div className="flex items-center gap-2">
-                            {taskStatus === "reviewed" ? (
+                            {taskStatus === "reviewed" && (currentPhase === "evaluation" || currentPhase === "appeal") ? (
                               <>
-                                <Button
-                                  variant="outline"
-                                  onClick={() =>
-                                    submitTaskAppeal(moduleItem, task)
-                                  }
-                                  disabled={appealingTaskId === task.id || currentPhase !== "appeal"}
-                                >
-                                  {appealingTaskId === task.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  ) : null}
-                                  {appealingTaskId === task.id
-                                    ? "Appealing..."
-                                    : currentPhase !== "appeal"
-                                      ? submissionClosedLabel
-                                      : "Appeal"}
-                                </Button>
                                 <Button
                                   onClick={() => acceptReview(task)}
                                   disabled={acceptingTaskId === task.id}
@@ -1478,10 +1462,20 @@ export default function DynamicCriteriaForm() {
                                   {acceptingTaskId === task.id ? (
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                   ) : null}
-                                  {acceptingTaskId === task.id
-                                    ? "Accepting..."
-                                    : "Accept"}
+                                  {acceptingTaskId === task.id ? "Accepting..." : "Accept"}
                                 </Button>
+                                {currentPhase === "appeal" && (
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => submitTaskAppeal(moduleItem, task)}
+                                    disabled={appealingTaskId === task.id}
+                                  >
+                                    {appealingTaskId === task.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    ) : null}
+                                    {appealingTaskId === task.id ? "Appealing..." : "Appeal"}
+                                  </Button>
+                                )}
                               </>
                             ) : taskStatus === "pending" ? (
                               <Button
