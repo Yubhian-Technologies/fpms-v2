@@ -1311,7 +1311,7 @@ export default function Dashboard() {
         doc.text(`Date: ${dateStr}`, pw - MR, 24, { align: "right" });
       };
 
-      const drawSignatures = (topY: number) => {
+      const drawSignatures = (topY: number, resolvedHodName: string) => {
         const hodX = pw * 0.22;
         const principalX = pw * 0.78;
         const boxH = 34;
@@ -1323,7 +1323,7 @@ export default function Dashboard() {
         doc.text("Approved by", principalX, topY, { align: "center" });
 
         ([
-          [hodX, "Head of Department", hodName],
+          [hodX, "Head of Department", resolvedHodName],
           [principalX, "Principal", principalName],
         ] as [number, string, string][]).forEach(([x, role, name]) => {
           const bx = x - 46; const by = topY + 4;
@@ -1350,7 +1350,8 @@ export default function Dashboard() {
         doc.setTextColor(0, 0, 0);
       };
 
-      const SIG_BLOCK_H = 50; // label(6) + gap(4) + box(34) + padding(6)
+      // actual drawn height: label(6) + gap(4) + box(34) = 44mm
+      const SIG_BLOCK_H = 44;
       const FOOTER_H = 10;
 
       const getStatusLabel = (subs: any[]) => {
@@ -1410,6 +1411,11 @@ export default function Dashboard() {
           },
         });
 
+        // Resolve the HOD name for this specific department
+        const deptHodName =
+          dept.staff.find((s: any) => String(s.role || "").toLowerCase() === "hod")?.name ||
+          hodName;
+
         // Draw signatures after the table — on same page if there's room, else new page
         const tableEndY = (doc as any).lastAutoTable?.finalY ?? 30;
         const roomLeft = ph - tableEndY - FOOTER_H;
@@ -1417,11 +1423,22 @@ export default function Dashboard() {
         if (roomLeft >= SIG_BLOCK_H + 6) {
           sigTop = tableEndY + 10;
         } else {
+          // Continuation page: minimal header (no full banner) to avoid repeating college name
           doc.addPage();
-          addPageHeader(dept.name);
-          sigTop = 32;
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 31, 63);
+          doc.text(`Department: ${dept.name}`, ML, 14);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          doc.text(`Date: ${dateStr}`, pw - MR, 14, { align: "right" });
+          doc.setDrawColor(0, 31, 63);
+          doc.line(ML, 17, pw - MR, 17);
+          doc.setTextColor(0, 0, 0);
+          sigTop = 28;
         }
-        drawSignatures(sigTop);
+        drawSignatures(sigTop, deptHodName);
       }
 
       // Page numbers footer on every page
