@@ -656,8 +656,12 @@ export const getMySubmissions = async (req, res) => {
 export const getReviewQueue = async (req, res) => {
   try {
     const { userId, userRole, college, department, internalCommittee } = await resolveReviewerScope(req);
-    // IC-flagged faculty/hod/dean act as "internal committee" reviewers
+    // IC-flagged users act as "internal committee" BUT also retain their base role
+    // e.g. HOD with IC flag reviews submissions routed to "hod" AND "internal committee"
     const effectiveRole = internalCommittee ? "internal committee" : userRole;
+    const dualRoles = internalCommittee && userRole && userRole !== "internal committee"
+      ? [effectiveRole, userRole]   // ["internal committee", "hod"]
+      : [effectiveRole];
 
     if (!effectiveRole) {
       return res
@@ -679,19 +683,23 @@ export const getReviewQueue = async (req, res) => {
       await autoApproveAllColleges();
     }
 
-    let query = db
-      .collection("submissions")
-      .where("status", "==", "submitted")
-      .where("submitToRoleIds", "array-contains", effectiveRole);
+    let baseQuery = db.collection("submissions").where("status", "==", "submitted");
+    if (college) baseQuery = baseQuery.where("college", "==", college);
 
-    if (college) query = query.where("college", "==", college);
-    if (
-      department &&
-      !isCommitteeRole(effectiveRole) &&
-      !isInternalCommitteeRole(effectiveRole) &&
-      !isPrincipalRole(effectiveRole)
-    ) {
-      query = query.where("department", "==", department);
+    let query;
+    if (dualRoles.length > 1) {
+      // array-contains-any for dual-role users; dept filtering done post-query
+      query = baseQuery.where("submitToRoleIds", "array-contains-any", dualRoles);
+    } else {
+      query = baseQuery.where("submitToRoleIds", "array-contains", effectiveRole);
+      if (
+        department &&
+        !isCommitteeRole(effectiveRole) &&
+        !isInternalCommitteeRole(effectiveRole) &&
+        !isPrincipalRole(effectiveRole)
+      ) {
+        query = query.where("department", "==", department);
+      }
     }
 
     const snapshot = await query.get();
@@ -699,6 +707,15 @@ export const getReviewQueue = async (req, res) => {
       id: doc.id,
       ...doc.data(),
     }));
+
+    // For dual-role queries apply dept scoping post-fetch:
+    // IC-routed submissions have no dept restriction; base-role submissions do.
+    if (dualRoles.length > 1 && department) {
+      submissions = submissions.filter((s) => {
+        if ((s.submitToRoleIds || []).includes(effectiveRole)) return true; // IC path
+        return s.department === department; // base-role path (e.g. HOD → own dept)
+      });
+    }
 
     // Never allow a reviewer to see their own submission (safety net for legacy data)
     submissions = submissions.filter((s) => s.userId !== userId);
@@ -1316,11 +1333,17 @@ export const getReviewAccess = async (req, res) => {
     const workflowRules = await loadWorkflowRules(college);
     const norm = (v) => normalizeRoleForWorkflow(v || "");
 
+    // IC-flagged users hold two roles: their IC effective role AND their base role.
+    // e.g. HOD with IC flag: canReview if "hod" is a reviewer OR "internal committee" is.
+    const rolesToCheck = (internalCommittee && userRole && userRole !== "internal committee")
+      ? [effectiveRole, userRole]
+      : [effectiveRole];
+
     const canReview = workflowRules.some((rule) =>
-      (rule.submitToRoles || []).some((r) => norm(r) === norm(effectiveRole))
+      (rule.submitToRoles || []).some((r) => rolesToCheck.includes(norm(r)))
     );
     const canReviewAppeals = workflowRules.some((rule) =>
-      (rule.appealToRoles || []).some((r) => norm(r) === norm(effectiveRole))
+      (rule.appealToRoles || []).some((r) => rolesToCheck.includes(norm(r)))
     );
 
     return res.status(200).json({ success: true, canReview, canReviewAppeals });
