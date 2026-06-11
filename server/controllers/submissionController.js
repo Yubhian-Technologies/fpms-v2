@@ -708,14 +708,22 @@ export const getReviewQueue = async (req, res) => {
       ...doc.data(),
     }));
 
-    // IC-flagged users review college-wide — no department restriction.
-    // dualRoles.length > 1 always implies internalCommittee === true (current logic),
-    // so this branch is a no-op; kept for safety if a future non-IC dual-role case arises.
-    if (dualRoles.length > 1 && !internalCommittee && department) {
-      submissions = submissions.filter((s) => {
-        if ((s.submitToRoleIds || []).includes(effectiveRole)) return true;
-        return s.department === department;
-      });
+    // For IC-flagged users with a base role (dualRoles), apply dept filter only when
+    // "internal committee" is NOT a submission reviewer in this college's workflow.
+    // If IC IS a reviewer → college-wide (no dept restriction).
+    // If IC is NOT a reviewer (e.g. only appeal reviewer) → scope to base role's dept.
+    if (dualRoles.length > 1 && department) {
+      let icIsSubmissionReviewer = false;
+      if (college) {
+        const norm = (v) => normalizeRoleForWorkflow(v || "");
+        const workflowRules = await loadWorkflowRules(college);
+        icIsSubmissionReviewer = workflowRules.some((rule) =>
+          (rule.submitToRoles || []).some((r) => norm(r) === "internal committee")
+        );
+      }
+      if (!icIsSubmissionReviewer) {
+        submissions = submissions.filter((s) => s.department === department);
+      }
     }
 
     // Never allow a reviewer to see their own submission (safety net for legacy data)
