@@ -11,6 +11,13 @@ import { Loader2, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollegePhase } from "@/hooks/useCollegePhase";
 import { useReviewAccess } from "@/hooks/useReviewAccess";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PhaseBanner } from "@/components/dashboard/PhaseBanner";
 import {
   Dialog,
@@ -174,6 +181,9 @@ export default function Review() {
   const [queue, setQueue] = useState<SubmissionItem[]>([]);
   const [reviewedItems, setReviewedItems] = useState<SubmissionItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "reviewed">("all");
+  const [filterDept, setFilterDept] = useState("all");
+  const [filterCriteria, setFilterCriteria] = useState("all");
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
@@ -281,21 +291,28 @@ export default function Review() {
   // ─── Grouping helpers ─────────────────────────────────────────────────
   const allItems = [...queue, ...reviewedItems];
 
-  const filteredItems = searchTerm.trim()
-    ? allItems.filter((item) =>
-        [
-          item.userName,
-          item.userEmail,
-          item.college,
-          item.department,
-          item.criteriaName,
-          item.taskName,
-          item.moduleName,
-        ].some((v) =>
-          v?.toLowerCase().includes(searchTerm.trim().toLowerCase()),
-        ),
-      )
-    : allItems;
+  // Derive unique values for dropdowns
+  const uniqueDepts = Array.from(
+    new Set(allItems.map((i) => i.department?.trim()).filter(Boolean))
+  ).sort() as string[];
+  const uniqueCriteria = Array.from(
+    new Set(allItems.map((i) => i.criteriaName?.trim()).filter(Boolean))
+  ).sort() as string[];
+
+  const filteredItems = allItems.filter((item) => {
+    if (filterStatus === "pending" && item.reviewerScore != null) return false;
+    if (filterStatus === "reviewed" && item.reviewerScore == null) return false;
+    if (filterDept !== "all" && item.department?.trim() !== filterDept) return false;
+    if (filterCriteria !== "all" && item.criteriaName?.trim() !== filterCriteria) return false;
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase();
+      return [item.userName, item.userEmail, item.college, item.department, item.criteriaName, item.taskName, item.moduleName]
+        .some((v) => v?.toLowerCase().includes(q));
+    }
+    return true;
+  });
+
+  const hasActiveFilters = filterStatus !== "all" || filterDept !== "all" || filterCriteria !== "all" || searchTerm.trim() !== "";
 
   type FacultyEntry = { name: string; email: string; items: SubmissionItem[] };
 
@@ -926,14 +943,59 @@ export default function Review() {
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
+      {/* Filters */}
+      <div className="mb-6 flex flex-wrap gap-3 items-center">
         <Input
-          placeholder="Search by name, college, department, criteria..."
+          placeholder="Search by name, email, criteria..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-xl"
+          className="w-64"
         />
+        <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as "all" | "pending" | "reviewed")}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="reviewed">Reviewed</SelectItem>
+          </SelectContent>
+        </Select>
+        {uniqueDepts.length > 0 && (
+          <Select value={filterDept} onValueChange={setFilterDept}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {uniqueDepts.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {uniqueCriteria.length > 0 && (
+          <Select value={filterCriteria} onValueChange={setFilterCriteria}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Criteria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Criteria</SelectItem>
+              {uniqueCriteria.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setSearchTerm(""); setFilterStatus("all"); setFilterDept("all"); setFilterCriteria("all"); }}
+          >
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {/* Grouped Content */}
@@ -943,7 +1005,7 @@ export default function Review() {
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
-          No results for &ldquo;{searchTerm}&rdquo;
+          No results match the selected filters
         </div>
       ) : isCommittee ? (
         // Committee: College → Role+Dept → Faculty → Criteria
