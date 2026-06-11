@@ -965,14 +965,16 @@ export default function Submissions() {
                                               ? "Processing..."
                                               : "Accept"}
                                           </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleAppeal(sub)}
-                                            disabled={!!actionLoading[sub.id]}
-                                          >
-                                            Appeal
-                                          </Button>
+                                          {phase === "appeal" && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleAppeal(sub)}
+                                              disabled={!!actionLoading[sub.id]}
+                                            >
+                                              Appeal
+                                            </Button>
+                                          )}
                                         </div>
                                       )}
                                     </CardContent>
@@ -1127,14 +1129,16 @@ export default function Submissions() {
                                   ? "Processing..."
                                   : "Accept"}
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleAppeal(sub)}
-                                disabled={!!actionLoading[sub.id]}
-                              >
-                                Appeal
-                              </Button>
+                              {phase === "appeal" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleAppeal(sub)}
+                                  disabled={!!actionLoading[sub.id]}
+                                >
+                                  Appeal
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
