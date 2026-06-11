@@ -131,7 +131,7 @@ const resolveReviewerScope = async (req) => {
     department: String(
       req.user?.department || req.headers["x-department"] || "",
     ).trim(),
-    internalCommittee: req.user?.internalCommittee === true,
+    internalCommittee: req.user?.internalCommittee === true || req.headers["x-internal-committee"] === "true",
   };
 
   const token = parseBearerToken(req.headers?.authorization);
@@ -647,15 +647,17 @@ export const getMySubmissions = async (req, res) => {
 // Get review queue (HOD/Committee)
 export const getReviewQueue = async (req, res) => {
   try {
-    const { userId, userRole, college, department } = await resolveReviewerScope(req);
+    const { userId, userRole, college, department, internalCommittee } = await resolveReviewerScope(req);
+    // IC-flagged faculty/hod/dean act as "internal committee" reviewers
+    const effectiveRole = internalCommittee ? "internal committee" : userRole;
 
-    if (!userRole) {
+    if (!effectiveRole) {
       return res
         .status(401)
         .json({ success: false, message: "User role not found" });
     }
 
-    if (isPrincipalRole(userRole) && !college) {
+    if (isPrincipalRole(effectiveRole) && !college) {
       return res.status(403).json({
         success: false,
         message: "Principal college not found. Please login again.",
@@ -665,21 +667,21 @@ export const getReviewQueue = async (req, res) => {
     // Auto-approve unreviewed submissions if evaluation period has ended
     if (college) {
       await autoApproveUnreviewedForCollege(college);
-    } else if (isCommitteeRole(userRole)) {
+    } else if (isCommitteeRole(effectiveRole)) {
       await autoApproveAllColleges();
     }
 
     let query = db
       .collection("submissions")
       .where("status", "==", "submitted")
-      .where("submitToRoleIds", "array-contains", userRole);
+      .where("submitToRoleIds", "array-contains", effectiveRole);
 
     if (college) query = query.where("college", "==", college);
     if (
       department &&
-      !isCommitteeRole(userRole) &&
-      !isInternalCommitteeRole(userRole) &&
-      !isPrincipalRole(userRole)
+      !isCommitteeRole(effectiveRole) &&
+      !isInternalCommitteeRole(effectiveRole) &&
+      !isPrincipalRole(effectiveRole)
     ) {
       query = query.where("department", "==", department);
     }
@@ -761,7 +763,8 @@ export const reviewSubmission = async (req, res) => {
     const { reviewerScore, reviewerReason } = req.body;
     const reviewerId =
       req.user?.uid || req.user?.id || req.headers["x-user-id"];
-    const reviewerRole = req.user?.role || req.headers["x-user-role"];
+    const isIC = req.user?.internalCommittee === true || req.headers["x-internal-committee"] === "true";
+    const reviewerRole = isIC ? "internal committee" : (req.user?.role || req.headers["x-user-role"]);
 
     if (reviewerScore === undefined) {
       return res
