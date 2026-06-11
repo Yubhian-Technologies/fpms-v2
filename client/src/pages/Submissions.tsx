@@ -954,16 +954,14 @@ export default function Submissions() {
                                         </div>
                                       )}
 
-                                      {sub.status === "reviewed" && (
+                                      {sub.status === "reviewed" && (phase === "evaluation" || phase === "appeal") && (
                                         <div className="border-t pt-4 flex flex-wrap items-center gap-2">
                                           <Button
                                             size="sm"
                                             onClick={() => handleAccept(sub)}
                                             disabled={!!actionLoading[sub.id]}
                                           >
-                                            {actionLoading[sub.id]
-                                              ? "Processing..."
-                                              : "Accept"}
+                                            {actionLoading[sub.id] ? "Processing..." : "Accept"}
                                           </Button>
                                           {phase === "appeal" && (
                                             <Button
@@ -1118,16 +1116,14 @@ export default function Submissions() {
                             </div>
                           )}
 
-                          {sub.status === "reviewed" && (
+                          {sub.status === "reviewed" && (phase === "evaluation" || phase === "appeal") && (
                             <div className="border-t pt-4 flex flex-wrap items-center gap-2">
                               <Button
                                 size="sm"
                                 onClick={() => handleAccept(sub)}
                                 disabled={!!actionLoading[sub.id]}
                               >
-                                {actionLoading[sub.id]
-                                  ? "Processing..."
-                                  : "Accept"}
+                                {actionLoading[sub.id] ? "Processing..." : "Accept"}
                               </Button>
                               {phase === "appeal" && (
                                 <Button
