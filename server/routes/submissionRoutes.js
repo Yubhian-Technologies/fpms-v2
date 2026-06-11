@@ -13,6 +13,7 @@ import {
   getUserTotal,
   updateSubmission,
   deleteSubmission,
+  getReviewAccess,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 import upload from "../middleware/upload.js";
@@ -66,6 +67,9 @@ router.get("/my-submissions", getMySubmissions);
 router.post("/:id/accept", acceptReview);
 router.post("/:id/appeal", raiseAppeal);
 router.get("/user-total", getUserTotal);
+
+// Dynamic review panel access (workflow-based)
+router.get("/review-access", getReviewAccess);
 
 // Reviewer endpoints (HOD/Committee)
 router.get("/review-queue", getReviewQueue);

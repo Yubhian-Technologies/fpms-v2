@@ -376,9 +376,17 @@ export const submitTask = async (req, res) => {
       });
     }
 
+    // IC-flagged users (faculty/hod/dean with internalCommittee flag) use the
+    // "internal committee" workflow rule so their own submissions are routed to
+    // whoever the principal assigned (e.g. principal/VP), never to IC themselves.
+    // Fall back to base-role rule if the principal hasn't configured an IC rule yet.
+    const isICMember = req.user?.internalCommittee === true || req.headers["x-internal-committee"] === "true";
+    const lookupRole = isICMember ? "internal committee" : userRole;
     const userRule = workflowRules.find(
+      (r) => (r.role || "").toLowerCase().trim() === lookupRole.trim(),
+    ) ?? (isICMember ? workflowRules.find(
       (r) => (r.role || "").toLowerCase().trim() === userRole.trim(),
-    );
+    ) : null);
 
     if (
       !userRule ||
@@ -387,7 +395,7 @@ export const submitTask = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: `No workflow configured for role: ${userRole}. Available roles: ${workflowRules.map((r) => r.role).join(", ")}`,
+        message: `No workflow configured for role: ${lookupRole}. Available roles: ${workflowRules.map((r) => r.role).join(", ")}`,
       });
     }
 
@@ -691,6 +699,9 @@ export const getReviewQueue = async (req, res) => {
       id: doc.id,
       ...doc.data(),
     }));
+
+    // Never allow a reviewer to see their own submission (safety net for legacy data)
+    submissions = submissions.filter((s) => s.userId !== userId);
 
     return res.status(200).json({
       success: true,
@@ -1291,6 +1302,34 @@ export const getUserTotal = async (req, res) => {
 };
 
 // Delete a submission so the faculty can resubmit fresh
+// Returns whether the current user is assigned as a reviewer or appeal-reviewer
+// in their college's workflow rules — fully dynamic, no hardcoded role assumptions.
+export const getReviewAccess = async (req, res) => {
+  try {
+    const { userRole, college, internalCommittee } = await resolveReviewerScope(req);
+    const effectiveRole = internalCommittee ? "internal committee" : userRole;
+
+    if (!college || !effectiveRole) {
+      return res.status(200).json({ success: true, canReview: false, canReviewAppeals: false });
+    }
+
+    const workflowRules = await loadWorkflowRules(college);
+    const norm = (v) => normalizeRoleForWorkflow(v || "");
+
+    const canReview = workflowRules.some((rule) =>
+      (rule.submitToRoles || []).some((r) => norm(r) === norm(effectiveRole))
+    );
+    const canReviewAppeals = workflowRules.some((rule) =>
+      (rule.appealToRoles || []).some((r) => norm(r) === norm(effectiveRole))
+    );
+
+    return res.status(200).json({ success: true, canReview, canReviewAppeals });
+  } catch (error) {
+    console.error("getReviewAccess error:", error);
+    return res.status(200).json({ success: true, canReview: false, canReviewAppeals: false });
+  }
+};
+
 export const deleteSubmission = async (req, res) => {
   try {
     const { id } = req.params;

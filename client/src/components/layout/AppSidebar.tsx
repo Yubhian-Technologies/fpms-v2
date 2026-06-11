@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn, formatRoleLabel } from "@/lib/utils";
 import { api } from "@/api/api";
+import { useReviewAccess } from "@/hooks/useReviewAccess";
 import vishnuLogo from "@/assets/vishnu.png";
 import {
   LayoutDashboard,
@@ -66,6 +67,8 @@ const getNavItems = (
   dynamicForms: DynamicFormItem[],
   isFormsLoading: boolean,
   isInternalCommittee?: boolean,
+  canReview?: boolean,
+  canReviewAppeals?: boolean,
 ) => {
   const resolvedRole = normalizeRoleForAccess(role);
   const dynamicFpmsChildren = dynamicForms
@@ -165,13 +168,15 @@ const getNavItems = (
       icon: ClipboardCheck,
       label: "Review Submissions",
       href: "/review",
-      roles: ["hod", "internal committee", "dean", "vice principle", "principle"],
+      roles: [] as string[],
+      forceShow: canReview === true,
     },
     {
       icon: ClipboardCheck,
       label: "Review Appeals",
       href: "/appeal-review",
-      roles: ["vice principle", "principle", "internal committee"],
+      roles: [] as string[],
+      forceShow: canReviewAppeals === true,
     },
     {
       icon: BarChart3,
@@ -260,7 +265,7 @@ const getNavItems = (
 
   return items.filter(
     (item) =>
-      (item.roles.includes(resolvedRole) || (isInternalCommittee && item.roles.includes("internal committee"))) &&
+      ((item as any).forceShow || item.roles.includes(resolvedRole) || (isInternalCommittee && item.roles.includes("internal committee"))) &&
       (!item.isDropdown || (item.children && item.children.length > 0)),
   );
 };
@@ -269,6 +274,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { canReview, canReviewAppeals } = useReviewAccess();
 
   const [expandedDropdown, setExpandedDropdown] = useState<string | null>(null);
   const [dynamicForms, setDynamicForms] = useState<DynamicFormItem[]>([]);
@@ -299,7 +305,7 @@ export function AppSidebar() {
 
   if (!user) return null;
 
-  const navItems = getNavItems(user.role, dynamicForms, isFormsLoading, user.internalCommittee);
+  const navItems = getNavItems(user.role, dynamicForms, isFormsLoading, user.internalCommittee, canReview, canReviewAppeals);
   const shouldShowFullScreenLoader =
     isFormsLoading &&
     (["faculty", "hod", "dean", "principle", "internal committee"].includes(
