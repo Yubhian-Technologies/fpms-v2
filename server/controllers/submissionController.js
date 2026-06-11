@@ -708,12 +708,13 @@ export const getReviewQueue = async (req, res) => {
       ...doc.data(),
     }));
 
-    // For dual-role queries apply dept scoping post-fetch:
-    // IC-routed submissions have no dept restriction; base-role submissions do.
-    if (dualRoles.length > 1 && department) {
+    // IC-flagged users review college-wide — no department restriction.
+    // dualRoles.length > 1 always implies internalCommittee === true (current logic),
+    // so this branch is a no-op; kept for safety if a future non-IC dual-role case arises.
+    if (dualRoles.length > 1 && !internalCommittee && department) {
       submissions = submissions.filter((s) => {
-        if ((s.submitToRoleIds || []).includes(effectiveRole)) return true; // IC path
-        return s.department === department; // base-role path (e.g. HOD → own dept)
+        if ((s.submitToRoleIds || []).includes(effectiveRole)) return true;
+        return s.department === department;
       });
     }
 
