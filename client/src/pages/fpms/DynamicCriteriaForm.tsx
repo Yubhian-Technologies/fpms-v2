@@ -1512,7 +1512,8 @@ export default function DynamicCriteriaForm() {
                                   }}
                                   disabled={
                                     submittingTaskId === task.id ||
-                                    isDeadlinePassed
+                                    isDeadlinePassed ||
+                                    currentPhase !== "submission"
                                   }
                                 >
                                   {submittingTaskId === task.id ? (
@@ -1520,7 +1521,7 @@ export default function DynamicCriteriaForm() {
                                   ) : null}
                                   {submittingTaskId === task.id
                                     ? "Updating..."
-                                    : isDeadlinePassed
+                                    : isDeadlinePassed || currentPhase !== "submission"
                                       ? submissionClosedLabel
                                       : "Update Task"}
                                 </Button>
@@ -1533,9 +1534,9 @@ export default function DynamicCriteriaForm() {
                                       [task.id]: true,
                                     }))
                                   }
-                                  disabled={isDeadlinePassed}
+                                  disabled={isDeadlinePassed || currentPhase !== "submission"}
                                 >
-                                  {isDeadlinePassed
+                                  {isDeadlinePassed || currentPhase !== "submission"
                                     ? submissionClosedLabel
                                     : "Edit"}
                                 </Button>
