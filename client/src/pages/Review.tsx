@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollegePhase } from "@/hooks/useCollegePhase";
+import { useReviewAccess } from "@/hooks/useReviewAccess";
 import { PhaseBanner } from "@/components/dashboard/PhaseBanner";
 import {
   Dialog,
@@ -187,7 +188,7 @@ export default function Review() {
   const isHOD = (user?.role || "").toLowerCase() === "hod";
   const isCommittee = user?.role === "committee";
   const isprincipal = user?.role === "principal";
-  const canReview = (user?.role && user.role !== "faculty") || !!user?.internalCommittee;
+  const { canReview, isLoading: accessLoading } = useReviewAccess();
 
   const fetchQueue = async () => {
     setLoading(true);
@@ -236,14 +237,24 @@ export default function Review() {
   };
 
   useEffect(() => {
-    if (!user || !canReview) {
+    if (!user || accessLoading) return;
+    if (!canReview) {
       setLoading(false);
       return;
     }
     fetchQueue();
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, user?.internalCommittee, canReview, accessLoading]);
 
   if (!user) return null;
+  if (accessLoading) {
+    return (
+      <DashboardLayout title="Review Submissions">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
   if (!canReview) {
     return (
       <DashboardLayout title="Review Submissions">
