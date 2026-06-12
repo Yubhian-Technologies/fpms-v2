@@ -286,7 +286,7 @@ export default function Review() {
   }
 
   const displayUser = (item: SubmissionItem) =>
-    isHOD ? item.userName || item.userEmail || "—" : "Faculty Member";
+    item.userName || item.userEmail || "—";
 
   // ─── Grouping helpers ─────────────────────────────────────────────────
   const allItems = [...queue, ...reviewedItems];
@@ -1021,8 +1021,11 @@ export default function Review() {
           "faculty",
         )
       ) : isHOD ? (
-        // HOD: Faculty → Criteria (within their department)
-        renderFacultyTier(groupByFaculty(filteredItems))
+        // HOD: Department → Faculty → Criteria
+        renderGroupTier(
+          groupByKey(filteredItems, (i) => i.department?.trim() || "Unknown Department"),
+          "faculty",
+        )
       ) : (
         // Dean / others: Department → Faculty → Criteria
         renderGroupTier(
