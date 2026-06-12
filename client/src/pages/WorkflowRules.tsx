@@ -69,7 +69,8 @@ const isReviewerOnlyRole = (value: string) => {
     key === "principle" ||
     key === "viceprinciple" ||
     key === "viceprincipal" ||
-    key === "internalcommittee"
+    key === "internal committee" ||
+    key === "director"
   );
 };
 
