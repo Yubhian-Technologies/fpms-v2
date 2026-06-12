@@ -683,12 +683,45 @@ export const getReviewQueue = async (req, res) => {
       await autoApproveAllColleges();
     }
 
+    // ── IC fast-path ─────────────────────────────────────────────────────────
+    // When any role is flagged as IC and IC is a submission reviewer in this
+    // college's workflow, query ALL college submissions and filter by the
+    // submitter roles whose submissions are routed to IC.  This handles:
+    //   • faculty-as-IC, dean-as-IC, hod-as-IC (all base roles)
+    //   • legacy submissions that still carry old submitToRoleIds (pre-IC workflow)
+    if (internalCommittee && college) {
+      const norm = (v) => normalizeRoleForWorkflow(v || "");
+      const workflowRules = await loadWorkflowRules(college);
+      const icSubmitterRoles = workflowRules
+        .filter((rule) =>
+          (rule.submitToRoles || []).some((r) => norm(r) === "internal committee")
+        )
+        .map((rule) => norm(rule.role));
+
+      if (icSubmitterRoles.length > 0) {
+        const icSnapshot = await db
+          .collection("submissions")
+          .where("status", "==", "submitted")
+          .where("college", "==", college)
+          .get();
+
+        const submissions = icSnapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((s) => icSubmitterRoles.includes(norm(s.userRole || "")))
+          .filter((s) => s.userId !== userId);
+
+        return res.status(200).json({ success: true, data: submissions });
+      }
+      // IC is not a submission reviewer (only appeal reviewer) — fall through
+      // to base-role logic so the user sees their role's normal review queue.
+    }
+
+    // ── Regular reviewer logic ────────────────────────────────────────────────
     let baseQuery = db.collection("submissions").where("status", "==", "submitted");
     if (college) baseQuery = baseQuery.where("college", "==", college);
 
     let query;
     if (dualRoles.length > 1) {
-      // array-contains-any for dual-role users; dept filtering done post-query
       query = baseQuery.where("submitToRoleIds", "array-contains-any", dualRoles);
     } else {
       query = baseQuery.where("submitToRoleIds", "array-contains", effectiveRole);
@@ -708,25 +741,15 @@ export const getReviewQueue = async (req, res) => {
       ...doc.data(),
     }));
 
-    // For IC-flagged users with a base role (dualRoles), apply dept filter only when
-    // "internal committee" is NOT a submission reviewer in this college's workflow.
-    // If IC IS a reviewer → college-wide (no dept restriction).
-    // If IC is NOT a reviewer (e.g. only appeal reviewer) → scope to base role's dept.
-    if (dualRoles.length > 1 && department) {
-      let icIsSubmissionReviewer = false;
-      if (college) {
-        const norm = (v) => normalizeRoleForWorkflow(v || "");
-        const workflowRules = await loadWorkflowRules(college);
-        icIsSubmissionReviewer = workflowRules.some((rule) =>
-          (rule.submitToRoles || []).some((r) => norm(r) === "internal committee")
-        );
-      }
-      if (!icIsSubmissionReviewer) {
-        submissions = submissions.filter((s) => s.department === department);
-      }
+    // Non-IC dual-role: apply dept filter on base-role path if needed
+    if (dualRoles.length > 1 && !internalCommittee && department) {
+      submissions = submissions.filter((s) => {
+        if ((s.submitToRoleIds || []).includes(effectiveRole)) return true;
+        return s.department === department;
+      });
     }
 
-    // Never allow a reviewer to see their own submission (safety net for legacy data)
+    // Never allow a reviewer to see their own submission
     submissions = submissions.filter((s) => s.userId !== userId);
 
     return res.status(200).json({
