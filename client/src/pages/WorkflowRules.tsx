@@ -169,13 +169,18 @@ export default function WorkflowRules() {
             : []
           : [];
 
-      // Apply defaults for HOD/Dean when no rule is saved yet
-      const applyDefault = isHodOrDean(roleName) && principalDefaults.length > 0;
+      // For HOD/Dean: always merge Principal + Vice Principal into both lists
+      const mergeDefaults = isHodOrDean(roleName) && principalDefaults.length > 0;
+
+      const mergeWithDefaults = (list: string[]) =>
+        mergeDefaults
+          ? Array.from(new Set([...list, ...principalDefaults]))
+          : list;
 
       return {
         role: roleName,
-        submitToRoles: resolvedSubmit.length > 0 ? resolvedSubmit : (applyDefault ? principalDefaults : []),
-        appealToRoles: resolvedAppeal.length > 0 ? resolvedAppeal : (applyDefault ? principalDefaults : []),
+        submitToRoles: mergeWithDefaults(resolvedSubmit),
+        appealToRoles: mergeWithDefaults(resolvedAppeal),
       };
     });
   };
