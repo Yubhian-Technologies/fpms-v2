@@ -625,6 +625,11 @@ export default function DynamicCriteriaForm() {
         const signRes = await api.get("/api/submissions/cloudinary-sign");
         const { signature, timestamp, cloudName, apiKey } = signRes.data;
 
+        if (!cloudName || !apiKey || !signature) {
+          console.error("Cloudinary sign response missing fields:", signRes.data);
+          throw new Error("Cloudinary configuration error — contact admin");
+        }
+
         const cloudForm = new FormData();
         cloudForm.append("file", progress.evidenceUrl);
         cloudForm.append("timestamp", String(timestamp));
@@ -636,7 +641,13 @@ export default function DynamicCriteriaForm() {
           `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
           { method: "POST", body: cloudForm }
         );
-        if (!cloudRes.ok) throw new Error("File upload to Cloudinary failed");
+        if (!cloudRes.ok) {
+          const errBody = await cloudRes.json().catch(() => ({}));
+          console.error("Cloudinary upload failed:", cloudRes.status, errBody);
+          throw new Error(
+            errBody?.error?.message || `Cloudinary upload failed (${cloudRes.status})`
+          );
+        }
         const cloudData = await cloudRes.json();
         evidenceValue = cloudData.secure_url;
       }

@@ -26,18 +26,20 @@ router.use(optionalAuth);
 
 // Cloudinary direct-upload signature (avoids Vercel 4.5MB body limit)
 router.get("/cloudinary-sign", (req, res) => {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !apiKey || !apiSecret) {
+    console.error("Cloudinary env vars missing:", { cloudName: !!cloudName, apiKey: !!apiKey, apiSecret: !!apiSecret });
+    return res.status(500).json({ success: false, message: "Cloudinary not configured on server" });
+  }
+
   const timestamp = Math.round(Date.now() / 1000);
   const paramsToSign = { folder: "task_evidence", timestamp };
-  const signature = cloudinary.utils.api_sign_request(
-    paramsToSign,
-    process.env.CLOUDINARY_API_SECRET
-  );
-  res.json({
-    signature,
-    timestamp,
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    apiKey: process.env.CLOUDINARY_API_KEY,
-  });
+  const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+  res.json({ signature, timestamp, cloudName, apiKey });
 });
 
 // Faculty endpoints
