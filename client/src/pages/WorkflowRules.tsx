@@ -155,11 +155,17 @@ export default function WorkflowRules() {
       const roleName = String(role.name || "").trim();
       const existing = byRole.get(roleName);
 
-      const resolvedSubmit = Array.isArray(existing?.submitToRoles)
+      const rawSubmit = Array.isArray(existing?.submitToRoles)
         ? existing.submitToRoles
         : String(existing?.submitToRole || "").trim()
           ? [String(existing?.submitToRole || "").trim()]
           : [];
+
+      // Drop any saved submit roles that are no longer valid options for this role
+      const validSubmitNames = new Set(
+        getReviewerOptions(roleName, roleOptions).map((r) => r.name),
+      );
+      const resolvedSubmit = rawSubmit.filter((r) => validSubmitNames.has(r));
 
       const resolvedAppeal = Array.isArray(existing?.appealToRoles)
         ? existing.appealToRoles.filter((value) => isAllowedAppealReviewerRole(value))
