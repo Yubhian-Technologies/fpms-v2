@@ -143,27 +143,39 @@ export default function WorkflowRules() {
       existingRules.map((item) => [String(item.role || "").trim(), item]),
     );
 
+    // Default submit/appeal reviewers for HOD and Dean rows = Principal + Vice Principal
+    const principalDefaults = roleOptions
+      .filter((r) => {
+        const key = normalizeRoleKey(r.name);
+        return key === "principle" || key === "viceprinciple" || key === "viceprincipal";
+      })
+      .map((r) => r.name);
+
     return roleOptions.filter((role) => !isReviewerOnlyRole(role.name)).map((role) => {
       const roleName = String(role.name || "").trim();
       const existing = byRole.get(roleName);
+
+      const resolvedSubmit = Array.isArray(existing?.submitToRoles)
+        ? existing.submitToRoles
+        : String(existing?.submitToRole || "").trim()
+          ? [String(existing?.submitToRole || "").trim()]
+          : [];
+
+      const resolvedAppeal = Array.isArray(existing?.appealToRoles)
+        ? existing.appealToRoles.filter((value) => isAllowedAppealReviewerRole(value))
+        : String(existing?.appealToRole || "").trim()
+          ? isAllowedAppealReviewerRole(String(existing?.appealToRole || "").trim())
+            ? [String(existing?.appealToRole || "").trim()]
+            : []
+          : [];
+
+      // Apply defaults for HOD/Dean when no rule is saved yet
+      const applyDefault = isHodOrDean(roleName) && principalDefaults.length > 0;
+
       return {
         role: roleName,
-        submitToRoles: Array.isArray(existing?.submitToRoles)
-          ? existing.submitToRoles
-          : String(existing?.submitToRole || "").trim()
-            ? [String(existing?.submitToRole || "").trim()]
-            : [],
-        appealToRoles: Array.isArray(existing?.appealToRoles)
-          ? existing.appealToRoles.filter((value) =>
-              isAllowedAppealReviewerRole(value),
-            )
-          : String(existing?.appealToRole || "").trim()
-            ? isAllowedAppealReviewerRole(
-                String(existing?.appealToRole || "").trim(),
-              )
-              ? [String(existing?.appealToRole || "").trim()]
-              : []
-            : [],
+        submitToRoles: resolvedSubmit.length > 0 ? resolvedSubmit : (applyDefault ? principalDefaults : []),
+        appealToRoles: resolvedAppeal.length > 0 ? resolvedAppeal : (applyDefault ? principalDefaults : []),
       };
     });
   };
