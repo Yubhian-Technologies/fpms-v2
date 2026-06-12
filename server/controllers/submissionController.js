@@ -741,10 +741,13 @@ export const getReviewQueue = async (req, res) => {
       ...doc.data(),
     }));
 
-    // Non-IC dual-role: apply dept filter on base-role path if needed
-    if (dualRoles.length > 1 && !internalCommittee && department) {
+    // Dual-role (IC-flagged with a base role): scope base-role submissions to own dept.
+    // This runs when IC is NOT a submission reviewer (IC fast-path fell through).
+    // IC-routed submissions pass through without dept restriction; base-role
+    // submissions (e.g. "hod"-routed) are limited to the user's own department.
+    if (dualRoles.length > 1 && department) {
       submissions = submissions.filter((s) => {
-        if ((s.submitToRoleIds || []).includes(effectiveRole)) return true;
+        if ((s.submitToRoleIds || []).includes("internal committee")) return true;
         return s.department === department;
       });
     }
