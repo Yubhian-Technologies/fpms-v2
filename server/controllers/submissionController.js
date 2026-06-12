@@ -379,20 +379,27 @@ export const submitTask = async (req, res) => {
     // IC-flagged users (faculty/hod/dean with internalCommittee flag) use the
     // "internal committee" workflow rule so their own submissions are routed to
     // whoever the principal assigned (e.g. principal/VP), never to IC themselves.
-    // Fall back to base-role rule if the principal hasn't configured an IC rule yet.
+    // Fall back to base-role rule when:
+    //   (a) no IC rule exists in workflow, OR
+    //   (b) IC rule has no submitToRoles (IC configured for appeal-only, not submissions)
     const isICMember = req.user?.internalCommittee === true || req.headers["x-internal-committee"] === "true";
+    const norm = (v) => normalizeRoleForWorkflow(v || "");
     const lookupRole = isICMember ? "internal committee" : userRole;
-    const userRule = workflowRules.find(
-      (r) => (r.role || "").toLowerCase().trim() === lookupRole.trim(),
-    ) ?? (isICMember ? workflowRules.find(
-      (r) => (r.role || "").toLowerCase().trim() === userRole.trim(),
-    ) : null);
 
-    if (
-      !userRule ||
-      !Array.isArray(userRule.submitToRoles) ||
-      userRule.submitToRoles.length === 0
-    ) {
+    // Use normalizeRoleForWorkflow on both sides to handle casing/typo variants
+    // (e.g. "Internal Committee", "internal commitee", "Principle" vs "principal")
+    let userRule = workflowRules.find((r) => norm(r.role) === norm(lookupRole));
+
+    const hasSubmitRoles = (rule) =>
+      rule && Array.isArray(rule.submitToRoles) && rule.submitToRoles.length > 0;
+
+    // If IC rule missing or has no submission routing, fall back to base-role rule
+    if (isICMember && !hasSubmitRoles(userRule)) {
+      const baseRule = workflowRules.find((r) => norm(r.role) === norm(userRole));
+      if (hasSubmitRoles(baseRule)) userRule = baseRule;
+    }
+
+    if (!hasSubmitRoles(userRule)) {
       return res.status(400).json({
         success: false,
         message: `No workflow configured for role: ${lookupRole}. Available roles: ${workflowRules.map((r) => r.role).join(", ")}`,
