@@ -83,6 +83,39 @@ const isAllowedAppealReviewerRole = (value: string) => {
   );
 };
 
+// True for Principal / Vice Principal / Director (any variant)
+const isPrincipalLevel = (name: string) => {
+  const key = normalizeRoleKey(name);
+  return (
+    key === "principle" ||
+    key === "viceprinciple" ||
+    key === "viceprincipal" ||
+    key === "director"
+  );
+};
+
+// True for HOD or any Dean variant (Dean_Academics, Dean_COE, etc.)
+const isHodOrDean = (name: string) => {
+  const key = normalizeRoleKey(name);
+  return key === "hod" || key.includes("dean");
+};
+
+// Reviewer options allowed per submitter role
+// Faculty   → HOD, IC, Principal, VP, Director
+// HOD/Dean  → Principal, VP, Director only
+const getReviewerOptions = (submitterRole: string, allRoles: RoleOption[]): RoleOption[] => {
+  if (normalizeRoleKey(submitterRole) === "faculty") {
+    return allRoles.filter((r) => {
+      const key = normalizeRoleKey(r.name);
+      return key === "hod" || key === "internalcommittee" || isPrincipalLevel(r.name);
+    });
+  }
+  if (isHodOrDean(submitterRole)) {
+    return allRoles.filter((r) => isPrincipalLevel(r.name));
+  }
+  return [];
+};
+
 export default function WorkflowRules() {
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [rules, setRules] = useState<WorkflowRule[]>([]);
@@ -101,10 +134,6 @@ export default function WorkflowRules() {
     [roles],
   );
 
-  const appealReviewerRoles = useMemo(
-    () => sortedRoles.filter((role) => isAllowedAppealReviewerRole(role.name)),
-    [sortedRoles],
-  );
 
   const buildRules = (
     roleOptions: RoleOption[],
@@ -305,20 +334,13 @@ export default function WorkflowRules() {
                                 Select submit roles
                               </DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {sortedRoles
-                                .filter((role) => role.name !== item.role && !isReviewerOnlyRole(role.name))
+                              {getReviewerOptions(item.role, sortedRoles)
                                 .map((role) => (
                                   <DropdownMenuCheckboxItem
                                     key={`${item.role}-submit-${role.name}`}
-                                    checked={item.submitToRoles.includes(
-                                      role.name,
-                                    )}
+                                    checked={item.submitToRoles.includes(role.name)}
                                     onCheckedChange={() =>
-                                      updateRule(
-                                        item.role,
-                                        "submitToRoles",
-                                        role.name,
-                                      )
+                                      updateRule(item.role, "submitToRoles", role.name)
                                     }
                                     onSelect={(event) => event.preventDefault()}
                                   >
@@ -347,20 +369,13 @@ export default function WorkflowRules() {
                                 Select appeal roles
                               </DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {appealReviewerRoles
-                                .filter((role) => role.name !== item.role)
+                              {getReviewerOptions(item.role, sortedRoles)
                                 .map((role) => (
                                   <DropdownMenuCheckboxItem
                                     key={`${item.role}-appeal-${role.name}`}
-                                    checked={item.appealToRoles.includes(
-                                      role.name,
-                                    )}
+                                    checked={item.appealToRoles.includes(role.name)}
                                     onCheckedChange={() =>
-                                      updateRule(
-                                        item.role,
-                                        "appealToRoles",
-                                        role.name,
-                                      )
+                                      updateRule(item.role, "appealToRoles", role.name)
                                     }
                                     onSelect={(event) => event.preventDefault()}
                                   >
