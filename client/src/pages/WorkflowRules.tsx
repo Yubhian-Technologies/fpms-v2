@@ -107,7 +107,7 @@ const getReviewerOptions = (submitterRole: string, allRoles: RoleOption[]): Role
   if (normalizeRoleKey(submitterRole) === "faculty") {
     return allRoles.filter((r) => {
       const key = normalizeRoleKey(r.name);
-      return key === "hod" || key === "internalcommittee" || isPrincipalLevel(r.name);
+      return key === "hod" || key === "internal committee" || isPrincipalLevel(r.name);
     });
   }
   if (isHodOrDean(submitterRole)) {
