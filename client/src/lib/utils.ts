@@ -54,7 +54,7 @@ export function getConfirmedScore(sub: {
   status?: string | null;
   finalScore?: number | null;
 }): number {
-  if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved") {
+  if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired") {
     return Number(sub.finalScore ?? 0);
   }
   return 0;

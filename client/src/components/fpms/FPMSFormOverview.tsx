@@ -44,7 +44,7 @@ export function FPMSFormOverview({ submissions }: FPMSFormOverviewProps) {
           maxScore = sub.criteriaTotalMarks;
         }
 
-        if (sub.finalScore != null || ["accepted", "appeal-resolved"].includes(sub.status)) {
+        if (sub.finalScore != null || ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status)) {
           completedItems++;
         }
       });

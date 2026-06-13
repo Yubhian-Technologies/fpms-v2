@@ -86,7 +86,7 @@ export function StatusCards({
       (s.submissions || []).forEach((sub: any) => {
         totalSubmissions++;
         totalScore += Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0);
-        if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved")
+        if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired")
           completedCount++;
         if (sub.status === "appealed" || sub.status === "appeal-resolved")
           appealedCount++;
@@ -160,7 +160,7 @@ export function StatusCards({
     const final = sub.finalScore != null ? Number(sub.finalScore) : null;
     const appeal = sub.appealScore != null ? Number(sub.appealScore) : null;
     overallScore += appeal ?? final ?? reviewer ?? claimed;
-    if (sub.status === "accepted" || sub.status === "appeal-resolved") completedCount++;
+    if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "appeal-expired") completedCount++;
     if (sub.status === "appealed" || sub.status === "appeal-resolved") appealedCount++;
   });
 

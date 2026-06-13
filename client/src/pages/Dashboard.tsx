@@ -500,7 +500,7 @@ export default function Dashboard() {
     for (const { staff, subs } of seenFaculty.values()) {
       const score = subs.reduce((sum: number, s: any) =>
         sum + Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
-      const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status));
+      const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
       const hasAppealed = subs.some((s: any) => s.status === "appealed");
       const hasPending = subs.some((s: any) => s.status === "submitted");
       const status = !subs.length ? "Not Submitted" : hasAppealed ? "Appealed" : hasPending ? "Pending Review" : hasAccepted ? "Completed" : "Under Review";
@@ -565,38 +565,25 @@ export default function Dashboard() {
     const roleStats: any[] = stats?.roleStats || [];
     const rangeStats: any[] = stats?.rangeStats || [];
 
-    // Colour palettes
     const ROLE_COLORS = ["#6366f1","#f59e0b","#10b981","#3b82f6","#ec4899","#8b5cf6","#14b8a6","#f97316"];
     const RANGE_COLORS: Record<string, string> = {
-      "0%": "#ef4444",
-      "1–25%": "#f97316",
-      "26–50%": "#eab308",
-      "51–75%": "#3b82f6",
-      "76–99%": "#14b8a6",
-      "100%+": "#22c55e",
+      "0%": "#ef4444", "1–25%": "#f97316", "26–50%": "#eab308",
+      "51–75%": "#3b82f6", "76–99%": "#14b8a6", "100%+": "#22c55e",
     };
 
-    const submittedPct = summary.totalStaff
-      ? Math.round((summary.totalSubmitted / summary.totalStaff) * 100)
-      : 0;
-
-    // Target achieved: staff in the 100%+ band
     const achievedCount = rangeStats.find((b: any) => b.label === "100%+")?.count || 0;
-    const achievedPct = summary.totalStaff
-      ? Math.round((achievedCount / summary.totalStaff) * 100)
-      : 0;
+    const achievedPct = summary.totalStaff ? Math.round((achievedCount / summary.totalStaff) * 100) : 0;
+    const submittedPct = summary.totalStaff ? Math.round((summary.totalSubmitted / summary.totalStaff) * 100) : 0;
+
     const targetDonut = [
       { name: "Achieved Target", value: achievedCount },
-      { name: "In Progress", value: (summary.totalStaff || 0) - achievedCount },
+      { name: "Not Yet", value: (summary.totalStaff || 0) - achievedCount },
     ];
 
     const rangeChartData = rangeStats.map((b: any) => ({
-      label: b.label,
-      count: b.count,
-      fill: RANGE_COLORS[b.label] || "#6366f1",
+      label: b.label, count: b.count, fill: RANGE_COLORS[b.label] || "#6366f1",
     }));
 
-    // Role performance: avg completion % per role, sorted descending
     const rolePerformanceData = roleStats
       .filter((r: any) => r.total > 0)
       .map((r: any, i: number) => ({
@@ -607,15 +594,6 @@ export default function Dashboard() {
         fill: ROLE_COLORS[i % ROLE_COLORS.length],
       }))
       .sort((a: any, b: any) => b.completion - a.completion);
-
-    // College chart — horizontal bars, label by code (fallback to short name)
-    const collegeChartData = collegeStats.map((c: any) => ({
-      name: c.code || (c.college.length > 18 ? c.college.slice(0, 16) + "…" : c.college),
-      fullName: c.college,
-      completion: c.completionPct,
-      avgScore: c.avgScore,
-      staff: c.total,
-    }));
 
     const CustomRangeTooltip = ({ active, payload }: any) => {
       if (!active || !payload?.length) return null;
@@ -641,125 +619,140 @@ export default function Dashboard() {
       );
     };
 
-    const CustomCollegeTooltip = ({ active, payload }: any) => {
-      if (!active || !payload?.length) return null;
-      const d = payload[0].payload;
-      return (
-        <div className="rounded-lg border bg-background px-3 py-2 shadow text-sm space-y-1">
-          <p className="font-semibold">{d.fullName}</p>
-          <p className="text-muted-foreground">Completion: <span className="text-foreground font-medium">{d.completion}%</span></p>
-          <p className="text-muted-foreground">Avg Score: <span className="text-foreground font-medium">{d.avgScore}</span></p>
-          <p className="text-muted-foreground">Staff: <span className="text-foreground font-medium">{d.staff}</span></p>
-        </div>
-      );
-    };
-
     return (
-      <DashboardLayout title="Statistics Overview">
+      <DashboardLayout title="Institution Overview">
         <div className="space-y-6">
 
-          {/* ── Row 1: Summary cards ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* ── Row 1: 6 summary stat cards ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-500" },
-              { label: "Colleges", value: summary.totalColleges ?? "—", icon: School, color: "bg-amber-500/10 text-amber-500" },
-              { label: "Target Achieved", value: `${achievedCount} (${achievedPct}%)`, icon: CheckCircle, color: "bg-emerald-500/10 text-emerald-500" },
-              { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award, color: "bg-blue-500/10 text-blue-500" },
+              { label: "Colleges", value: summary.totalColleges ?? "—", icon: School, color: "bg-amber-500/10 text-amber-600" },
+              { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-600" },
+              { label: "Departments", value: summary.totalDepts ?? "—", icon: Building, color: "bg-purple-500/10 text-purple-600" },
+              { label: "Submissions", value: summary.totalSubmissions ?? "—", icon: FileText, color: "bg-blue-500/10 text-blue-600" },
+              { label: "Target Achievers", value: `${achievedCount} (${achievedPct}%)`, icon: CheckCircle, color: "bg-emerald-500/10 text-emerald-600" },
+              { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award, color: "bg-teal-500/10 text-teal-600" },
             ].map(({ label, value, icon: Icon, color }) => (
               <Card key={label} className="border-border/60">
-                <CardContent className="pt-5 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${color}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-xl font-bold leading-tight">{value}</p>
-                    </div>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${color} mb-2`}>
+                    <Icon className="h-4 w-4" />
                   </div>
+                  <p className="text-xs text-muted-foreground leading-tight">{label}</p>
+                  <p className="text-xl font-bold leading-tight mt-0.5">{value}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* ── Row 2: Target achieved donut + Role performance bar ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            {/* Target achieved donut — stretches to match role chart height */}
-            <Card className="flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Target Achieved</CardTitle>
-                <CardDescription>Staff who have reached 100% or more of their designation target</CardDescription>
+          {/* ── Row 2: Submission pipeline + Target achievement donut ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Submission Pipeline</CardTitle>
+                <CardDescription>Institution-wide submission status breakdown</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col flex-1 justify-between gap-4">
-                {/* Donut + centred label */}
-                <div className="relative mx-auto w-full flex-1" style={{ minHeight: 340 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={targetDonut}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius="38%"
-                        outerRadius="58%"
-                        paddingAngle={2}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
-                        strokeWidth={0}
-                      >
-                        <Cell fill="#22c55e" />
-                        <Cell fill="#e5e7eb" />
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: any, name: string) => [`${v} staff`, name]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  {/* Centred overlay */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
-                    <span className="text-5xl font-bold text-green-600 leading-none">{achievedPct}%</span>
-                    <span className="text-sm text-muted-foreground mt-1.5">achieved target</span>
-                    <span className="text-2xl font-bold mt-2 leading-none">{achievedCount} <span className="text-base font-normal text-muted-foreground">/ {summary.totalStaff ?? 0}</span></span>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Staff Submitted</span>
+                    <span className="font-semibold">{summary.totalSubmitted ?? 0} / {summary.totalStaff ?? 0} <span className="text-muted-foreground font-normal">({submittedPct}%)</span></span>
                   </div>
+                  <Progress value={submittedPct} className="h-2.5" />
                 </div>
-                {/* Legend */}
-                <div className="flex justify-center gap-6 pb-2 text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
-                    Achieved ({achievedCount})
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-gray-200 shrink-0" />
-                    In Progress ({(summary.totalStaff ?? 0) - achievedCount})
-                  </span>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {[
+                    { label: "Finalized", value: summary.totalAccepted ?? 0, dot: "bg-emerald-500", desc: "accepted / auto-approved" },
+                    { label: "Pending HOD Review", value: summary.totalPendingReview ?? 0, dot: "bg-amber-500", desc: "awaiting evaluation" },
+                    { label: "Under HOD Review", value: summary.totalReviewed ?? 0, dot: "bg-blue-500", desc: "scored, not yet accepted" },
+                    { label: "Appealed", value: summary.totalAppealed ?? 0, dot: "bg-orange-500", desc: "in appeal process" },
+                  ].map(({ label, value, dot, desc }) => (
+                    <div key={label} className="rounded-lg border bg-muted/30 px-3 py-2.5">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className={`h-2 w-2 rounded-full ${dot} shrink-0`} />
+                        <span className="text-xs text-muted-foreground font-medium">{label}</span>
+                      </div>
+                      <p className="text-2xl font-bold leading-none">{value}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Role performance — avg completion % per role */}
+            <Card className="flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Target Achievement</CardTitle>
+                <CardDescription>Staff who have reached 100%+ of their designation target</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col flex-1 justify-between gap-3">
+                <div className="relative w-full flex-1" style={{ minHeight: 220 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={targetDonut} cx="50%" cy="50%" innerRadius="42%" outerRadius="62%"
+                        paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
+                        <Cell fill="#22c55e" />
+                        <Cell fill="#e5e7eb" />
+                      </Pie>
+                      <Tooltip formatter={(v: any, name: string) => [`${v} staff`, name]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
+                    <span className="text-4xl font-bold text-green-600 leading-none">{achievedPct}%</span>
+                    <span className="text-xs text-muted-foreground mt-1">achieved target</span>
+                    <span className="text-xl font-bold mt-1.5 leading-none">{achievedCount} <span className="text-sm font-normal text-muted-foreground">/ {summary.totalStaff ?? 0}</span></span>
+                  </div>
+                </div>
+                <div className="flex justify-center gap-6 pb-1 text-sm">
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />Achieved ({achievedCount})</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-gray-200 shrink-0" />Not Yet ({(summary.totalStaff ?? 0) - achievedCount})</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* ── Row 3: Role performance + Completion bands ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Performance by Role</CardTitle>
-                <CardDescription>Average target completion % across each role</CardDescription>
+                <CardDescription>Average target completion % per role</CardDescription>
               </CardHeader>
               <CardContent>
-                <div style={{ height: Math.max(200, rolePerformanceData.length * 44) }}>
+                <div style={{ height: Math.max(180, rolePerformanceData.length * 44) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={rolePerformanceData}
-                      margin={{ top: 4, right: 52, left: 4, bottom: 4 }}
-                    >
+                    <BarChart layout="vertical" data={rolePerformanceData} margin={{ top: 4, right: 52, left: 4, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                       <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                       <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomRoleTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
                       <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={26}>
-                        {rolePerformanceData.map((entry: any, i: number) => (
-                          <Cell key={i} fill={entry.fill} />
-                        ))}
+                        {rolePerformanceData.map((entry: any, i: number) => <Cell key={i} fill={entry.fill} />)}
                         <LabelList dataKey="completion" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Completion Bands</CardTitle>
+                <CardDescription>Staff count in each target completion % band</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={rangeChartData} margin={{ top: 16, right: 16, left: 0, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={32} />
+                      <Tooltip content={<CustomRangeTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={56}>
+                        {rangeChartData.map((entry: any, i: number) => <Cell key={i} fill={entry.fill} />)}
+                        <LabelList dataKey="count" position="top" style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -768,68 +761,73 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* ── Row 3: Target completion range bar chart ── */}
+          {/* ── Row 4: College Rankings Table ── */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Target Completion Bands</CardTitle>
-              <CardDescription>Number of staff in each completion % band of their designation target</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">College Rankings</CardTitle>
+              <CardDescription>Ranked by target completion — performance across all colleges</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={rangeChartData} margin={{ top: 16, right: 16, left: 0, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} width={36} />
-                    <Tooltip content={<CustomRangeTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={64}>
-                      {rangeChartData.map((entry: any, i: number) => (
-                        <Cell key={i} fill={entry.fill} />
-                      ))}
-                      <LabelList dataKey="count" position="top" style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ── Row 4: College completion horizontal bar chart ── */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">College-wise Target Completion</CardTitle>
-              <CardDescription>Average % of designation target achieved per college</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {collegeChartData.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No data</p>
+            <CardContent className="p-0">
+              {collegeStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No data</p>
               ) : (
-                <div style={{ height: Math.max(180, collegeChartData.length * 46) }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={collegeChartData}
-                      margin={{ top: 4, right: 56, left: 8, bottom: 4 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                      <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<CustomCollegeTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
-                      <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={28} fill="#6366f1">
-                        <LabelList dataKey="completion" position="right" formatter={(v: any) => `${v}%`} style={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground w-8">#</th>
+                        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">College</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Staff</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Avg Score</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Appeals</th>
+                        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground min-w-[160px]">Completion</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {collegeStats.map((c: any, i: number) => (
+                        <tr key={c.college} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3 text-muted-foreground font-medium">{i + 1}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium leading-tight">{c.college}</div>
+                            {c.code && <div className="text-xs text-muted-foreground mt-0.5">{c.code}</div>}
+                          </td>
+                          <td className="px-3 py-3 text-center font-medium">{c.total}</td>
+                          <td className="px-3 py-3 text-center text-muted-foreground">{c.submissionCount}</td>
+                          <td className="px-3 py-3 text-center">
+                            <span className={`font-semibold ${c.submissionRate >= 80 ? "text-emerald-600" : c.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                              {c.submissionRate}%
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-center font-medium">{c.avgScore}</td>
+                          <td className="px-3 py-3 text-center">
+                            {c.appealedCount > 0
+                              ? <span className="text-orange-500 font-medium">{c.appealedCount}</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Progress value={Math.min(c.completionPct, 100)} className="flex-1 h-2" />
+                              <span className={`text-xs font-bold w-10 text-right ${c.completionPct >= 75 ? "text-emerald-600" : c.completionPct >= 40 ? "text-amber-600" : "text-red-500"}`}>
+                                {c.completionPct}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* ── Row 5: Department breakdown ── */}
+          {/* ── Row 5: Department breakdown accordion ── */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Department Breakdown</CardTitle>
-              <CardDescription>Per-department stats, grouped by college</CardDescription>
+              <CardDescription>Per-department stats grouped by college — click to expand</CardDescription>
             </CardHeader>
             <CardContent>
               {deptStats.length === 0 ? (
@@ -843,31 +841,67 @@ export default function Dashboard() {
                     const collegeAvg = rows.length
                       ? Math.round(rows.reduce((s: number, d: any) => s + d.completionPct, 0) / rows.length)
                       : 0;
+                    const totalSubs = rows.reduce((s: number, d: any) => s + d.submissionCount, 0);
+                    const totalAppeals = rows.reduce((s: number, d: any) => s + d.appealedCount, 0);
                     return (
                       <AccordionItem key={college} value={college}>
-                        <AccordionTrigger className="text-sm font-medium hover:no-underline">
-                          <div className="flex items-center justify-between w-full pr-2">
-                            <span>{college}</span>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground font-normal">
+                        <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
+                          <div className="flex items-center justify-between w-full pr-3 gap-4">
+                            <span className="text-left flex-1">{college}</span>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground font-normal shrink-0">
                               <span>{rows.length} dept{rows.length !== 1 ? "s" : ""}</span>
-                              <span className="w-28 flex items-center gap-1">
+                              <span>{totalSubs} subs</span>
+                              {totalAppeals > 0 && <span className="text-orange-500">{totalAppeals} appeals</span>}
+                              <span className="w-32 flex items-center gap-1.5">
                                 <Progress value={Math.min(collegeAvg, 100)} className="h-1.5 flex-1" />
-                                <span className="w-8 text-right">{collegeAvg}%</span>
+                                <span className="w-8 text-right font-semibold">{collegeAvg}%</span>
                               </span>
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pt-1 pb-2">
-                          <div className="space-y-2">
-                            {rows.map((d: any) => (
-                              <div key={d.department} className="flex items-center gap-3 text-sm">
-                                <span className="w-36 truncate text-muted-foreground" title={d.department}>{d.department}</span>
-                                <Progress value={Math.min(d.completionPct, 100)} className="flex-1 h-2" />
-                                <span className="w-10 text-right font-medium">{d.completionPct}%</span>
-                                <span className="w-16 text-right text-xs text-muted-foreground">{d.total} staff</span>
-                                <span className="w-16 text-right text-xs text-muted-foreground">avg {d.avgScore}</span>
-                              </div>
-                            ))}
+                        <AccordionContent className="pt-1 pb-3">
+                          <div className="rounded-lg border overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-muted/40 border-b">
+                                  <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Department</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Staff</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Subs</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Sub Rate</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Avg Score</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Appeals</th>
+                                  <th className="text-left px-3 py-2 font-semibold text-muted-foreground min-w-[140px]">Completion</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((d: any) => (
+                                  <tr key={d.department} className="border-b last:border-0 hover:bg-muted/20">
+                                    <td className="px-3 py-2 font-medium max-w-[200px] truncate" title={d.department}>{d.department}</td>
+                                    <td className="px-3 py-2 text-center text-muted-foreground">{d.total}</td>
+                                    <td className="px-3 py-2 text-center text-muted-foreground">{d.submissionCount}</td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className={`font-semibold ${d.submissionRate >= 80 ? "text-emerald-600" : d.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                                        {d.submissionRate}%
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-center font-medium">{d.avgScore}</td>
+                                    <td className="px-3 py-2 text-center">
+                                      {d.appealedCount > 0
+                                        ? <span className="text-orange-500 font-medium">{d.appealedCount}</span>
+                                        : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center gap-1.5">
+                                        <Progress value={Math.min(d.completionPct, 100)} className="flex-1 h-1.5" />
+                                        <span className={`font-bold w-9 text-right ${d.completionPct >= 75 ? "text-emerald-600" : d.completionPct >= 40 ? "text-amber-600" : "text-red-500"}`}>
+                                          {d.completionPct}%
+                                        </span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -927,7 +961,7 @@ export default function Dashboard() {
           totalFinalScore += getConfirmedScore(sub);
           totalMaxMarks += sub.maxMarks ?? 0;
           if (sub.status === "appealed") totalAppealed++;
-          if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "auto-approved")
+          if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired" || sub.status === "auto-approved")
             totalCompleted++;
         });
       });
@@ -944,7 +978,7 @@ export default function Dashboard() {
       personalReviewer += sub.reviewerScore ?? 0;
       personalFinal += getConfirmedScore(sub);
       personalMax += sub.maxMarks ?? 0;
-      if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "auto-approved")
+      if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired" || sub.status === "auto-approved")
         personalCompleted++;
       if (sub.status === "appealed") personalAppealed++;
     });
@@ -1106,7 +1140,7 @@ export default function Dashboard() {
 
       const getStatus = (subs: any[]) => {
         if (!subs.length) return "Not Submitted";
-        if (subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved")) {
+        if (subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "appeal-expired")) {
           return subs.some((s: any) => s.status === "submitted") ? "Partially Reviewed" : "Completed";
         }
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
@@ -1357,7 +1391,7 @@ export default function Dashboard() {
 
       const getStatusLabel = (subs: any[]) => {
         if (!subs.length) return "Not Submitted";
-        const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status));
+        const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
         if (hasAccepted && subs.some((s: any) => s.status === "submitted")) return "Partial";
         if (hasAccepted) return "Completed";
@@ -1501,7 +1535,7 @@ export default function Dashboard() {
 
       const getStatus = (subs: any[]) => {
         if (!subs.length) return "Not Submitted";
-        if (subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status)))
+        if (subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status)))
           return subs.some((s: any) => s.status === "submitted") ? "Partially Reviewed" : "Completed";
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
         return "Pending Review";
@@ -1725,7 +1759,7 @@ export default function Dashboard() {
                       const cs = staffList.filter((s: any) => (s.college || "") === name);
                       const subs = cs.flatMap((s: any) => s.submissions || []);
                       const completed = subs.filter((s: any) =>
-                        ["accepted", "appeal-resolved", "auto-approved"].includes(s.status),
+                        ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status),
                       ).length;
                       const appealed = subs.filter((s: any) => s.status === "appealed").length;
                       return {
@@ -1858,7 +1892,7 @@ export default function Dashboard() {
                         0,
                       );
                       const done = subs.filter(
-                        (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved",
+                        (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired",
                       ).length;
                       const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
                       return (
@@ -2030,7 +2064,7 @@ export default function Dashboard() {
           // Summary counts across full staffList (unfiltered)
           const totalAllSubs = nonCommitteeStaff.flatMap((s: any) => s.submissions || []);
           const totalAppeals = totalAllSubs.filter((s: any) => s.status === "appealed").length;
-          const totalAccepted = totalAllSubs.filter((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved").length;
+          const totalAccepted = totalAllSubs.filter((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "appeal-expired").length;
           const totalPending = totalAllSubs.filter((s: any) => s.status === "submitted").length;
           const totalTargetReached = nonCommitteeStaff.filter((s: any) => {
             if (!s.designationTarget) return false;
@@ -2339,7 +2373,7 @@ export default function Dashboard() {
                                 const targetReached = target !== null && score >= target;
                                 const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                                 const hasPending = subs.some((sub: any) => sub.status === "submitted");
-                                const hasAccepted = subs.some((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved");
+                                const hasAccepted = subs.some((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired");
                                 return (
                                   <tr key={s.id || s.uid || idx} className="hover:bg-muted/20 transition-colors">
                                     <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
@@ -2516,7 +2550,7 @@ export default function Dashboard() {
           const allCollegeStaff = staffList.filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
           const allCollegeSubs = allCollegeStaff.flatMap((s: any) => s.submissions || []);
           const totalSubs = allCollegeSubs.length;
-          const totalAccepted = allCollegeSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status)).length;
+          const totalAccepted = allCollegeSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status)).length;
           const totalPendingReview = allCollegeSubs.filter((s: any) => s.status === "submitted").length;
           const totalAppeals = allCollegeSubs.filter((s: any) => s.status === "appealed").length;
 
@@ -2648,7 +2682,7 @@ export default function Dashboard() {
                     return achieved >= Number(s.designationTarget);
                   }).length;
                   const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
-                  const deptCompleted = deptSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status)).length;
+                  const deptCompleted = deptSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status)).length;
                   const deptAppealed = deptSubs.filter((s: any) => s.status === "appealed").length;
                   const deptPending = deptSubs.filter((s: any) => s.status === "submitted").length;
                   const completionPct = deptSubs.length > 0 ? Math.round((deptCompleted / deptSubs.length) * 100) : 0;
@@ -2755,7 +2789,7 @@ export default function Dashboard() {
                             const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
                             const target = s.designationTarget ? Number(s.designationTarget) : null;
                             const targetReached = target !== null && achieved >= target;
-                            const accepted = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(sub.status)).length;
+                            const accepted = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status)).length;
                             const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
                             const pending = subs.filter((sub: any) => sub.status === "submitted").length;
                             return (
@@ -2823,7 +2857,7 @@ export default function Dashboard() {
                         const maxScore = subs.reduce((sum: number, sub: any) => sum + (sub.maxMarks ?? 0), 0);
                         const target = s.designationTarget ? Number(s.designationTarget) : null;
                         const targetReached = target !== null && achieved >= target;
-                        const done = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(sub.status)).length;
+                        const done = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status)).length;
                         const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                         const hasPending = subs.some((sub: any) => sub.status === "submitted");
                         const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
@@ -3067,7 +3101,7 @@ export default function Dashboard() {
                             const maxScore = subs.reduce((sum: number, s: any) => sum + (s.maxMarks ?? 0), 0);
                             const target = faculty.designationTarget ? Number(faculty.designationTarget) : null;
                             const targetReached = target !== null && finalScore >= target;
-                            const hasAccepted = subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved");
+                            const hasAccepted = subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "appeal-expired");
                             const hasPending = subs.some((s: any) => s.status === "submitted");
                             const hasAppealed = subs.some((s: any) => s.status === "appealed");
                             const progress = maxScore > 0 ? Math.min(100, (finalScore / maxScore) * 100) : 0;
@@ -3600,7 +3634,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <span className="font-medium text-gray-700">Final:</span>{" "}
-                      {sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved"
+                      {sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired"
                         ? sub.finalScore
                         : "Pending"}
                     </div>
@@ -3638,7 +3672,7 @@ export default function Dashboard() {
     totalReviewer += sub.reviewerScore ?? 0;
     totalFinal += sub.finalScore ?? 0;
     totalMax += sub.maxMarks ?? 0;
-    if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved")
+    if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired")
       completedCount++;
     if (sub.status === "appealed") appealedCount++;
   });

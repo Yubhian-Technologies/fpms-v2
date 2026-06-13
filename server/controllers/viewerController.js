@@ -1,8 +1,10 @@
 import { db } from "../config/firebase.js";
 import { getSuperadminConfig } from "../config/superadminCache.js";
 
+const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+
 const getConfirmedScore = (sub) => {
-  if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved") {
+  if (FINALIZED.has(sub.status)) {
     return Number(sub.finalScore ?? sub.score ?? 0);
   }
   return 0;
@@ -14,9 +16,8 @@ export const getViewerStats = async (req, res) => {
 
     const saData = await getSuperadminConfig();
 
-    // Build designation target map and college code lookup
     const collegeDesignationMap = {};
-    const collegeCodeMap = {}; // college name (lowercase) -> code
+    const collegeCodeMap = {};
     (saData.colleges || []).forEach((c) => {
       const key = normStr(c?.name);
       collegeDesignationMap[key] = {};
@@ -32,13 +33,11 @@ export const getViewerStats = async (req, res) => {
       });
     });
 
-    // Fetch only the fields needed for aggregation — no cap, minimal transfer
     const [usersSnap, subsSnap] = await Promise.all([
       db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd").get(),
       db.collection("submissions").select("userId", "college", "status", "finalScore", "score").get(),
     ]);
 
-    // Build submissions map: userId -> submissions[]
     const subsMap = new Map();
     subsSnap.docs.forEach((doc) => {
       const sub = { id: doc.id, ...doc.data() };
@@ -46,11 +45,9 @@ export const getViewerStats = async (req, res) => {
       subsMap.get(sub.userId).push(sub);
     });
 
-    // Roles that are system/admin accounts — excluded from all stats
     const excludedRoles = new Set(["committee", "viewer", "superadmin", "internal committee"]);
     const isDeanRole = (r) => String(r || "").trim().toLowerCase().includes("dean");
 
-    // Build enriched staff list — skip accounts with no college and system roles
     const staff = usersSnap.docs
       .map((doc) => {
         const data = doc.data();
@@ -75,23 +72,35 @@ export const getViewerStats = async (req, res) => {
           target,
           score,
           submissionCount: userSubs.length,
-          acceptedCount: userSubs.filter(
-            (s) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved",
-          ).length,
+          acceptedCount: userSubs.filter((s) => FINALIZED.has(s.status)).length,
+          appealedCount: userSubs.filter((s) => s.status === "appealed").length,
+          pendingReviewCount: userSubs.filter((s) => s.status === "submitted").length,
+          reviewedCount: userSubs.filter((s) => s.status === "reviewed").length,
         };
       })
       .filter(Boolean);
 
-    // --- College-wise aggregation ---
+    // College-wise aggregation
     const collegeMap = {};
     staff.forEach((s) => {
       const c = s.college;
       if (!collegeMap[c]) {
         const code = collegeCodeMap[normStr(c)] || "";
-        collegeMap[c] = { college: c, code, total: 0, submitted: 0, totalScore: 0, totalTarget: 0 };
+        collegeMap[c] = {
+          college: c, code,
+          total: 0, submitted: 0,
+          submissionCount: 0, acceptedCount: 0,
+          appealedCount: 0, pendingReviewCount: 0, reviewedCount: 0,
+          totalScore: 0, totalTarget: 0,
+        };
       }
       collegeMap[c].total++;
       if (s.submissionCount > 0) collegeMap[c].submitted++;
+      collegeMap[c].submissionCount += s.submissionCount;
+      collegeMap[c].acceptedCount += s.acceptedCount;
+      collegeMap[c].appealedCount += s.appealedCount;
+      collegeMap[c].pendingReviewCount += s.pendingReviewCount;
+      collegeMap[c].reviewedCount += s.reviewedCount;
       collegeMap[c].totalScore += s.score;
       collegeMap[c].totalTarget += s.target;
     });
@@ -99,25 +108,27 @@ export const getViewerStats = async (req, res) => {
       ...c,
       avgScore: c.total ? Math.round(c.totalScore / c.total) : 0,
       completionPct: c.totalTarget ? Math.round((c.totalScore / c.totalTarget) * 100) : 0,
+      submissionRate: c.total ? Math.round((c.submitted / c.total) * 100) : 0,
     }));
 
-    // --- Dept-wise aggregation (per college) — skip deans, they have no department ---
+    // Dept-wise aggregation
     const deptKey = (college, dept) => `${college}|||${dept}`;
     const deptMap = {};
     staff.filter((s) => !isDeanRole(s.role) && s.department).forEach((s) => {
       const key = deptKey(s.college, s.department);
       if (!deptMap[key]) {
         deptMap[key] = {
-          college: s.college,
-          department: s.department,
-          total: 0,
-          submitted: 0,
-          totalScore: 0,
-          totalTarget: 0,
+          college: s.college, department: s.department,
+          total: 0, submitted: 0,
+          submissionCount: 0, acceptedCount: 0, appealedCount: 0,
+          totalScore: 0, totalTarget: 0,
         };
       }
       deptMap[key].total++;
       if (s.submissionCount > 0) deptMap[key].submitted++;
+      deptMap[key].submissionCount += s.submissionCount;
+      deptMap[key].acceptedCount += s.acceptedCount;
+      deptMap[key].appealedCount += s.appealedCount;
       deptMap[key].totalScore += s.score;
       deptMap[key].totalTarget += s.target;
     });
@@ -125,17 +136,24 @@ export const getViewerStats = async (req, res) => {
       ...d,
       avgScore: d.total ? Math.round(d.totalScore / d.total) : 0,
       completionPct: d.totalTarget ? Math.round((d.totalScore / d.totalTarget) * 100) : 0,
+      submissionRate: d.total ? Math.round((d.submitted / d.total) * 100) : 0,
     }));
 
-    // --- Role-wise aggregation ---
+    // Role-wise aggregation
     const roleMap = {};
     staff.forEach((s) => {
       const r = s.role || "unknown";
       if (!roleMap[r]) {
-        roleMap[r] = { role: r, total: 0, submitted: 0, totalScore: 0, totalTarget: 0 };
+        roleMap[r] = {
+          role: r, total: 0, submitted: 0,
+          submissionCount: 0, acceptedCount: 0,
+          totalScore: 0, totalTarget: 0,
+        };
       }
       roleMap[r].total++;
       if (s.submissionCount > 0) roleMap[r].submitted++;
+      roleMap[r].submissionCount += s.submissionCount;
+      roleMap[r].acceptedCount += s.acceptedCount;
       roleMap[r].totalScore += s.score;
       roleMap[r].totalTarget += s.target;
     });
@@ -147,8 +165,7 @@ export const getViewerStats = async (req, res) => {
       }))
       .sort((a, b) => b.total - a.total);
 
-    // --- Range-wise aggregation (% of target achieved) ---
-    // Bands: 0%, 1-25%, 26-50%, 51-75%, 76-99%, 100%+
+    // Range-wise aggregation
     const rangeBands = [
       { label: "0%", min: 0, max: 0 },
       { label: "1–25%", min: 1, max: 25 },
@@ -158,7 +175,6 @@ export const getViewerStats = async (req, res) => {
       { label: "100%+", min: 100, max: Infinity },
     ];
     const rangeCounts = rangeBands.map((b) => ({ ...b, count: 0 }));
-
     staff.forEach((s) => {
       const pct = s.target > 0 ? Math.round((s.score / s.target) * 100) : 0;
       for (const band of rangeCounts) {
@@ -169,13 +185,26 @@ export const getViewerStats = async (req, res) => {
       }
     });
 
-    // --- Summary totals ---
+    const totalSubmissions = staff.reduce((sum, s) => sum + s.submissionCount, 0);
+    const totalAppealed = staff.reduce((sum, s) => sum + s.appealedCount, 0);
+    const totalPendingReview = staff.reduce((sum, s) => sum + s.pendingReviewCount, 0);
+    const totalReviewed = staff.reduce((sum, s) => sum + s.reviewedCount, 0);
+    const totalAccepted = staff.reduce((sum, s) => sum + s.acceptedCount, 0);
+    const uniqueDepts = new Set(
+      staff.filter((s) => s.department && !isDeanRole(s.role)).map((s) => `${s.college}|||${s.department}`)
+    ).size;
+
     const summary = {
       totalStaff: staff.length,
       totalColleges: collegeStats.length,
+      totalDepts: uniqueDepts,
       totalSubmitted: staff.filter((s) => s.submissionCount > 0).length,
-      overallAvgScore:
-        staff.length ? Math.round(staff.reduce((sum, s) => sum + s.score, 0) / staff.length) : 0,
+      totalSubmissions,
+      totalAppealed,
+      totalPendingReview,
+      totalReviewed,
+      totalAccepted,
+      overallAvgScore: staff.length ? Math.round(staff.reduce((sum, s) => sum + s.score, 0) / staff.length) : 0,
     };
 
     return res.json({

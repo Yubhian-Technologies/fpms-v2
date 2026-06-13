@@ -83,6 +83,59 @@ const autoApproveUnreviewedForCollege = async (college) => {
   }
 };
 
+// Auto-freezes all "appealed" (unresolved) submissions for a college when the
+// appeal-review period has ended. Idempotent — safe to call on every fetch.
+const autoFreezeExpiredAppeals = async (college) => {
+  if (!college) return;
+  try {
+    const saData = await getSuperadminConfig();
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase()
+    );
+    const phase = getCollegePhase(collegeDef);
+    if (phase !== "locked") return;
+
+    const snapshot = await db.collection("submissions")
+      .where("college", "==", college)
+      .where("status", "==", "appealed")
+      .get();
+    if (snapshot.empty) return;
+
+    const now = new Date().toISOString();
+    const CHUNK = 400;
+    for (let i = 0; i < snapshot.docs.length; i += CHUNK) {
+      const batch = db.batch();
+      snapshot.docs.slice(i, i + CHUNK).forEach((doc) => {
+        const d = doc.data();
+        // Keep the score that was in place before the appeal was raised
+        const frozenScore = Number(d.reviewerScore ?? d.claimedScore ?? 0);
+        batch.update(doc.ref, {
+          status: "appeal-expired",
+          finalScore: frozenScore,
+          appealExpiredReason: "Appeal not resolved before the appeal-review period ended.",
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error("autoFreezeExpiredAppeals error:", err);
+  }
+};
+
+const autoFreezeAllColleges = async () => {
+  try {
+    const saData = await getSuperadminConfig();
+    await Promise.all(
+      (saData.colleges || [])
+        .filter((c) => getCollegePhase(c) === "locked")
+        .map((c) => autoFreezeExpiredAppeals(String(c.name || "").trim()))
+    );
+  } catch (err) {
+    console.error("autoFreezeAllColleges error:", err);
+  }
+};
+
 const normalizeRoleForWorkflow = (value) => {
   const role = String(value || "")
     .trim()
@@ -587,8 +640,9 @@ export const getMySubmissions = async (req, res) => {
       } catch (_) {}
     }
 
-    // Auto-approve unreviewed submissions if evaluation period has ended
+    // Auto-approve unreviewed submissions and freeze expired appeals as needed
     await autoApproveUnreviewedForCollege(userCollege);
+    await autoFreezeExpiredAppeals(userCollege);
 
     let query = db.collection("submissions").where("userId", "==", userId);
 
@@ -683,11 +737,13 @@ export const getReviewQueue = async (req, res) => {
       });
     }
 
-    // Auto-approve unreviewed submissions if evaluation period has ended
+    // Auto-approve unreviewed submissions and freeze expired appeals as needed
     if (college) {
       await autoApproveUnreviewedForCollege(college);
+      await autoFreezeExpiredAppeals(college);
     } else if (isCommitteeRole(effectiveRole)) {
       await autoApproveAllColleges();
+      await autoFreezeAllColleges();
     }
 
     // ── IC fast-path ─────────────────────────────────────────────────────────
@@ -918,10 +974,11 @@ export const raiseAppeal = async (req, res) => {
     }
 
     const data = doc.data();
-    if (data.status !== "reviewed") {
+    const appealableStatuses = ["reviewed", "auto-approved", "accepted"];
+    if (!appealableStatuses.includes(data.status)) {
       return res.status(400).json({
         success: false,
-        message: "Can only appeal reviewed submissions",
+        message: "Only reviewed, auto-approved, or accepted submissions can be appealed",
       });
     }
 
@@ -1059,11 +1116,13 @@ export const getAppealQueue = async (req, res) => {
       });
     }
 
-    // Auto-approve any missed unreviewed submissions before processing appeals
+    // Auto-approve any missed unreviewed submissions and freeze expired appeals
     if (college) {
       await autoApproveUnreviewedForCollege(college);
+      await autoFreezeExpiredAppeals(college);
     } else if (isCommitteeRole(userRole)) {
       await autoApproveAllColleges();
+      await autoFreezeAllColleges();
     }
 
     let query = db.collection("submissions").where("status", "==", "appealed");

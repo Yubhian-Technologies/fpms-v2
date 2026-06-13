@@ -115,6 +115,11 @@ const statusConfig: Record<
     variant: "success",
     icon: CheckCircle2,
   },
+  "appeal-expired": {
+    label: "Appeal Expired",
+    variant: "secondary",
+    icon: Clock,
+  },
 };
 
 type Phase = "submission" | "evaluation" | "appeal" | "appeal-review" | "locked";
@@ -975,6 +980,18 @@ export default function Submissions() {
                                           )}
                                         </div>
                                       )}
+                                      {(sub.status === "auto-approved" || sub.status === "accepted") && phase === "appeal" && !sub.isAppealed && (
+                                        <div className="border-t pt-4 flex flex-wrap items-center gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleAppeal(sub)}
+                                            disabled={!!actionLoading[sub.id]}
+                                          >
+                                            Appeal
+                                          </Button>
+                                        </div>
+                                      )}
                                     </CardContent>
                                   </Card>
                                 ))}
@@ -1137,6 +1154,18 @@ export default function Submissions() {
                               )}
                             </div>
                           )}
+                          {(sub.status === "auto-approved" || sub.status === "accepted") && phase === "appeal" && !sub.isAppealed && (
+                            <div className="border-t pt-4 flex flex-wrap items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleAppeal(sub)}
+                                disabled={!!actionLoading[sub.id]}
+                              >
+                                Appeal
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
@@ -1148,7 +1177,7 @@ export default function Submissions() {
                 <Accordion type="multiple" className="space-y-3">
                   {submissions
                     .filter((s) =>
-                      ["accepted", "appeal-resolved", "auto-approved"].includes(s.status),
+                      ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status),
                     )
                     .map((sub) => (
                       <AccordionItem
