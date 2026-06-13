@@ -102,7 +102,7 @@ export function StatusCards({
         <StatusCard title="Completion Rate" value={`${completionRate.toFixed(1)}%`} icon={BarChart2} />
         <StatusCard
           title="Overall Score"
-          value={`${totalScore} / ${totalTarget}`}
+          value={`${Math.round(totalScore)} / ${totalTarget}`}
           subtitle={`${completionRate.toFixed(1)}% achieved`}
           icon={AlertCircle}
         />
