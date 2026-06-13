@@ -991,13 +991,15 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
     const hasPhd = userData?.hasPhd;
     const internalCommittee = Boolean(userData?.internalCommittee);
 
-    // Principle/admin college lives in the "admins" collection, not in token claims
-    if (
-      !college &&
-      (resolvedRole === "principle" ||
-        resolvedRole === "principal" ||
-        resolvedRole === "admin")
-    ) {
+    // Principal-level roles (principle, vice principle, director) store college in "admins"
+    const isPrincipalLevelRole =
+      resolvedRole === "principle" ||
+      resolvedRole === "principal" ||
+      resolvedRole === "admin" ||
+      resolvedRole === "vice principle" ||
+      resolvedRole === "director";
+
+    if (!college && isPrincipalLevelRole) {
       try {
         const adminSnap = await db
           .collection("admins")

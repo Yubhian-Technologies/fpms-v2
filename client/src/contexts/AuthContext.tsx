@@ -55,9 +55,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(parsed);
       api.defaults.headers.common["Authorization"] = `Bearer ${validToken}`;
 
-      // Self-heal: if principle has no college stored, fetch it from server
+      // Self-heal: if principal-level role has no college stored, fetch it from server
       const isPrinciple =
-        parsed.role === "principle" || parsed.role === ("admin" as any);
+        parsed.role === "principle" ||
+        parsed.role === "vice principle" ||
+        parsed.role === ("admin" as any);
       if (isPrinciple && !parsed.college) {
         api
           .get("/api/admin/college-details")

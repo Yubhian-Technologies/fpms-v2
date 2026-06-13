@@ -176,8 +176,8 @@ export default function WorkflowRules() {
             : []
           : [];
 
-      // For HOD/Dean: always merge Principal + Vice Principal into both lists
-      const mergeDefaults = isHodOrDean(roleName) && principalDefaults.length > 0;
+      // Apply principal-level defaults only when this role has no saved rule yet
+      const mergeDefaults = isHodOrDean(roleName) && principalDefaults.length > 0 && !existing;
 
       const mergeWithDefaults = (list: string[]) =>
         mergeDefaults
