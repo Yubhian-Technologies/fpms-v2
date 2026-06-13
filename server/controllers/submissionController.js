@@ -755,6 +755,40 @@ export const getReviewQueue = async (req, res) => {
       await autoFreezeAllColleges();
     }
 
+    // ── Principal-level fast-path ─────────────────────────────────────────────
+    // Principle / Vice Principle / Director: look up which submitter roles route
+    // to this reviewer in the current workflow, then fetch all matching
+    // "submitted" submissions for the college by userRole.  This handles:
+    //   • pre-existing submissions that pre-date the principal being added to workflow
+    //   • new submissions that already carry the principal role in submitToRoleIds
+    const norm = (v) => normalizeRoleForWorkflow(v || "");
+    const isPrincipalLevelRole = (r) => {
+      const n = norm(r);
+      return n === "principle" || n === "vice principle" || n === "director";
+    };
+
+    if (college && isPrincipalLevelRole(effectiveRole)) {
+      const workflowRules = await loadWorkflowRules(college);
+      const principalSubmitterRoles = workflowRules
+        .filter((rule) =>
+          (rule.submitToRoles || []).some((r) => norm(r) === effectiveRole)
+        )
+        .map((rule) => norm(rule.role));
+
+      const principalSnap = await db
+        .collection("submissions")
+        .where("status", "==", "submitted")
+        .where("college", "==", college)
+        .get();
+
+      const submissions = principalSnap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((s) => principalSubmitterRoles.includes(norm(s.userRole || "")))
+        .filter((s) => s.userId !== userId);
+
+      return res.status(200).json({ success: true, data: submissions });
+    }
+
     // ── IC fast-path ─────────────────────────────────────────────────────────
     // When any role is flagged as IC and IC is a submission reviewer in this
     // college's workflow, query ALL college submissions and filter by the
