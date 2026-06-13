@@ -118,6 +118,7 @@ export default function Dashboard() {
   const [cSearch, setCSearch] = useState<string>("");
   const [cActiveTab, setCActiveTab] = useState<string>("staff");
   const [viewerStats, setViewerStats] = useState<any>(null);
+  const [deptCardSearch, setDeptCardSearch] = useState<string>("");
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
   >({});
@@ -2510,308 +2511,409 @@ export default function Dashboard() {
         })()}
 
         {/* ── PRINCIPAL / VICE PRINCIPAL: Department-first layout ── */}
-        {isDean && (
-          <div className="mt-8 mb-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                  Departments Overview
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Click any department card to explore HOD and faculty
-                </p>
+        {isDean && (() => {
+          const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+          const allCollegeStaff = staffList.filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
+          const allCollegeSubs = allCollegeStaff.flatMap((s: any) => s.submissions || []);
+          const totalSubs = allCollegeSubs.length;
+          const totalAccepted = allCollegeSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status)).length;
+          const totalPendingReview = allCollegeSubs.filter((s: any) => s.status === "submitted").length;
+          const totalAppeals = allCollegeSubs.filter((s: any) => s.status === "appealed").length;
+
+          const deptMap = allCollegeStaff
+            .filter((s: any) => s.department)
+            .reduce((acc: any, s: any) => {
+              const dept = s.department;
+              if (!acc[dept]) acc[dept] = { hods: [], faculty: [] };
+              const r = String(s.role || "").toLowerCase();
+              if (r === "hod") acc[dept].hods.push(s);
+              else acc[dept].faculty.push(s);
+              return acc;
+            }, {});
+
+          const allDeptStaff = allCollegeStaff.filter((s: any) => s.department);
+          const totalWithTarget = allDeptStaff.filter((s: any) => s.designationTarget);
+          const totalTargetsReached = totalWithTarget.filter((s: any) => {
+            const achieved = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+            return achieved >= Number(s.designationTarget);
+          }).length;
+
+          const filteredDepts = Object.entries(deptMap)
+            .filter(([name]) => !deptCardSearch || name.toLowerCase().includes(deptCardSearch.toLowerCase()))
+            .sort(([a], [b]) => a.localeCompare(b));
+
+          const deans = staffList.filter((s: any) => {
+            const r = String(s.role || "").toLowerCase();
+            return r.includes("dean") || (!s.department && r !== "hod" && r !== "faculty");
+          });
+
+          const targetPct = totalWithTarget.length > 0 ? Math.round((totalTargetsReached / totalWithTarget.length) * 100) : 0;
+
+          return (
+            <div className="mt-8 mb-6 space-y-6">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    Departments Overview
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {user.college} · {Object.keys(deptMap).length} department{Object.keys(deptMap).length !== 1 ? "s" : ""} · {allDeptStaff.length} staff
+                  </p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={exportPrincipalReport}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Summary
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportDetailedReport}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Detailed
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportPrincipalPDF}>
+                    <FileText className="mr-2 h-4 w-4" /> PDF
+                  </Button>
+                </div>
               </div>
-              <Button variant="outline" onClick={exportPrincipalReport}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Summary
-              </Button>
-              <Button variant="outline" onClick={exportDetailedReport}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" /> Export Detailed
-              </Button>
-              <Button variant="outline" onClick={exportPrincipalPDF}>
-                <FileText className="mr-2 h-4 w-4" /> Export PDF
-              </Button>
-            </div>
 
-            {/* Summary strip */}
-            {(() => {
-              const deptMap = staffList
-                .filter((s: any) => s.department)
-                .reduce((acc: any, s: any) => {
-                  const dept = s.department;
-                  if (!acc[dept]) acc[dept] = { hods: [], faculty: [] };
-                  const r = String(s.role || "").toLowerCase();
-                  if (r === "hod") acc[dept].hods.push(s);
-                  else acc[dept].faculty.push(s);
-                  return acc;
-                }, {});
-
-              const allDeptStaff = staffList.filter((s: any) => s.department);
-              const totalWithTarget = allDeptStaff.filter((s: any) => s.designationTarget);
-              const totalTargetsReached = totalWithTarget.filter((s: any) => {
-                const achieved = (s.submissions || []).reduce(
-                  (sum: number, sub: any) =>
-                    sum + getConfirmedScore(sub),
-                  0,
-                );
-                return achieved >= Number(s.designationTarget);
-              }).length;
-
-              return (
-                <>
-                  <div className="grid grid-cols-3 gap-4">
-                    <Card className="shadow-sm">
-                      <CardContent className="pt-5 pb-4 text-center">
-                        <p className="text-3xl font-bold text-primary">{Object.keys(deptMap).length}</p>
-                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                          <BookOpen className="h-3.5 w-3.5" /> Departments
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="shadow-sm">
-                      <CardContent className="pt-5 pb-4 text-center">
-                        <p className="text-3xl font-bold text-primary">{allDeptStaff.length}</p>
-                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                          <Users className="h-3.5 w-3.5" /> Total Staff
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="shadow-sm">
-                      <CardContent className="pt-5 pb-4 text-center">
-                        <p className="text-3xl font-bold text-primary">
-                          {totalTargetsReached}
-                          <span className="text-lg font-normal text-muted-foreground"> / {totalWithTarget.length}</span>
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                          <CheckCircle className="h-3.5 w-3.5" /> Targets Reached
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Department cards grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {Object.entries(deptMap)
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([deptName, deptData]: any) => {
-                        const deptAllStaff = [...deptData.hods, ...deptData.faculty];
-                        const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
-                        const deptTargetsReached = deptWithTarget.filter((s: any) => {
-                          const achieved = (s.submissions || []).reduce(
-                            (sum: number, sub: any) =>
-                              sum + getConfirmedScore(sub),
-                            0,
-                          );
-                          return achieved >= Number(s.designationTarget);
-                        }).length;
-                        const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
-                        const deptCompleted = deptSubs.filter(
-                          (s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved",
-                        ).length;
-                        const completionPct = deptSubs.length > 0
-                          ? Math.round((deptCompleted / deptSubs.length) * 100)
-                          : 0;
-                        const isSelected = selectedDeptDetail === deptName;
-
-                        return (
-                          <Card
-                            key={deptName}
-                            className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
-                              isSelected
-                                ? "border-primary shadow-md"
-                                : "border-border hover:border-primary/40"
-                            }`}
-                            onClick={() => setSelectedDeptDetail(isSelected ? null : deptName)}
-                          >
-                            <CardHeader className="pb-3">
-                              <CardTitle className="flex items-start gap-2 text-base">
-                                <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                                <span>{deptName}</span>
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                              <div className="grid grid-cols-3 gap-2 text-center">
-                                <div className="bg-muted/40 rounded-lg py-2">
-                                  <p className="text-lg font-bold">{deptData.hods.length}</p>
-                                  <p className="text-xs text-muted-foreground">HOD</p>
-                                </div>
-                                <div className="bg-muted/40 rounded-lg py-2">
-                                  <p className="text-lg font-bold">{deptData.faculty.length}</p>
-                                  <p className="text-xs text-muted-foreground">Faculty</p>
-                                </div>
-                                <div className={`rounded-lg py-2 ${deptTargetsReached === deptWithTarget.length && deptWithTarget.length > 0 ? "bg-green-100" : "bg-muted/40"}`}>
-                                  <p className={`text-lg font-bold ${deptTargetsReached === deptWithTarget.length && deptWithTarget.length > 0 ? "text-green-700" : ""}`}>
-                                    {deptTargetsReached}
-                                    <span className="text-sm font-normal text-muted-foreground"> / {deptWithTarget.length}</span>
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">Target Reached</p>
-                                </div>
-                              </div>
-                              <p className="text-right text-xs text-primary font-medium">
-                                {isSelected ? "▲ Hide details" : "▼ View details"}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                  </div>
-
-                  {/* Deans & Leadership Section */}
-                  {(() => {
-                    const deans = staffList.filter((s: any) => {
-                      const r = String(s.role || "").toLowerCase();
-                      return r.includes("dean") || (!s.department && r !== "hod" && r !== "faculty");
-                    });
-                    if (deans.length === 0) return null;
-                    return (
-                      <Card className="border-primary/20 shadow-sm overflow-hidden">
-                        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
-                          <CardTitle className="flex items-center gap-2 text-lg">
-                            <Award className="h-5 w-5 text-primary" />
-                            Deans &amp; Leadership
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/30">
-                                  <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                                  <th className="text-left px-4 py-2.5 font-medium">Role</th>
-                                  <th className="text-left px-4 py-2.5 font-medium">Email</th>
-                                  <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
-                                  <th className="text-center px-4 py-2.5 font-medium">Score</th>
-                                  <th className="text-center px-4 py-2.5 font-medium">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {deans.map((s: any) => {
-                                  const subs = s.submissions || [];
-                                  const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
-                                  const accepted = subs.filter((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved").length;
-                                  const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
-                                  return (
-                                    <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
-                                      <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
-                                      <td className="px-4 py-3 text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
-                                      <td className="px-4 py-3 text-muted-foreground">{s.email || "—"}</td>
-                                      <td className="px-4 py-3 text-center">{subs.length}</td>
-                                      <td className="px-4 py-3 text-center font-semibold text-primary">{achieved}</td>
-                                      <td className="px-4 py-3 text-center">
-                                        {subs.length === 0 ? (
-                                          <Badge variant="outline">No submissions</Badge>
-                                        ) : appealed > 0 ? (
-                                          <Badge variant="warning">{appealed} appeal{appealed > 1 ? "s" : ""}</Badge>
-                                        ) : accepted > 0 ? (
-                                          <Badge variant="success">{accepted} accepted</Badge>
-                                        ) : (
-                                          <Badge variant="secondary">{subs.length - accepted} pending</Badge>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })()}
-
-                  {/* Department Detail Panel */}
-                  {selectedDeptDetail && deptMap[selectedDeptDetail] && (
-                    <Card className="border-primary/20 shadow-sm overflow-hidden">
-                      <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                              <BookOpen className="h-5 w-5 text-primary" />
-                              {selectedDeptDetail}
-                            </CardTitle>
-                            <CardDescription>
-                              {deptMap[selectedDeptDetail].hods.length} HOD · {deptMap[selectedDeptDetail].faculty.length} Faculty
-                            </CardDescription>
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedDeptDetail(null)}>
-                            Close ✕
-                          </Button>
+              {/* 6-stat summary strip */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { label: "Departments", value: Object.keys(deptMap).length, icon: BookOpen, color: "text-primary", bg: "bg-primary/10" },
+                  { label: "Total Staff", value: allDeptStaff.length, icon: Users, color: "text-blue-600", bg: "bg-blue-500/10" },
+                  { label: "Submissions", value: totalSubs, icon: FileText, color: "text-indigo-600", bg: "bg-indigo-500/10" },
+                  { label: "Accepted", value: totalAccepted, icon: CircleCheck, color: "text-green-600", bg: "bg-green-500/10" },
+                  { label: "Pending Review", value: totalPendingReview, icon: CircleDot, color: "text-amber-600", bg: "bg-amber-500/10" },
+                  { label: "Appeals", value: totalAppeals, icon: AlertCircle, color: totalAppeals > 0 ? "text-red-500" : "text-muted-foreground", bg: totalAppeals > 0 ? "bg-red-500/10" : "bg-muted/30" },
+                ].map(({ label, value, icon: Icon, color, bg }) => (
+                  <Card key={label} className="shadow-sm">
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${bg}`}>
+                          <Icon className={`h-4 w-4 ${color}`} />
                         </div>
+                        <div>
+                          <p className="text-xl font-bold">{value}</p>
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Target achievement progress bar */}
+              <Card className="shadow-sm">
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-semibold">Target Achievement Progress</span>
+                    </div>
+                    <span className="text-sm font-bold text-green-600">
+                      {totalTargetsReached} / {totalWithTarget.length} staff ({targetPct}%)
+                    </span>
+                  </div>
+                  <Progress value={targetPct} className="h-2.5" />
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {totalTargetsReached} of {totalWithTarget.length} staff have reached their designation target
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Department search */}
+              <div className="flex items-center gap-3">
+                <div className="relative max-w-xs flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search departments..."
+                    value={deptCardSearch}
+                    onChange={(e) => setDeptCardSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                {deptCardSearch && (
+                  <p className="text-sm text-muted-foreground">
+                    {filteredDepts.length} of {Object.keys(deptMap).length} departments
+                  </p>
+                )}
+              </div>
+
+              {/* Department cards grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredDepts.map(([deptName, deptData]: any) => {
+                  const deptAllStaff = [...deptData.hods, ...deptData.faculty];
+                  const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
+                  const deptTargetsReached = deptWithTarget.filter((s: any) => {
+                    const achieved = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+                    return achieved >= Number(s.designationTarget);
+                  }).length;
+                  const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
+                  const deptCompleted = deptSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(s.status)).length;
+                  const deptAppealed = deptSubs.filter((s: any) => s.status === "appealed").length;
+                  const deptPending = deptSubs.filter((s: any) => s.status === "submitted").length;
+                  const completionPct = deptSubs.length > 0 ? Math.round((deptCompleted / deptSubs.length) * 100) : 0;
+                  const deptTargetPct = deptWithTarget.length > 0 ? Math.round((deptTargetsReached / deptWithTarget.length) * 100) : 0;
+                  const isSelected = selectedDeptDetail === deptName;
+
+                  return (
+                    <Card
+                      key={deptName}
+                      className={`cursor-pointer transition-all hover:shadow-lg border-2 ${
+                        isSelected ? "border-primary shadow-md" : "border-border hover:border-primary/40"
+                      }`}
+                      onClick={() => setSelectedDeptDetail(isSelected ? null : deptName)}
+                    >
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-start gap-2 text-base">
+                          <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                          <span>{deptName}</span>
+                        </CardTitle>
                       </CardHeader>
-                      <CardContent className="p-0">
-                        {(() => {
-                          const staffRow = (s: any) => {
+                      <CardContent className="space-y-3">
+                        {/* Staff counts */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-muted/40 rounded-lg py-2 text-center">
+                            <p className="text-lg font-bold">{deptData.hods.length}</p>
+                            <p className="text-xs text-muted-foreground">HOD</p>
+                          </div>
+                          <div className="bg-muted/40 rounded-lg py-2 text-center">
+                            <p className="text-lg font-bold">{deptData.faculty.length}</p>
+                            <p className="text-xs text-muted-foreground">Faculty</p>
+                          </div>
+                        </div>
+
+                        {/* Submission stats */}
+                        <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
+                          <div className="bg-muted/30 rounded-md py-1.5">
+                            <span className="font-semibold block">{deptSubs.length}</span>
+                            <span className="text-muted-foreground">Subs</span>
+                          </div>
+                          <div className={`rounded-md py-1.5 ${deptPending > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"}`}>
+                            <span className="font-semibold block">{deptPending}</span>
+                            <span>Pending</span>
+                          </div>
+                          <div className={`rounded-md py-1.5 ${deptAppealed > 0 ? "bg-red-50 text-red-600" : "bg-muted/30"}`}>
+                            <span className="font-semibold block">{deptAppealed}</span>
+                            <span>Appeals</span>
+                          </div>
+                        </div>
+
+                        {/* Progress bars */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Completion</span>
+                            <span className="font-medium">{completionPct}%</span>
+                          </div>
+                          <Progress value={completionPct} className="h-1.5" />
+                          {deptWithTarget.length > 0 && (
+                            <>
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Target Reached</span>
+                                <span className={`font-medium ${deptTargetPct === 100 ? "text-green-600" : ""}`}>
+                                  {deptTargetsReached}/{deptWithTarget.length}
+                                </span>
+                              </div>
+                              <Progress value={deptTargetPct} className="h-1.5" />
+                            </>
+                          )}
+                        </div>
+
+                        <p className="text-right text-xs text-primary font-medium">
+                          {isSelected ? "▲ Hide details" : "▼ View details"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Deans & Leadership */}
+              {deans.length > 0 && (
+                <Card className="border-primary/20 shadow-sm overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Award className="h-5 w-5 text-primary" />
+                      Deans &amp; Leadership
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30">
+                            <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                            <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                            <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Subs</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Score / Target</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {deans.map((s: any) => {
                             const subs = s.submissions || [];
-                            // Use finalScore for accepted, reviewerScore for reviewed-pending, claimedScore for unreviewed
-                            const achieved = subs.reduce(
-                              (sum: number, sub: any) =>
-                                sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0),
-                              0,
-                            );
-                            const done = subs.filter(
-                              (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved",
-                            ).length;
-                            const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
+                            const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+                            const target = s.designationTarget ? Number(s.designationTarget) : null;
+                            const targetReached = target !== null && achieved >= target;
+                            const accepted = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(sub.status)).length;
+                            const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
+                            const pending = subs.filter((sub: any) => sub.status === "submitted").length;
                             return (
                               <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
                                 <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
-                                <td className="px-4 py-3 text-muted-foreground text-xs">{s.email || "—"}</td>
-                                <td className="px-4 py-3">{s.designation || "—"}</td>
+                                <td className="px-4 py-3 text-xs text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
+                                <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
                                 <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
-                                <td className="px-4 py-3 text-center font-medium">
-                                  {achieved}{s.designationTarget ? ` / ${s.designationTarget}` : ""}
+                                <td className="px-4 py-3 text-center">
+                                  {target !== null ? (
+                                    targetReached
+                                      ? <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs"><CircleCheck className="h-3.5 w-3.5" />{achieved}/{target}</span>
+                                      : <span className="text-xs text-muted-foreground">{achieved} / {target}</span>
+                                  ) : (
+                                    <span className="font-semibold text-primary">{achieved}</span>
+                                  )}
                                 </td>
-                                <td className="px-4 py-3 text-center text-xs font-medium">{pct}%</td>
+                                <td className="px-4 py-3 text-center">
+                                  {subs.length === 0 ? (
+                                    <Badge variant="outline">Not Submitted</Badge>
+                                  ) : appealed > 0 ? (
+                                    <Badge variant="warning">{appealed} Appeal{appealed > 1 ? "s" : ""}</Badge>
+                                  ) : pending > 0 ? (
+                                    <Badge variant="secondary">{pending} Pending</Badge>
+                                  ) : accepted > 0 ? (
+                                    <Badge variant="success">{accepted} Accepted</Badge>
+                                  ) : (
+                                    <Badge variant="default">Under Review</Badge>
+                                  )}
+                                </td>
                               </tr>
                             );
-                          };
-                          const staffTable = (rows: any[]) => (
-                            <div className="overflow-x-auto rounded-lg border">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="border-b bg-muted/30">
-                                    <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                                    <th className="text-left px-4 py-2.5 font-medium">Email</th>
-                                    <th className="text-left px-4 py-2.5 font-medium">Designation</th>
-                                    <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
-                                    <th className="text-center px-4 py-2.5 font-medium">Score</th>
-                                    <th className="text-center px-4 py-2.5 font-medium">Completion</th>
-                                  </tr>
-                                </thead>
-                                <tbody>{rows.map(staffRow)}</tbody>
-                              </table>
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Department Detail Panel */}
+              {selectedDeptDetail && deptMap[selectedDeptDetail] && (
+                <Card className="border-primary/20 shadow-sm overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <BookOpen className="h-5 w-5 text-primary" />
+                          {selectedDeptDetail}
+                        </CardTitle>
+                        <CardDescription>
+                          {deptMap[selectedDeptDetail].hods.length} HOD · {deptMap[selectedDeptDetail].faculty.length} Faculty
+                        </CardDescription>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedDeptDetail(null)}>
+                        Close ✕
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {(() => {
+                      const staffRow = (s: any) => {
+                        const subs = s.submissions || [];
+                        const achieved = subs.reduce((sum: number, sub: any) => sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+                        const maxScore = subs.reduce((sum: number, sub: any) => sum + (sub.maxMarks ?? 0), 0);
+                        const target = s.designationTarget ? Number(s.designationTarget) : null;
+                        const targetReached = target !== null && achieved >= target;
+                        const done = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved"].includes(sub.status)).length;
+                        const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+                        const hasPending = subs.some((sub: any) => sub.status === "submitted");
+                        const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
+                        const scorePct = maxScore > 0 ? Math.min(100, (achieved / maxScore) * 100) : 0;
+                        return (
+                          <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="font-medium">{s.name || "—"}</div>
+                              {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
+                            <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col items-center gap-1 min-w-[90px]">
+                                <span className="font-semibold text-sm">
+                                  {achieved}
+                                  {maxScore > 0 && <span className="text-muted-foreground font-normal text-xs">/{maxScore}</span>}
+                                </span>
+                                {maxScore > 0 && <Progress value={scorePct} className="h-1.5 w-20" />}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {target !== null ? (
+                                targetReached
+                                  ? <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs"><CircleCheck className="h-3.5 w-3.5" /> Reached</span>
+                                  : <span className="text-xs text-muted-foreground">{achieved}/{target}</span>
+                              ) : <span className="text-xs text-muted-foreground">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center text-xs font-medium">{pct}%</td>
+                            <td className="px-4 py-3 text-center">
+                              {subs.length === 0 ? (
+                                <Badge variant="outline" className="text-xs">Not Submitted</Badge>
+                              ) : hasAppealed ? (
+                                <Badge variant="warning" className="text-xs">Appealed</Badge>
+                              ) : hasPending ? (
+                                <Badge variant="secondary" className="text-xs">Pending</Badge>
+                              ) : done > 0 ? (
+                                <Badge variant="success" className="text-xs">Accepted</Badge>
+                              ) : (
+                                <Badge variant="default" className="text-xs">Under Review</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      };
+                      const staffTable = (rows: any[]) => (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-muted/30">
+                                <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                                <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                                <th className="text-center px-4 py-2.5 font-medium">Subs</th>
+                                <th className="text-center px-4 py-2.5 font-medium">Score</th>
+                                <th className="text-center px-4 py-2.5 font-medium">Target</th>
+                                <th className="text-center px-4 py-2.5 font-medium">Done%</th>
+                                <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>{rows.map(staffRow)}</tbody>
+                          </table>
+                        </div>
+                      );
+                      return (
+                        <>
+                          {deptMap[selectedDeptDetail].hods.length > 0 && (
+                            <div>
+                              <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                                <User className="h-4 w-4 text-primary" /> HOD
+                              </div>
+                              <div className="py-2">{staffTable(deptMap[selectedDeptDetail].hods)}</div>
                             </div>
-                          );
-                          return (
-                            <>
-                              {deptMap[selectedDeptDetail].hods.length > 0 && (
-                                <div>
-                                  <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
-                                    <User className="h-4 w-4 text-primary" /> HOD
-                                  </div>
-                                  <div className="p-5">{staffTable(deptMap[selectedDeptDetail].hods)}</div>
-                                </div>
-                              )}
-                              {deptMap[selectedDeptDetail].faculty.length > 0 && (
-                                <div className={deptMap[selectedDeptDetail].hods.length > 0 ? "border-t" : ""}>
-                                  <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
-                                    <Users className="h-4 w-4 text-primary" /> Faculty
-                                  </div>
-                                  <div className="p-5">{staffTable(deptMap[selectedDeptDetail].faculty)}</div>
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        )}
+                          )}
+                          {deptMap[selectedDeptDetail].faculty.length > 0 && (
+                            <div className={deptMap[selectedDeptDetail].hods.length > 0 ? "border-t" : ""}>
+                              <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                                <Users className="h-4 w-4 text-primary" /> Faculty
+                              </div>
+                              <div className="py-2">{staffTable(deptMap[selectedDeptDetail].faculty)}</div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── HOD: Department Faculty Dashboard ── */}
         {isHod && (
@@ -3031,9 +3133,146 @@ export default function Dashboard() {
         )}
 
 
-        {["committee", "principle", "vice principle", "director", "hod", "internal committee"].includes(
-          user?.role || "",
-        ) && (
+        {/* ── Staff & Submissions Explorer (principal / HOD / IC) ── */}
+        {["principle", "vice principle", "director", "hod", "internal committee"].includes(user?.role || "") && (
+          <div className="mt-8 mb-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  Staff &amp; Submissions Explorer
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Filter by role, department, staff member, criteria or module
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={exportFilteredExcel} disabled={filteredData.length === 0} className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" /> Export Excel
+              </Button>
+            </div>
+
+            {/* Modern filter bar */}
+            <Card className="shadow-sm">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex flex-wrap gap-3 items-end">
+                  <Select value={selectedRole} onValueChange={(v) => { setSelectedRole(v); setSelectedDepartment("All"); setSelectedStaff("All"); setSelectedCriteria("All"); setSelectedModule("All"); }}>
+                    <SelectTrigger className="w-[150px]"><SelectValue placeholder="Role" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Roles</SelectItem>
+                      {staffList.map((s: any) => s.role).filter((v: any, i: any, a: any) => v && a.indexOf(v) === i).sort().map((r: string) => (
+                        <SelectItem key={r} value={r}>{formatRoleLabel(r)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedDepartment} onValueChange={(v) => { setSelectedDepartment(v); setSelectedStaff("All"); setSelectedCriteria("All"); setSelectedModule("All"); }}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Department" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Departments</SelectItem>
+                      {staffList.filter((s: any) => selectedRole === "All" || s.role === selectedRole).map((s: any) => s.department).filter((v: any, i: any, a: any) => v && a.indexOf(v) === i).sort().map((d: string) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedStaff} onValueChange={(v) => { setSelectedStaff(v); setSelectedCriteria("All"); setSelectedModule("All"); }}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Staff Member" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Staff</SelectItem>
+                      {staffList.filter((s: any) => (selectedRole === "All" || s.role === selectedRole) && (selectedDepartment === "All" || s.department === selectedDepartment)).map((s: any) => s.name).filter((v: any, i: any, a: any) => v && a.indexOf(v) === i).sort().map((n: string) => (
+                        <SelectItem key={n} value={n}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedCriteria} onValueChange={(v) => { setSelectedCriteria(v); setSelectedModule("All"); }}>
+                    <SelectTrigger className="w-[160px]"><SelectValue placeholder="Criteria" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Criteria</SelectItem>
+                      {staffList.filter((s: any) => (selectedRole === "All" || s.role === selectedRole) && (selectedStaff === "All" || s.name === selectedStaff)).flatMap((s: any) => s.submissions || []).map((s: any) => s.criteriaName).filter((v: any, i: any, a: any) => v && a.indexOf(v) === i).sort().map((c: string) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedModule} onValueChange={setSelectedModule}>
+                    <SelectTrigger className="w-[160px]"><SelectValue placeholder="Module" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Modules</SelectItem>
+                      {staffList.filter((s: any) => (selectedRole === "All" || s.role === selectedRole) && (selectedStaff === "All" || s.name === selectedStaff)).flatMap((s: any) => s.submissions || []).filter((sub: any) => selectedCriteria === "All" || sub.criteriaName === selectedCriteria).map((sub: any) => sub.moduleName).filter((v: any, i: any, a: any) => v && a.indexOf(v) === i).sort().map((m: string) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" onClick={applyFilter}>Apply</Button>
+                  {(selectedRole !== "All" || selectedDepartment !== "All" || selectedStaff !== "All" || selectedCriteria !== "All" || selectedModule !== "All") && (
+                    <Button variant="ghost" size="sm" onClick={() => { setSelectedRole("All"); setSelectedDepartment("All"); setSelectedStaff("All"); setSelectedCriteria("All"); setSelectedModule("All"); setFilteredData([]); }}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {filteredData.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">{filteredData.length} submission{filteredData.length !== 1 ? "s" : ""} found</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Results table */}
+            {filteredData.length > 0 && (
+              <Card className="shadow-sm rounded-xl overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between pb-3 bg-muted/30 border-b">
+                  <CardTitle className="text-base">Results</CardTitle>
+                  <p className="text-sm text-muted-foreground">{filteredData.length} submission{filteredData.length !== 1 ? "s" : ""}</p>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Staff</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Criteria / Module</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Task</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Max</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Claimed</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Reviewer</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Final</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {filteredData.map((sub: any, idx: number) => {
+                          const staff = staffList.find((s: any) => (s.submissions || []).some((ss: any) => ss.id === sub.id));
+                          const sc = statusConfig[sub.status] || { label: sub.status, variant: "outline" as const };
+                          return (
+                            <tr key={sub.id || idx} className="hover:bg-muted/20 transition-colors">
+                              <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
+                              <td className="px-4 py-3">
+                                <div className="font-medium">{staff?.name || sub.userName || "—"}</div>
+                                <div className="text-xs text-muted-foreground">{staff?.department || "—"}</div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-xs font-medium">{sub.criteriaName || sub.formTitle || "—"}</div>
+                                <div className="text-xs text-muted-foreground">{sub.moduleName || "—"}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs">{sub.taskName || "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm">{sub.maxMarks ?? "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm">{sub.claimedScore ?? "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm">{sub.reviewerScore ?? "—"}</td>
+                              <td className="px-4 py-3 text-center font-semibold text-sm">{sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? "—"}</td>
+                              <td className="px-4 py-3 text-center">
+                                <Badge variant={sc.variant} className="text-xs">{sc.label}</Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* ── PLACEHOLDER so old filter div doesn't break (removed below) ── */}
+        {false && (
           <div className="mt-10 mb-10 bg-white border border-gray-200 rounded-xl shadow-md overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
