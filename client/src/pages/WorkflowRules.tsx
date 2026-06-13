@@ -144,11 +144,11 @@ export default function WorkflowRules() {
       existingRules.map((item) => [String(item.role || "").trim(), item]),
     );
 
-    // Default submit/appeal reviewers for HOD and Dean rows = Principal + Vice Principal
+    // Default submit/appeal reviewers for HOD and Dean rows = Principal + Vice Principal + Director
     const principalDefaults = roleOptions
       .filter((r) => {
         const key = normalizeRoleKey(r.name);
-        return key === "principle" || key === "viceprinciple" || key === "viceprincipal";
+        return key === "principle" || key === "viceprinciple" || key === "viceprincipal" || key === "director";
       })
       .map((r) => r.name);
 

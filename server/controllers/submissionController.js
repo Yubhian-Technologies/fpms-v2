@@ -145,6 +145,15 @@ const normalizeRoleForWorkflow = (value) => {
     return "principle";
   }
 
+  if (
+    role === "vice principal" ||
+    role === "vice principle" ||
+    role === "viceprincipal" ||
+    role === "viceprinciple"
+  ) {
+    return "vice principle";
+  }
+
   if (role === "committee" || role === "commitee") {
     return "committee";
   }
@@ -1431,11 +1440,22 @@ export const getReviewAccess = async (req, res) => {
       return res.status(200).json({ success: true, canReview: false, canReviewAppeals: false });
     }
 
-    const workflowRules = await loadWorkflowRules(college);
+    // Principal-level roles (principle, vice principle, director) are institutional
+    // authorities who should always be able to review and resolve appeals regardless
+    // of how workflow rules are configured.
     const norm = (v) => normalizeRoleForWorkflow(v || "");
+    const isPrincipalLevel = (role) => {
+      const n = norm(role);
+      return n === "principle" || n === "vice principle" || n === "director";
+    };
+
+    if (isPrincipalLevel(effectiveRole)) {
+      return res.status(200).json({ success: true, canReview: true, canReviewAppeals: true });
+    }
+
+    const workflowRules = await loadWorkflowRules(college);
 
     // IC-flagged users hold two roles: their IC effective role AND their base role.
-    // e.g. HOD with IC flag: canReview if "hod" is a reviewer OR "internal committee" is.
     const rolesToCheck = (internalCommittee && userRole && userRole !== "internal committee")
       ? [effectiveRole, userRole]
       : [effectiveRole];
