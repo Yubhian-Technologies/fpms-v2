@@ -27,7 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Clock } from "lucide-react";
 import { resolveEvidenceLink, formatRoleLabel } from "@/lib/utils";
 import { storage } from "@/lib/firebase";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable } from "firebase/storage";
 
 interface TaskItem {
   id: string;
@@ -632,7 +632,8 @@ export default function DynamicCriteriaForm() {
           const task = uploadBytesResumable(storageRef, file);
           task.on("state_changed", null, reject, () => resolve());
         });
-        evidenceValue = await getDownloadURL(storageRef);
+        // Construct public URL directly — avoids getDownloadURL which requires Firebase Auth token
+        evidenceValue = `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o/${encodeURIComponent(path)}?alt=media`;
       }
 
       const jsonPayload = {
