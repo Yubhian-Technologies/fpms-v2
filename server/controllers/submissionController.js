@@ -401,13 +401,7 @@ export const submitTask = async (req, res) => {
         message: "Missing required fields",
       });
     }
-    let finalEvidence = "";
-
-    if (req.file) {
-      finalEvidence = req.file.path;
-    } else {
-      finalEvidence = evidence || "";
-    }
+    let finalEvidence = evidence || "";
 
     // Phase check: submissions only allowed during the submission phase (applies to all roles)
     const saData = await getSuperadminConfig();
@@ -597,13 +591,7 @@ export const updateSubmission = async (req, res) => {
       });
     }
 
-    // Prefer the Cloudinary URL sent in the body; fall back to a multer file, then keep old value
-    let finalEvidence = data.evidence;
-    if (evidence && String(evidence).trim()) {
-      finalEvidence = String(evidence).trim();
-    } else if (req.file) {
-      finalEvidence = req.file.path;
-    }
+    let finalEvidence = evidence && String(evidence).trim() ? String(evidence).trim() : data.evidence;
 
     await docRef.update({
       description: description ?? data.description,

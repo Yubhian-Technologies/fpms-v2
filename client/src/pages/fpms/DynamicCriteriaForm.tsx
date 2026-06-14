@@ -25,7 +25,9 @@ import { api } from "@/api/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Clock } from "lucide-react";
-import { resolveEvidenceLink } from "@/lib/utils";
+import { resolveEvidenceLink, formatRoleLabel } from "@/lib/utils";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 interface TaskItem {
   id: string;
@@ -619,60 +621,38 @@ export default function DynamicCriteriaForm() {
 
       setSubmittingTaskId(task.id);
 
-      // Upload file directly to Cloudinary to bypass Vercel's 4.5MB body limit
+      // Upload file to Firebase Storage (client-side, bypasses Vercel's 4.5MB body limit)
       let evidenceValue: string = progress.evidenceUrl instanceof File ? "" : (progress.evidenceUrl || "");
       if (progress.evidenceUrl instanceof File) {
-        const signRes = await api.get("/api/submissions/cloudinary-sign");
-        const { signature, timestamp, cloudName, apiKey } = signRes.data;
-
-        if (!cloudName || !apiKey || !signature) {
-          console.error("Cloudinary sign response missing fields:", signRes.data);
-          throw new Error("Cloudinary configuration error — contact admin");
-        }
-
-        const cloudForm = new FormData();
-        cloudForm.append("file", progress.evidenceUrl);
-        cloudForm.append("timestamp", String(timestamp));
-        cloudForm.append("signature", signature);
-        cloudForm.append("api_key", apiKey);
-        cloudForm.append("folder", "task_evidence");
-
-        const cloudRes = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-          { method: "POST", body: cloudForm }
-        );
-        if (!cloudRes.ok) {
-          const errBody = await cloudRes.json().catch(() => ({}));
-          console.error("Cloudinary upload failed:", cloudRes.status, errBody);
-          throw new Error(
-            errBody?.error?.message || `Cloudinary upload failed (${cloudRes.status})`
-          );
-        }
-        const cloudData = await cloudRes.json();
-        evidenceValue = cloudData.secure_url;
+        const file = progress.evidenceUrl;
+        const ext = file.name.split(".").pop() || "bin";
+        const path = `task_evidence/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const storageRef = ref(storage, path);
+        await new Promise<void>((resolve, reject) => {
+          const task = uploadBytesResumable(storageRef, file);
+          task.on("state_changed", null, reject, () => resolve());
+        });
+        evidenceValue = await getDownloadURL(storageRef);
       }
 
-      const formData = new FormData();
-
-      formData.append("formId", formId || "");
-      formData.append("formTitle", payload?.formTitle || "");
-      formData.append("criteriaId", criteriaId || "");
-      formData.append("criteriaName", payload?.criteria?.criteriaName || "");
-      formData.append("moduleId", moduleItem.id);
-      formData.append("moduleName", moduleItem.moduleName);
-      formData.append(
-        "criteriaTotalMarks",
-        String(payload?.criteria?.totalMarks || 0),
-      );
-      formData.append("moduleTotalMarks", String(moduleItem.totalMarks || 0));
-      formData.append("taskId", task.id);
-      formData.append("taskName", task.title);
-      formData.append("maxMarks", String(task.marks || 0));
-      formData.append("marksType", task.marksType || "fixed");
-      formData.append("minMarks", String(task.minMarks ?? 0));
-      formData.append("claimedScore", String(progress.claimedScore));
-      formData.append("description", progress.description || "");
-      formData.append("evidence", evidenceValue);
+      const jsonPayload = {
+        formId: formId || "",
+        formTitle: payload?.formTitle || "",
+        criteriaId: criteriaId || "",
+        criteriaName: payload?.criteria?.criteriaName || "",
+        moduleId: moduleItem.id,
+        moduleName: moduleItem.moduleName,
+        criteriaTotalMarks: payload?.criteria?.totalMarks || 0,
+        moduleTotalMarks: moduleItem.totalMarks || 0,
+        taskId: task.id,
+        taskName: task.title,
+        maxMarks: task.marks || 0,
+        marksType: task.marksType || "fixed",
+        minMarks: task.minMarks ?? 0,
+        claimedScore: progress.claimedScore,
+        description: progress.description || "",
+        evidence: evidenceValue,
+      };
 
       let submitRes;
 
@@ -680,10 +660,7 @@ export default function DynamicCriteriaForm() {
         // 🔄 UPDATE existing submission
         submitRes = await api.put(
           `/api/submissions/${existingSubmissionId}/update`,
-          formData,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
+          jsonPayload,
         );
 
         toast({
@@ -691,9 +668,7 @@ export default function DynamicCriteriaForm() {
         });
       } else {
         // 🆕 FIRST TIME SUBMIT
-        submitRes = await api.post("/api/submissions/submit", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        submitRes = await api.post("/api/submissions/submit", jsonPayload);
 
         toast({
           title: "Task submitted successfully",
@@ -719,7 +694,7 @@ export default function DynamicCriteriaForm() {
       toast({
         title: "Task submitted successfully",
         description: submitToRoleIds.length
-          ? `Submitted to ${submitToRoleIds.join(", ")} for review.`
+          ? `Submitted to ${submitToRoleIds.map(formatRoleLabel).join(", ")} for review.`
           : "Task submitted to workflow.",
       });
       return true;
@@ -955,7 +930,7 @@ export default function DynamicCriteriaForm() {
         title: "Appeal submitted",
         description:
           appealToRoles.length > 0
-            ? `Appeal submitted to ${appealToRoles.join(", ")}.`
+            ? `Appeal submitted to ${appealToRoles.map(formatRoleLabel).join(", ")}.`
             : "Appeal submitted successfully.",
       });
     } catch (error: any) {
