@@ -22,9 +22,23 @@ const router = express.Router();
 // Apply optional auth to all routes
 router.use(optionalAuth);
 
+// Fallback JSON parser — reads the raw body stream if express.json()
+// didn't populate req.body (e.g., Content-Type header mismatch in proxy).
+const ensureJsonBody = (req, res, next) => {
+  if (req.body !== undefined) return next();
+  let raw = "";
+  req.on("data", (chunk) => { raw += chunk.toString(); });
+  req.on("end", () => {
+    try { req.body = raw ? JSON.parse(raw) : {}; }
+    catch { req.body = {}; }
+    next();
+  });
+  req.on("error", () => { req.body = {}; next(); });
+};
+
 // Faculty endpoints
-router.post("/submit", submitTask);
-router.put("/:id/update", updateSubmission);
+router.post("/submit", ensureJsonBody, submitTask);
+router.put("/:id/update", ensureJsonBody, updateSubmission);
 
 router.get("/my-submissions", getMySubmissions);
 router.post("/:id/accept", acceptReview);

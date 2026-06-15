@@ -45,6 +45,18 @@ api.interceptors.request.use((config) => {
       : new AxiosHeaders(config.headers);
   config.headers = headers;
 
+  // Ensure Content-Type is set for JSON bodies — prevents it from being
+  // lost when AxiosHeaders is reconstructed above.
+  const method = (config.method || "").toLowerCase();
+  if (
+    ["post", "put", "patch"].includes(method) &&
+    config.data !== undefined &&
+    !(config.data instanceof FormData) &&
+    !headers.get("Content-Type")
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
