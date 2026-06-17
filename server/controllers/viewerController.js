@@ -46,7 +46,7 @@ export const getViewerStats = async (req, res) => {
     });
 
     const excludedRoles = new Set(["committee", "viewer", "superadmin", "internal committee"]);
-    const isDeanRole = (r) => String(r || "").trim().toLowerCase().includes("dean");
+    const isDeanRole = (r) => { const n = String(r || "").trim().toLowerCase(); return n.includes("dean") || n.includes("training"); };
 
     const staff = usersSnap.docs
       .map((doc) => {

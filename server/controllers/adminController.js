@@ -11,11 +11,10 @@ const USERS_COLLECTION = "users";
 
 const normalizeDeanRole = (value) => String(value || "").trim();
 
-const isDeanRole = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .includes("dean");
+const isDeanRole = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.includes("dean") || normalized.includes("training");
+};
 
 const isHodRole = (value) => {
   const normalized = String(value || "")
@@ -318,7 +317,7 @@ export const addDean = async (req, res) => {
     if (!isDeanRole(normalizedRole)) {
       return res.status(400).json({
         success: false,
-        message: "Role must include Dean",
+        message: "Role must be a dean or training-level role",
       });
     }
 
@@ -1736,7 +1735,7 @@ export const updateDean = async (req, res) => {
       if (!normalizedRole || !isDeanRole(normalizedRole)) {
         return res.status(400).json({
           success: false,
-          message: "Role must include Dean",
+          message: "Role must be a dean or training-level role",
         });
       }
       updateData.role = normalizedRole;

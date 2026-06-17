@@ -95,10 +95,10 @@ const isPrincipalLevel = (name: string) => {
   );
 };
 
-// True for HOD or any Dean variant (Dean_Academics, Dean_COE, etc.)
+// True for HOD, any Dean variant (Dean_Academics, Dean_COE, etc.), or Training and Placements
 const isHodOrDean = (name: string) => {
   const key = normalizeRoleKey(name);
-  return key === "hod" || key.includes("dean");
+  return key === "hod" || key.includes("dean") || key.includes("training");
 };
 
 // Reviewer options allowed per submitter role
