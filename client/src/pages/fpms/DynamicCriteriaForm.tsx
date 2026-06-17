@@ -1217,7 +1217,7 @@ export default function DynamicCriteriaForm() {
                                 {taskStatus === "appealed"
                                   ? "Appealed to"
                                   : "Submitted to"}
-                                : {taskSubmittedRoles[task.id].join(", ")}
+                                : {taskSubmittedRoles[task.id].map(formatRoleLabel).join(", ")}
                               </span>
                             ) : null}
                           </div>
