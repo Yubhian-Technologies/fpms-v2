@@ -6,7 +6,7 @@ export function Footer() {
       <div className="container py-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p className="text-muted-foreground">
-            © {currentYear} Vishnu Educational Society. All rights reserved.
+            © {currentYear} Sri Vishnu Educational Society. All rights reserved.
           </p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <span>Developed by</span>
