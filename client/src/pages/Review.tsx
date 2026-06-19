@@ -321,14 +321,17 @@ export default function Review() {
     items.reduce(
       (acc, item) => {
         const c = item.criteriaName?.trim() || "Unspecified Criteria";
-        if (!acc[c]) acc[c] = { pending: [], reviewed: [] };
+        if (!acc[c]) acc[c] = { pending: [], reviewed: [], byModule: {} };
+        const m = item.moduleName?.trim() || "General";
+        if (!acc[c].byModule[m]) acc[c].byModule[m] = [];
+        acc[c].byModule[m].push(item);
         if (item.reviewerScore == null) acc[c].pending.push(item);
         else acc[c].reviewed.push(item);
         return acc;
       },
       {} as Record<
         string,
-        { pending: SubmissionItem[]; reviewed: SubmissionItem[] }
+        { pending: SubmissionItem[]; reviewed: SubmissionItem[]; byModule: Record<string, SubmissionItem[]> }
       >,
     );
 
@@ -433,7 +436,13 @@ export default function Review() {
               <AccordionContent className="px-5 pb-5 pt-2">
                 <Accordion type="single" collapsible className="space-y-2">
                   {Object.entries(criteriaMap).map(
-                    ([criteria, { pending, reviewed }], ci) => (
+                    ([criteria, { pending, reviewed, byModule }], ci) => {
+                      // Build a flat ordered list of all items across modules for sequential numbering
+                      const allOrdered = Object.values(byModule).flat();
+                      const taskNumberMap = new Map(
+                        allOrdered.map((item, idx) => [item.id, `${ci + 1}.${idx + 1}`])
+                      );
+                      return (
                       <AccordionItem
                         key={criteria}
                         value={criteria}
@@ -457,36 +466,31 @@ export default function Review() {
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="px-4 pb-4 pt-3 space-y-6">
-                          {pending.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-destructive" />
-                                Pending Review ({pending.length})
-                              </h4>
+                        <AccordionContent className="px-4 pb-4 pt-3 space-y-5">
+                          {Object.entries(byModule).map(([moduleName, moduleItems]) => (
+                            <div key={moduleName}>
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  {moduleName}
+                                </span>
+                                <div className="flex-1 h-px bg-border" />
+                                <span className="text-xs text-muted-foreground">{moduleItems.length} task{moduleItems.length !== 1 ? "s" : ""}</span>
+                              </div>
                               <div className="space-y-4">
-                                {pending.map((item, pi) =>
-                                  renderSubmissionCard(item, "pending", `${ci + 1}.${pi + 1}`),
+                                {moduleItems.map((item) =>
+                                  renderSubmissionCard(
+                                    item,
+                                    item.reviewerScore == null ? "pending" : "reviewed",
+                                    taskNumberMap.get(item.id),
+                                  )
                                 )}
                               </div>
                             </div>
-                          )}
-                          {reviewed.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                                <span className="h-2 w-2 rounded-full bg-green-500" />
-                                Reviewed ({reviewed.length})
-                              </h4>
-                              <div className="space-y-4">
-                                {reviewed.map((item, ri) =>
-                                  renderSubmissionCard(item, "reviewed", `${ci + 1}.${pending.length + ri + 1}`),
-                                )}
-                              </div>
-                            </div>
-                          )}
+                          ))}
                         </AccordionContent>
                       </AccordionItem>
-                    ),
+                      );
+                    },
                   )}
                 </Accordion>
               </AccordionContent>
