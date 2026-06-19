@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
@@ -118,6 +118,9 @@ export default function Dashboard() {
   const [cSearch, setCSearch] = useState<string>("");
   const [cActiveTab, setCActiveTab] = useState<string>("staff");
   const [viewerStats, setViewerStats] = useState<any>(null);
+  const [expandedCollegeDetail, setExpandedCollegeDetail] = useState<string | null>(null);
+  const [collegeFacultyCache, setCollegeFacultyCache] = useState<Record<string, any[]>>({});
+  const [isLoadingCollegeFaculty, setIsLoadingCollegeFaculty] = useState(false);
   const [deptCardSearch, setDeptCardSearch] = useState<string>("");
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
@@ -557,6 +560,24 @@ export default function Dashboard() {
     );
   }
 
+  const handleCollegeDetailClick = async (collegeName: string) => {
+    if (expandedCollegeDetail === collegeName) {
+      setExpandedCollegeDetail(null);
+      return;
+    }
+    setExpandedCollegeDetail(collegeName);
+    if (collegeFacultyCache[collegeName]) return;
+    setIsLoadingCollegeFaculty(true);
+    try {
+      const res = await api.get(`/api/viewer/college-faculty?college=${encodeURIComponent(collegeName)}`);
+      setCollegeFacultyCache((prev) => ({ ...prev, [collegeName]: res.data.data || [] }));
+    } catch {
+      setCollegeFacultyCache((prev) => ({ ...prev, [collegeName]: [] }));
+    } finally {
+      setIsLoadingCollegeFaculty(false);
+    }
+  };
+
   if (user?.role === "viewer") {
     const stats = viewerStats;
     const summary = stats?.summary || {};
@@ -794,7 +815,8 @@ export default function Dashboard() {
                           return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
                         };
                         return (
-                        <tr key={c.college} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <Fragment key={c.college}>
+                        <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3 text-muted-foreground font-medium">{i + 1}</td>
                           <td className="px-4 py-3">
                             <div className="font-medium leading-tight">{c.college}</div>
@@ -803,10 +825,15 @@ export default function Dashboard() {
                           <td className="px-3 py-3 text-center font-medium">{c.total}</td>
                           <td className="px-3 py-3 text-center text-muted-foreground">{c.submissionCount}</td>
                           <td className="px-3 py-3 text-center">
-                            <span className={`font-semibold ${c.submissionRate >= 80 ? "text-emerald-600" : c.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                              {c.submitted ?? 0} / {c.total}
-                            </span>
-                            <div className="text-xs text-muted-foreground">{c.submissionRate}%</div>
+                            <button
+                              onClick={() => handleCollegeDetailClick(c.college)}
+                              className="hover:underline focus:outline-none"
+                            >
+                              <span className={`font-semibold ${c.submissionRate >= 80 ? "text-emerald-600" : c.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                                {c.submitted ?? 0} / {c.total}
+                              </span>
+                              <div className="text-xs text-muted-foreground">{c.submissionRate}%</div>
+                            </button>
                           </td>
                           <td className="px-3 py-3 text-center font-medium">{c.avgScore}</td>
                           <td className="px-3 py-3 text-center">
@@ -841,6 +868,67 @@ export default function Dashboard() {
                             </div>
                           </td>
                         </tr>
+                        {expandedCollegeDetail === c.college && (() => {
+                          const facultyList = collegeFacultyCache[c.college] || [];
+                          const notSubmitted = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
+                          const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
+                          const colSpan = 9;
+                          const FacultyTable = ({ rows, emptyMsg }: { rows: any[]; emptyMsg: string }) => (
+                            rows.length === 0
+                              ? <p className="text-xs text-muted-foreground py-2 text-center">{emptyMsg}</p>
+                              : <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b bg-muted/20">
+                                        <th className="text-left px-3 py-1.5 font-medium">Name</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Email</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Department</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Designation</th>
+                                        <th className="text-left px-3 py-1.5 font-medium">Role</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {rows.map((f: any) => (
+                                        <tr key={f.uid} className="border-b last:border-0 hover:bg-muted/10">
+                                          <td className="px-3 py-1.5 font-medium whitespace-nowrap">{f.name || "—"}</td>
+                                          <td className="px-3 py-1.5 text-muted-foreground">{f.email || "—"}</td>
+                                          <td className="px-3 py-1.5">{f.department || "—"}</td>
+                                          <td className="px-3 py-1.5">{f.designation || "—"}</td>
+                                          <td className="px-3 py-1.5 capitalize">{f.role || "—"}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                          );
+                          return (
+                            <tr>
+                              <td colSpan={colSpan} className="bg-muted/10 border-b px-0 py-0">
+                                <div className="p-4 space-y-4">
+                                  {isLoadingCollegeFaculty && facultyList.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground text-center py-2">Loading…</p>
+                                  ) : (
+                                    <>
+                                      <div>
+                                        <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
+                                          Not Submitted ({notSubmitted.length})
+                                        </p>
+                                        <FacultyTable rows={notSubmitted} emptyMsg="All staff have submitted." />
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-2">
+                                          Submitted ({submitted.length})
+                                        </p>
+                                        <FacultyTable rows={submitted} emptyMsg="No submissions yet." />
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                        </Fragment>
                         );
                       })}
                     </tbody>

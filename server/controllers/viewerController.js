@@ -10,6 +10,52 @@ const getConfirmedScore = (sub) => {
   return 0;
 };
 
+export const getCollegeFaculty = async (req, res) => {
+  try {
+    const { college } = req.query;
+    if (!college) return res.status(400).json({ success: false, message: "College is required" });
+    const collegeName = String(college).trim();
+
+    const excluded = new Set(["committee", "viewer", "superadmin", "internal committee"]);
+
+    const [usersSnap, subsSnap] = await Promise.all([
+      db.collection("users")
+        .where("college", "==", collegeName)
+        .select("uid", "name", "email", "role", "department", "designation")
+        .get(),
+      db.collection("submissions")
+        .where("college", "==", collegeName)
+        .select("userId", "status")
+        .get(),
+    ]);
+
+    const submittedUids = new Set(subsSnap.docs.map((d) => d.data().userId).filter(Boolean));
+
+    const faculty = usersSnap.docs
+      .map((doc) => {
+        const d = doc.data();
+        if (excluded.has(String(d.role || "").trim().toLowerCase())) return null;
+        return {
+          uid: doc.id,
+          name: d.name || "",
+          email: d.email || "",
+          role: d.role || "",
+          department: d.department || "",
+          designation: d.designation || "",
+          hasSubmitted: submittedUids.has(doc.id),
+          submissionCount: subsSnap.docs.filter((s) => s.data().userId === doc.id).length,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
+
+    return res.json({ success: true, data: faculty });
+  } catch (err) {
+    console.error("getCollegeFaculty error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export const getViewerStats = async (req, res) => {
   try {
     const normStr = (s) => String(s || "").trim().toLowerCase();
