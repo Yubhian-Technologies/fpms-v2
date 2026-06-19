@@ -207,7 +207,6 @@ export default function Review() {
     Record<string, { id: string; criteriaName: string; order: number }[]>
   >({});
   const fetchedStructureKeys = useRef(new Set<string>());
-  const fetchedCriteriaKeys = useRef(new Set<string>());
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<
     string | null
   >(null);
@@ -253,21 +252,20 @@ export default function Review() {
         return next;
       });
 
-      // Fetch criteria ordering for all unique formIds in parallel — done here
-      // so the order is available synchronously when the accordion renders.
-      const allItems = [...pending, ...reviewed];
-      const formIds = [...new Set(allItems.map((i) => i.formId).filter(Boolean) as string[])];
-      if (formIds.length > 0) {
-        const results = await Promise.allSettled(
-          formIds.map((fId) => api.get(`/api/submissions/form-criteria/${fId}`))
-        );
-        const criteriaCache: Record<string, { id: string; criteriaName: string; order: number }[]> = {};
-        formIds.forEach((fId, idx) => {
-          const r = results[idx];
-          criteriaCache[fId] = r.status === "fulfilled" ? (r.value.data.data?.criteria || []) : [];
+      // Fetch global form display order (same order as the form builder shows forms).
+      // Each "criteria" group in the review page corresponds to a different form,
+      // so we sort by formId position in this list.
+      try {
+        const orderRes = await api.get("/api/submissions/form-order");
+        const forms: { id: string; formTitle: string; order: number }[] = orderRes.data.data?.forms || [];
+        const orderMap: Record<string, { id: string; criteriaName: string; order: number }[]> = {};
+        forms.forEach((f) => {
+          // Store as a single-element criteria list so existing sort logic works
+          orderMap[f.id] = [{ id: f.id, criteriaName: f.formTitle, order: f.order }];
         });
-        setFormCriteriaCache(criteriaCache);
-        fetchedCriteriaKeys.current = new Set(formIds);
+        setFormCriteriaCache(orderMap);
+      } catch {
+        // non-fatal — criteria will render in insertion order
       }
     } catch (error) {
       console.error("Failed to fetch review queue:", error);
@@ -504,16 +502,13 @@ export default function Review() {
                 <Accordion type="single" collapsible className="space-y-2">
                   {(() => {
                     const criteriaEntries = Object.entries(criteriaMap);
-                    // Get formId from first criteria entry that has one
-                    const anyFormId = criteriaEntries.map(([, v]) => v.formId).find(Boolean);
-                    const criteriaOrder = anyFormId ? (formCriteriaCache[anyFormId] || []) : [];
-                    if (criteriaOrder.length > 0) {
-                      // Match by criteriaId (exact) for reliable ordering
-                      const orderById = new Map(criteriaOrder.map((c, idx) => [c.id, idx]));
+                    // Each criteria group comes from a different form.
+                    // formCriteriaCache[formId][0].order = that form's position in the builder list.
+                    if (Object.keys(formCriteriaCache).length > 0) {
                       criteriaEntries.sort(([, a], [, b]) => {
-                        const ai = orderById.get(a.criteriaId || "") ?? 999;
-                        const bi = orderById.get(b.criteriaId || "") ?? 999;
-                        return ai - bi;
+                        const ao = formCriteriaCache[a.formId || ""]?.[0]?.order ?? 999;
+                        const bo = formCriteriaCache[b.formId || ""]?.[0]?.order ?? 999;
+                        return ao - bo;
                       });
                     }
                     return criteriaEntries.map(

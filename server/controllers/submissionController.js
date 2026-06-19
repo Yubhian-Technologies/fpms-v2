@@ -1619,6 +1619,22 @@ export const editReview = async (req, res) => {
   }
 };
 
+// Returns all forms in display order (same as form builder) — used by review page to order criteria groups
+export const getFormOrder = async (req, res) => {
+  try {
+    const snap = await db.collection("fpmsForms").orderBy("updatedAt", "desc").get();
+    const forms = snap.docs.map((doc, idx) => ({
+      id: doc.id,
+      formTitle: String(doc.data().formTitle || ""),
+      order: idx,
+    }));
+    return res.json({ success: true, data: { forms } });
+  } catch (err) {
+    console.error("getFormOrder error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // Returns all criteria for a form in order — used by review pages to sort criteria correctly
 export const getFormCriteria = async (req, res) => {
   try {

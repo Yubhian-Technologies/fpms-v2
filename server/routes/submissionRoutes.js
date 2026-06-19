@@ -17,6 +17,7 @@ import {
   editReview,
   getFormStructure,
   getFormCriteria,
+  getFormOrder,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -59,6 +60,7 @@ router.put("/:id/edit-review", editReview);
 router.delete("/:id", deleteSubmission);
 
 // Form structure (for review/HOD display ordering)
+router.get("/form-order", getFormOrder);
 router.get("/form-criteria/:formId", getFormCriteria);
 router.get("/form-structure/:formId/criteria/:criteriaId", getFormStructure);
 
