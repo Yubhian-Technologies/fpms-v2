@@ -804,8 +804,9 @@ export default function Dashboard() {
                           <td className="px-3 py-3 text-center text-muted-foreground">{c.submissionCount}</td>
                           <td className="px-3 py-3 text-center">
                             <span className={`font-semibold ${c.submissionRate >= 80 ? "text-emerald-600" : c.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                              {c.submissionRate}%
+                              {c.submitted ?? 0} / {c.total}
                             </span>
+                            <div className="text-xs text-muted-foreground">{c.submissionRate}%</div>
                           </td>
                           <td className="px-3 py-3 text-center font-medium">{c.avgScore}</td>
                           <td className="px-3 py-3 text-center">
