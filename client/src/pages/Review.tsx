@@ -203,7 +203,11 @@ export default function Review() {
   const [formStructureCache, setFormStructureCache] = useState<
     Record<string, { modules: ModuleStructure[] } | null>
   >({});
+  const [formCriteriaCache, setFormCriteriaCache] = useState<
+    Record<string, { id: string; criteriaName: string; order: number }[]>
+  >({});
   const fetchedStructureKeys = useRef(new Set<string>());
+  const fetchedCriteriaKeys = useRef(new Set<string>());
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<
     string | null
   >(null);
@@ -271,11 +275,27 @@ export default function Review() {
 
   useEffect(() => {
     const allItems = [...queue, ...reviewedItems];
-    const keys = new Set<string>();
-    allItems.forEach((item) => {
-      if (item.formId && item.criteriaId) keys.add(`${item.formId}:${item.criteriaId}`);
+
+    // Fetch criteria order per unique formId
+    const formIds = new Set<string>();
+    allItems.forEach((item) => { if (item.formId) formIds.add(item.formId); });
+    formIds.forEach(async (fId) => {
+      if (fetchedCriteriaKeys.current.has(fId)) return;
+      fetchedCriteriaKeys.current.add(fId);
+      try {
+        const res = await api.get(`/api/submissions/form-criteria/${fId}`);
+        setFormCriteriaCache((prev) => ({ ...prev, [fId]: res.data.data?.criteria || [] }));
+      } catch {
+        setFormCriteriaCache((prev) => ({ ...prev, [fId]: [] }));
+      }
     });
-    keys.forEach(async (key) => {
+
+    // Fetch module structure per unique formId+criteriaId
+    const structureKeys = new Set<string>();
+    allItems.forEach((item) => {
+      if (item.formId && item.criteriaId) structureKeys.add(`${item.formId}:${item.criteriaId}`);
+    });
+    structureKeys.forEach(async (key) => {
       if (fetchedStructureKeys.current.has(key)) return;
       fetchedStructureKeys.current.add(key);
       const [fId, cId] = key.split(":");
@@ -480,7 +500,20 @@ export default function Review() {
               </AccordionTrigger>
               <AccordionContent className="px-5 pb-5 pt-2">
                 <Accordion type="single" collapsible className="space-y-2">
-                  {Object.entries(criteriaMap).map(
+                  {(() => {
+                    const criteriaEntries = Object.entries(criteriaMap);
+                    // Get formId from first criteria entry that has one
+                    const anyFormId = criteriaEntries.map(([, v]) => v.formId).find(Boolean);
+                    const criteriaOrder = anyFormId ? (formCriteriaCache[anyFormId] || []) : [];
+                    if (criteriaOrder.length > 0) {
+                      const orderMap = new Map(criteriaOrder.map((c, idx) => [c.criteriaName.trim().toLowerCase(), idx]));
+                      criteriaEntries.sort(([a], [b]) => {
+                        const ai = orderMap.get(a.trim().toLowerCase()) ?? 999;
+                        const bi = orderMap.get(b.trim().toLowerCase()) ?? 999;
+                        return ai - bi;
+                      });
+                    }
+                    return criteriaEntries.map(
                     ([criteria, { pending, reviewed, byModuleId, formId: cFormId, criteriaId: cCriteriaId }], ci) => {
                       const structureKey = cFormId && cCriteriaId ? `${cFormId}:${cCriteriaId}` : null;
                       const formStructure = structureKey ? formStructureCache[structureKey] : null;
@@ -591,8 +624,8 @@ export default function Review() {
                         </AccordionContent>
                       </AccordionItem>
                       );
-                    },
-                  )}
+                    });
+                  })()}
                 </Accordion>
               </AccordionContent>
             </AccordionItem>

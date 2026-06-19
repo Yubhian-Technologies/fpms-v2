@@ -1619,6 +1619,25 @@ export const editReview = async (req, res) => {
   }
 };
 
+// Returns all criteria for a form in order — used by review pages to sort criteria correctly
+export const getFormCriteria = async (req, res) => {
+  try {
+    const { formId } = req.params;
+    if (!formId) return res.status(400).json({ success: false, message: "formId required" });
+    const snap = await db.collection("fpmsForms").doc(formId).collection("criteria").get();
+    const criteria = snap.docs
+      .map((doc) => {
+        const d = doc.data();
+        return { id: doc.id, criteriaName: String(d.criteriaName || ""), order: Number(d.order || 0) };
+      })
+      .sort((a, b) => a.order - b.order);
+    return res.json({ success: true, data: { criteria } });
+  } catch (err) {
+    console.error("getFormCriteria error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // Returns the module/task structure for a form criteria — used by review/HOD pages for display ordering
 export const getFormStructure = async (req, res) => {
   try {
