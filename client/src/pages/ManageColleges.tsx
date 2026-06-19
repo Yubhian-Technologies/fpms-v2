@@ -1872,15 +1872,15 @@ export default function ManageColleges() {
                 <div className="space-y-2">
                   <Label>Department <span className="text-muted-foreground text-xs">(optional)</span></Label>
                   <Select
-                    value={resetDepartment}
-                    onValueChange={(v) => { setResetDepartment(v); setResetFacultyId(""); setShowResetConfirm(false); }}
+                    value={resetDepartment || "__all__"}
+                    onValueChange={(v) => { setResetDepartment(v === "__all__" ? "" : v); setResetFacultyId(""); setShowResetConfirm(false); }}
                     disabled={!resetCollegeName || isLoadingResetStaff}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={isLoadingResetStaff ? "Loading…" : "All departments"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All departments</SelectItem>
+                      <SelectItem value="__all__">All departments</SelectItem>
                       {Array.from(new Set(resetCollegeStaff.map((s: any) => s.department).filter(Boolean))).sort().map((d: any) => (
                         <SelectItem key={d} value={d}>{d}</SelectItem>
                       ))}
@@ -1892,15 +1892,15 @@ export default function ManageColleges() {
                 <div className="space-y-2">
                   <Label>Faculty / Staff <span className="text-muted-foreground text-xs">(optional)</span></Label>
                   <Select
-                    value={resetFacultyId}
-                    onValueChange={(v) => { setResetFacultyId(v); setShowResetConfirm(false); }}
+                    value={resetFacultyId || "__all__"}
+                    onValueChange={(v) => { setResetFacultyId(v === "__all__" ? "" : v); setShowResetConfirm(false); }}
                     disabled={!resetCollegeName || isLoadingResetStaff}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All staff" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All staff</SelectItem>
+                      <SelectItem value="__all__">All staff</SelectItem>
                       {resetCollegeStaff
                         .filter((s: any) => !resetDepartment || s.department === resetDepartment)
                         .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""))
