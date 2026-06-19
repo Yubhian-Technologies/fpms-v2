@@ -433,7 +433,7 @@ export default function Review() {
               <AccordionContent className="px-5 pb-5 pt-2">
                 <Accordion type="single" collapsible className="space-y-2">
                   {Object.entries(criteriaMap).map(
-                    ([criteria, { pending, reviewed }]) => (
+                    ([criteria, { pending, reviewed }], ci) => (
                       <AccordionItem
                         key={criteria}
                         value={criteria}
@@ -441,7 +441,10 @@ export default function Review() {
                       >
                         <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/20 text-sm">
                           <div className="flex items-center justify-between w-full pr-4">
-                            <span className="font-medium">{criteria}</span>
+                            <span className="font-medium">
+                              <span className="text-muted-foreground mr-1.5">{ci + 1}.</span>
+                              {criteria}
+                            </span>
                             <div className="flex gap-3 text-xs">
                               {pending.length > 0 && (
                                 <span className="text-destructive font-medium">
@@ -462,8 +465,8 @@ export default function Review() {
                                 Pending Review ({pending.length})
                               </h4>
                               <div className="space-y-4">
-                                {pending.map((item) =>
-                                  renderSubmissionCard(item, "pending"),
+                                {pending.map((item, pi) =>
+                                  renderSubmissionCard(item, "pending", `${ci + 1}.${pi + 1}`),
                                 )}
                               </div>
                             </div>
@@ -475,8 +478,8 @@ export default function Review() {
                                 Reviewed ({reviewed.length})
                               </h4>
                               <div className="space-y-4">
-                                {reviewed.map((item) =>
-                                  renderSubmissionCard(item, "reviewed"),
+                                {reviewed.map((item, ri) =>
+                                  renderSubmissionCard(item, "reviewed", `${ci + 1}.${pending.length + ri + 1}`),
                                 )}
                               </div>
                             </div>
@@ -788,6 +791,7 @@ export default function Review() {
   const renderSubmissionCard = (
     item: SubmissionItem,
     type: "pending" | "reviewed",
+    taskLabel?: string,
   ) => {
     const id = String(item.id || "").trim();
     const input = reviewInputs[id] || { verifiedScore: "", remarks: "" };
@@ -801,7 +805,12 @@ export default function Review() {
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start gap-4">
             <div className="space-y-1 flex-1">
-              <CardTitle className="text-base">
+              <CardTitle className="text-base flex items-center gap-2">
+                {taskLabel && (
+                  <span className="text-xs font-mono bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                    {taskLabel}
+                  </span>
+                )}
                 {item.taskName || "Task"}
               </CardTitle>
               <div className="text-xs text-muted-foreground space-y-0.5">
