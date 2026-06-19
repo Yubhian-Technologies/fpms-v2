@@ -1591,8 +1591,9 @@ export const editReview = async (req, res) => {
     }
 
     const data = docSnap.data();
-    if (data.status !== "reviewed") {
-      return res.status(400).json({ success: false, message: "Only reviewed submissions can be edited" });
+    const editableStatuses = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
+    if (!editableStatuses.includes(data.status)) {
+      return res.status(400).json({ success: false, message: "Only reviewed or accepted submissions can be edited" });
     }
 
     const saData = await getSuperadminConfig();
@@ -1615,6 +1616,59 @@ export const editReview = async (req, res) => {
     return res.status(200).json({ success: true, message: "Review updated successfully" });
   } catch (err) {
     console.error("editReview error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// All finalized submissions in reviewer's college scope — for score correction during evaluation
+export const getAllReviewedSubmissions = async (req, res) => {
+  try {
+    const { userId, userRole, college, department, internalCommittee } = await resolveReviewerScope(req);
+    const effectiveRole = internalCommittee ? "internal committee" : userRole;
+
+    if (!college) return res.status(403).json({ success: false, message: "College not found" });
+
+    const FINALIZED = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
+
+    // IC fast-path: all faculty (or whichever roles route to IC) in the college
+    if (internalCommittee) {
+      const norm = (v) => normalizeRoleForWorkflow(v || "");
+      const workflowRules = await loadWorkflowRules(college);
+      const icSubmitterRoles = workflowRules
+        .filter((rule) => (rule.submitToRoles || []).some((r) => norm(r) === "internal committee"))
+        .map((rule) => norm(rule.role));
+
+      const snap = await db.collection("submissions")
+        .where("college", "==", college)
+        .get();
+
+      const submissions = snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((s) => FINALIZED.includes(s.status))
+        .filter((s) => icSubmitterRoles.length === 0 || icSubmitterRoles.includes(normalizeRoleForWorkflow(s.userRole || "")))
+        .filter((s) => s.userId !== userId);
+
+      return res.json({ success: true, data: submissions });
+    }
+
+    // HOD: own department only
+    if (department) {
+      const snap = await db.collection("submissions")
+        .where("college", "==", college)
+        .where("department", "==", department)
+        .get();
+
+      const submissions = snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((s) => FINALIZED.includes(s.status))
+        .filter((s) => s.userId !== userId);
+
+      return res.json({ success: true, data: submissions });
+    }
+
+    return res.json({ success: true, data: [] });
+  } catch (err) {
+    console.error("getAllReviewedSubmissions error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };

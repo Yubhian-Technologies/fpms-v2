@@ -19,6 +19,7 @@ import {
   getFormCriteria,
   getFormOrder,
   getCollegePhases,
+  getAllReviewedSubmissions,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -59,6 +60,9 @@ router.get("/my-reviewed", getReviewedSubmissions);
 router.post("/:id/review", reviewSubmission);
 router.put("/:id/edit-review", editReview);
 router.delete("/:id", deleteSubmission);
+
+// All finalized (accepted/reviewed) submissions in reviewer's scope — for editing during evaluation
+router.get("/all-reviewed", getAllReviewedSubmissions);
 
 // College phase map (lets review page check phase per submission regardless of reviewer's own college)
 router.get("/college-phases", getCollegePhases);
