@@ -103,6 +103,10 @@ export default function ManageColleges() {
 
   // Reset evaluations state
   const [resetCollegeName, setResetCollegeName] = useState("");
+  const [resetDepartment, setResetDepartment] = useState("");
+  const [resetFacultyId, setResetFacultyId] = useState("");
+  const [resetCollegeStaff, setResetCollegeStaff] = useState<any[]>([]);
+  const [isLoadingResetStaff, setIsLoadingResetStaff] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -641,17 +645,41 @@ export default function ManageColleges() {
     }
   };
 
+  const handleResetCollegeChange = async (college: string) => {
+    setResetCollegeName(college);
+    setResetDepartment("");
+    setResetFacultyId("");
+    setResetCollegeStaff([]);
+    setShowResetConfirm(false);
+    if (!college) return;
+    setIsLoadingResetStaff(true);
+    try {
+      const res = await api.get(`/api/superadmin/college-staff?college=${encodeURIComponent(college)}`);
+      setResetCollegeStaff(res.data.data || []);
+    } catch {
+      setResetCollegeStaff([]);
+    } finally {
+      setIsLoadingResetStaff(false);
+    }
+  };
+
   const handleResetEvaluations = async () => {
     if (!resetCollegeName) return;
     try {
       setIsResetting(true);
-      const res = await api.post("/api/superadmin/reset-evaluations", { college: resetCollegeName });
+      const payload: any = { college: resetCollegeName };
+      if (resetDepartment) payload.department = resetDepartment;
+      if (resetFacultyId) payload.userId = resetFacultyId;
+      const res = await api.post("/api/superadmin/reset-evaluations", payload);
       toast({
         title: "Evaluations Reset",
         description: res.data.message,
       });
       setShowResetConfirm(false);
       setResetCollegeName("");
+      setResetDepartment("");
+      setResetFacultyId("");
+      setResetCollegeStaff([]);
     } catch (err: any) {
       toast({
         title: "Reset Failed",
@@ -1820,27 +1848,76 @@ export default function ManageColleges() {
                 Reset HOD Evaluations
               </CardTitle>
               <CardDescription>
-                Clears all HOD review scores for a college and resets submission statuses back to "Submitted". Submissions are kept — only evaluation scores are removed.
+                Clears HOD review scores and resets submission statuses back to "Submitted". Filter by department or faculty to reset a specific scope. Submissions are kept — only evaluation scores are removed.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Select College</Label>
-                <Select value={resetCollegeName} onValueChange={setResetCollegeName}>
-                  <SelectTrigger className="w-full max-w-sm">
-                    <SelectValue placeholder="Choose a college…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {colleges.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* College */}
+                <div className="space-y-2">
+                  <Label>College <span className="text-destructive">*</span></Label>
+                  <Select value={resetCollegeName} onValueChange={handleResetCollegeChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a college…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colleges.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Department */}
+                <div className="space-y-2">
+                  <Label>Department <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Select
+                    value={resetDepartment}
+                    onValueChange={(v) => { setResetDepartment(v); setResetFacultyId(""); setShowResetConfirm(false); }}
+                    disabled={!resetCollegeName || isLoadingResetStaff}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isLoadingResetStaff ? "Loading…" : "All departments"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All departments</SelectItem>
+                      {Array.from(new Set(resetCollegeStaff.map((s: any) => s.department).filter(Boolean))).sort().map((d: any) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Faculty */}
+                <div className="space-y-2">
+                  <Label>Faculty / Staff <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Select
+                    value={resetFacultyId}
+                    onValueChange={(v) => { setResetFacultyId(v); setShowResetConfirm(false); }}
+                    disabled={!resetCollegeName || isLoadingResetStaff}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All staff" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All staff</SelectItem>
+                      {resetCollegeStaff
+                        .filter((s: any) => !resetDepartment || s.department === resetDepartment)
+                        .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""))
+                        .map((s: any) => (
+                          <SelectItem key={s.uid} value={s.uid}>
+                            {s.name || s.email} {s.department ? `(${s.department})` : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               {!showResetConfirm ? (
                 <Button
                   variant="destructive"
-                  disabled={!resetCollegeName}
+                  disabled={!resetCollegeName || isLoadingResetStaff}
                   onClick={() => setShowResetConfirm(true)}
                 >
                   Reset Evaluations
@@ -1848,7 +1925,18 @@ export default function ManageColleges() {
               ) : (
                 <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 space-y-3">
                   <p className="text-sm font-medium text-destructive">
-                    This will reset all HOD-reviewed scores for <strong>{resetCollegeName}</strong>. Are you sure?
+                    This will reset HOD-reviewed scores for{" "}
+                    <strong>{resetCollegeName}</strong>
+                    {resetDepartment && <>, department: <strong>{resetDepartment}</strong></>}
+                    {resetFacultyId && (
+                      <>
+                        , faculty:{" "}
+                        <strong>
+                          {resetCollegeStaff.find((s: any) => s.uid === resetFacultyId)?.name || resetFacultyId}
+                        </strong>
+                      </>
+                    )}
+                    . Are you sure?
                   </p>
                   <div className="flex gap-2">
                     <Button

@@ -1449,9 +1449,31 @@ export const getInternalCommittees = async (req, res) => {
   }
 };
 
+export const getCollegeStaff = async (req, res) => {
+  try {
+    const { college } = req.query;
+    if (!college) return res.status(400).json({ success: false, message: "College is required" });
+
+    const snap = await db.collection("users")
+      .where("college", "==", String(college).trim())
+      .select("uid", "name", "email", "role", "department", "designation")
+      .get();
+
+    const excluded = new Set(["committee", "viewer", "superadmin"]);
+    const staff = snap.docs
+      .map((doc) => ({ uid: doc.id, ...doc.data() }))
+      .filter((s) => !excluded.has(String(s.role || "").toLowerCase()));
+
+    return res.json({ success: true, data: staff });
+  } catch (err) {
+    console.error("getCollegeStaff error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export const resetCollegeEvaluations = async (req, res) => {
   try {
-    const { college } = req.body;
+    const { college, department, userId } = req.body;
     if (!college || !String(college).trim()) {
       return res.status(400).json({ success: false, message: "College name is required" });
     }
@@ -1460,17 +1482,22 @@ export const resetCollegeEvaluations = async (req, res) => {
     // Statuses that have HOD review data attached
     const reviewedStatuses = ["reviewed", "accepted", "auto-approved"];
 
-    const snapshot = await db
-      .collection("submissions")
-      .where("college", "==", collegeName)
-      .get();
+    let query = db.collection("submissions").where("college", "==", collegeName);
+    if (department && String(department).trim()) {
+      query = query.where("department", "==", String(department).trim());
+    }
+    if (userId && String(userId).trim()) {
+      query = query.where("userId", "==", String(userId).trim());
+    }
+
+    const snapshot = await query.get();
 
     const toReset = snapshot.docs.filter((doc) =>
       reviewedStatuses.includes(doc.data().status)
     );
 
     if (toReset.length === 0) {
-      return res.status(200).json({ success: true, message: "No evaluated submissions found for this college.", count: 0 });
+      return res.status(200).json({ success: true, message: "No evaluated submissions found for the selected scope.", count: 0 });
     }
 
     const CHUNK = 400;
@@ -1492,7 +1519,7 @@ export const resetCollegeEvaluations = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Reset ${toReset.length} submission(s) for "${collegeName}" back to submitted.`,
+      message: `Reset ${toReset.length} submission(s) back to submitted.`,
       count: toReset.length,
     });
   } catch (error) {

@@ -21,6 +21,7 @@ import {
   updateCommitteeMember,
   updateRole,
   resetCollegeEvaluations,
+  getCollegeStaff,
 } from "../controllers/superAdminController.js";
 import { superadminAuth } from "../middleware/superAdminAuth.js";
 
@@ -65,6 +66,7 @@ superadminRouter.post("/forms", superadminAuth, createForm);
 superadminRouter.put("/forms/:id", superadminAuth, updateForm);
 superadminRouter.delete("/forms/:id", superadminAuth, deleteForm);
 
+superadminRouter.get("/college-staff", superadminAuth, getCollegeStaff);
 superadminRouter.post("/reset-evaluations", superadminAuth, resetCollegeEvaluations);
 
 export default superadminRouter;
