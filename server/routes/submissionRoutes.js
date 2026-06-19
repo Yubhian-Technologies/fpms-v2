@@ -18,6 +18,7 @@ import {
   getFormStructure,
   getFormCriteria,
   getFormOrder,
+  getCollegePhases,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -58,6 +59,9 @@ router.get("/my-reviewed", getReviewedSubmissions);
 router.post("/:id/review", reviewSubmission);
 router.put("/:id/edit-review", editReview);
 router.delete("/:id", deleteSubmission);
+
+// College phase map (lets review page check phase per submission regardless of reviewer's own college)
+router.get("/college-phases", getCollegePhases);
 
 // Form structure (for review/HOD display ordering)
 router.get("/form-order", getFormOrder);

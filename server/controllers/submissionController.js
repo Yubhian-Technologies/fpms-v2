@@ -1619,6 +1619,21 @@ export const editReview = async (req, res) => {
   }
 };
 
+// Returns evaluation phase for every college — lets the review page check each submission's phase
+export const getCollegePhases = async (req, res) => {
+  try {
+    const saData = await getSuperadminConfig();
+    const phases = {};
+    (saData.colleges || []).forEach((c) => {
+      if (c?.name) phases[String(c.name).trim()] = getCollegePhase(c);
+    });
+    return res.json({ success: true, data: phases });
+  } catch (err) {
+    console.error("getCollegePhases error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // Returns all forms in display order (same as form builder) — used by review page to order criteria groups
 export const getFormOrder = async (req, res) => {
   try {

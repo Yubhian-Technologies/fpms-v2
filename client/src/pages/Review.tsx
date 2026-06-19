@@ -206,6 +206,8 @@ export default function Review() {
   const [formCriteriaCache, setFormCriteriaCache] = useState<
     Record<string, { id: string; criteriaName: string; order: number }[]>
   >({});
+  // Maps college name → phase — used for edit button so IC users (who may have no college) see correct phase
+  const [collegePhaseMap, setCollegePhaseMap] = useState<Record<string, string>>({});
   const fetchedStructureKeys = useRef(new Set<string>());
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<
     string | null
@@ -251,6 +253,11 @@ export default function Review() {
         });
         return next;
       });
+
+      // Fetch phase for every college so IC users (who may have no college) get correct phase per submission
+      api.get("/api/submissions/college-phases").then((r) => {
+        if (r.data?.data) setCollegePhaseMap(r.data.data);
+      }).catch(() => {});
 
       // Fetch global form display order (same order as the form builder shows forms).
       // Each "criteria" group in the review page corresponds to a different form,
@@ -1102,7 +1109,10 @@ export default function Review() {
             </div>
           ) : (
             <div className="flex justify-end items-center gap-2 pt-1">
-              {phase === "evaluation" && item.status === "reviewed" && !editMode[id] && (
+              {(() => {
+                const itemPhase = (item.college ? collegePhaseMap[item.college] : null) || phase;
+                return itemPhase === "evaluation";
+              })() && item.status === "reviewed" && !editMode[id] && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1112,7 +1122,10 @@ export default function Review() {
                   Edit Score
                 </Button>
               )}
-              {phase === "evaluation" && editMode[id] && (
+              {(() => {
+                const itemPhase = (item.college ? collegePhaseMap[item.college] : null) || phase;
+                return itemPhase === "evaluation";
+              })() && editMode[id] && (
                 <>
                   <Button
                     size="sm"
