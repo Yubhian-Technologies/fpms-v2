@@ -252,6 +252,23 @@ export default function Review() {
         });
         return next;
       });
+
+      // Fetch criteria ordering for all unique formIds in parallel — done here
+      // so the order is available synchronously when the accordion renders.
+      const allItems = [...pending, ...reviewed];
+      const formIds = [...new Set(allItems.map((i) => i.formId).filter(Boolean) as string[])];
+      if (formIds.length > 0) {
+        const results = await Promise.allSettled(
+          formIds.map((fId) => api.get(`/api/submissions/form-criteria/${fId}`))
+        );
+        const criteriaCache: Record<string, { id: string; criteriaName: string; order: number }[]> = {};
+        formIds.forEach((fId, idx) => {
+          const r = results[idx];
+          criteriaCache[fId] = r.status === "fulfilled" ? (r.value.data.data?.criteria || []) : [];
+        });
+        setFormCriteriaCache(criteriaCache);
+        fetchedCriteriaKeys.current = new Set(formIds);
+      }
     } catch (error) {
       console.error("Failed to fetch review queue:", error);
       toast({
@@ -273,24 +290,9 @@ export default function Review() {
     fetchQueue();
   }, [user?.id, user?.role, user?.internalCommittee, canReview, accessLoading]);
 
+  // Fetch module structure lazily when queue data changes
   useEffect(() => {
     const allItems = [...queue, ...reviewedItems];
-
-    // Fetch criteria order per unique formId
-    const formIds = new Set<string>();
-    allItems.forEach((item) => { if (item.formId) formIds.add(item.formId); });
-    formIds.forEach(async (fId) => {
-      if (fetchedCriteriaKeys.current.has(fId)) return;
-      fetchedCriteriaKeys.current.add(fId);
-      try {
-        const res = await api.get(`/api/submissions/form-criteria/${fId}`);
-        setFormCriteriaCache((prev) => ({ ...prev, [fId]: res.data.data?.criteria || [] }));
-      } catch {
-        setFormCriteriaCache((prev) => ({ ...prev, [fId]: [] }));
-      }
-    });
-
-    // Fetch module structure per unique formId+criteriaId
     const structureKeys = new Set<string>();
     allItems.forEach((item) => {
       if (item.formId && item.criteriaId) structureKeys.add(`${item.formId}:${item.criteriaId}`);
