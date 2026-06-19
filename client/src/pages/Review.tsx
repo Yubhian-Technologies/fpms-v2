@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -191,6 +191,19 @@ export default function Review() {
   const [reviewInputs, setReviewInputs] = useState<
     Record<string, { verifiedScore: string; remarks: string }>
   >({});
+
+  type ModuleStructure = {
+    id: string;
+    moduleNumber: number;
+    moduleName: string;
+    totalMarks: number;
+    order: number;
+    tasks: { id: string; title: string; marks: number; marksType: string; order: number }[];
+  };
+  const [formStructureCache, setFormStructureCache] = useState<
+    Record<string, { modules: ModuleStructure[] } | null>
+  >({});
+  const fetchedStructureKeys = useRef(new Set<string>());
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<
     string | null
   >(null);
@@ -255,6 +268,25 @@ export default function Review() {
     }
     fetchQueue();
   }, [user?.id, user?.role, user?.internalCommittee, canReview, accessLoading]);
+
+  useEffect(() => {
+    const allItems = [...queue, ...reviewedItems];
+    const keys = new Set<string>();
+    allItems.forEach((item) => {
+      if (item.formId && item.criteriaId) keys.add(`${item.formId}:${item.criteriaId}`);
+    });
+    keys.forEach(async (key) => {
+      if (fetchedStructureKeys.current.has(key)) return;
+      fetchedStructureKeys.current.add(key);
+      const [fId, cId] = key.split(":");
+      try {
+        const res = await api.get(`/api/submissions/form-structure/${fId}/criteria/${cId}`);
+        setFormStructureCache((prev) => ({ ...prev, [key]: res.data.data || null }));
+      } catch {
+        setFormStructureCache((prev) => ({ ...prev, [key]: null }));
+      }
+    });
+  }, [queue, reviewedItems]);
 
   if (!user) return null;
   if (accessLoading) {
@@ -321,17 +353,30 @@ export default function Review() {
     items.reduce(
       (acc, item) => {
         const c = item.criteriaName?.trim() || "Unspecified Criteria";
-        if (!acc[c]) acc[c] = { pending: [], reviewed: [], byModule: {} };
-        const m = item.moduleName?.trim() || "General";
-        if (!acc[c].byModule[m]) acc[c].byModule[m] = [];
-        acc[c].byModule[m].push(item);
+        if (!acc[c]) acc[c] = {
+          pending: [], reviewed: [],
+          byModuleId: {} as Record<string, SubmissionItem[]>,
+          formId: item.formId || null,
+          criteriaId: item.criteriaId || null,
+        };
+        if (!acc[c].formId) acc[c].formId = item.formId || null;
+        if (!acc[c].criteriaId) acc[c].criteriaId = item.criteriaId || null;
+        const mid = item.moduleId?.trim() || "__none__";
+        if (!acc[c].byModuleId[mid]) acc[c].byModuleId[mid] = [];
+        acc[c].byModuleId[mid].push(item);
         if (item.reviewerScore == null) acc[c].pending.push(item);
         else acc[c].reviewed.push(item);
         return acc;
       },
       {} as Record<
         string,
-        { pending: SubmissionItem[]; reviewed: SubmissionItem[]; byModule: Record<string, SubmissionItem[]> }
+        {
+          pending: SubmissionItem[];
+          reviewed: SubmissionItem[];
+          byModuleId: Record<string, SubmissionItem[]>;
+          formId: string | null;
+          criteriaId: string | null;
+        }
       >,
     );
 
@@ -436,12 +481,9 @@ export default function Review() {
               <AccordionContent className="px-5 pb-5 pt-2">
                 <Accordion type="single" collapsible className="space-y-2">
                   {Object.entries(criteriaMap).map(
-                    ([criteria, { pending, reviewed, byModule }], ci) => {
-                      // Build a flat ordered list of all items across modules for sequential numbering
-                      const allOrdered = Object.values(byModule).flat();
-                      const taskNumberMap = new Map(
-                        allOrdered.map((item, idx) => [item.id, `${ci + 1}.${idx + 1}`])
-                      );
+                    ([criteria, { pending, reviewed, byModuleId, formId: cFormId, criteriaId: cCriteriaId }], ci) => {
+                      const structureKey = cFormId && cCriteriaId ? `${cFormId}:${cCriteriaId}` : null;
+                      const formStructure = structureKey ? formStructureCache[structureKey] : null;
                       return (
                       <AccordionItem
                         key={criteria}
@@ -466,27 +508,86 @@ export default function Review() {
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="px-4 pb-4 pt-3 space-y-5">
-                          {Object.entries(byModule).map(([moduleName, moduleItems]) => (
-                            <div key={moduleName}>
-                              <div className="flex items-center gap-2 mb-3">
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  {moduleName}
-                                </span>
-                                <div className="flex-1 h-px bg-border" />
-                                <span className="text-xs text-muted-foreground">{moduleItems.length} task{moduleItems.length !== 1 ? "s" : ""}</span>
-                              </div>
-                              <div className="space-y-4">
-                                {moduleItems.map((item) =>
-                                  renderSubmissionCard(
-                                    item,
-                                    item.reviewerScore == null ? "pending" : "reviewed",
-                                    taskNumberMap.get(item.id),
-                                  )
-                                )}
-                              </div>
+                        <AccordionContent className="px-4 pb-4 pt-2">
+                          {formStructure ? (
+                            <Accordion type="multiple" className="space-y-2">
+                              {formStructure.modules.map((mod) => {
+                                const moduleItems = byModuleId[mod.id] || [];
+                                const hasSubs = moduleItems.length > 0;
+                                const pendingInMod = moduleItems.filter((i) => i.reviewerScore == null).length;
+                                const allReviewed = hasSubs && pendingInMod === 0;
+                                return (
+                                  <AccordionItem key={mod.id} value={mod.id} className="border rounded-lg">
+                                    <AccordionTrigger className="px-5 py-3 hover:no-underline hover:bg-muted/20">
+                                      <div className="flex items-center justify-between w-full pr-4">
+                                        <div className="flex items-center gap-3">
+                                          <Badge variant="outline" className="px-2.5 py-0.5 font-mono text-sm shrink-0">
+                                            {mod.moduleNumber}
+                                          </Badge>
+                                          <span className="font-medium text-sm text-left">{mod.moduleName}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className="text-xs text-muted-foreground">max points: {mod.totalMarks}</span>
+                                          {pendingInMod > 0 && (
+                                            <Badge variant="destructive" className="text-xs">{pendingInMod} pending</Badge>
+                                          )}
+                                          {!hasSubs ? (
+                                            <Badge variant="destructive" className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">Not Started</Badge>
+                                          ) : allReviewed ? (
+                                            <Badge className="bg-blue-800 text-white hover:bg-blue-800">Reviewed</Badge>
+                                          ) : (
+                                            <Badge variant="secondary">In Progress</Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-5 pb-4 pt-3">
+                                      {!hasSubs ? (
+                                        <div className="py-4 text-center text-sm text-muted-foreground border border-dashed rounded-md">
+                                          No submissions for this module
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-4">
+                                          {moduleItems.map((item, idx) =>
+                                            renderSubmissionCard(
+                                              item,
+                                              item.reviewerScore == null ? "pending" : "reviewed",
+                                              `${mod.moduleNumber}.${idx + 1}`,
+                                            )
+                                          )}
+                                        </div>
+                                      )}
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                );
+                              })}
+                            </Accordion>
+                          ) : (
+                            // Fallback while structure loads
+                            <div className="space-y-5 pt-2">
+                              {Object.entries(byModuleId).map(([mid, moduleItems]) => {
+                                const modName = moduleItems[0]?.moduleName || mid;
+                                return (
+                                  <div key={mid}>
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{modName}</span>
+                                      <div className="flex-1 h-px bg-border" />
+                                      <span className="text-xs text-muted-foreground">{moduleItems.length} task{moduleItems.length !== 1 ? "s" : ""}</span>
+                                    </div>
+                                    <div className="space-y-4">
+                                      {moduleItems.map((item, idx) =>
+                                        renderSubmissionCard(
+                                          item,
+                                          item.reviewerScore == null ? "pending" : "reviewed",
+                                          `${ci + 1}.${idx + 1}`,
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          ))}
+                          )}
                         </AccordionContent>
                       </AccordionItem>
                       );

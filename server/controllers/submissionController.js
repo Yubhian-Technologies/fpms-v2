@@ -1618,3 +1618,39 @@ export const editReview = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// Returns the module/task structure for a form criteria — used by review/HOD pages for display ordering
+export const getFormStructure = async (req, res) => {
+  try {
+    const { formId, criteriaId } = req.params;
+    if (!formId || !criteriaId) return res.status(400).json({ success: false, message: "formId and criteriaId required" });
+
+    const fpmsForms = db.collection("fpmsForms");
+
+    const [modulesSnap, tasksSnap] = await Promise.all([
+      fpmsForms.doc(formId).collection("modules").where("criteriaId", "==", criteriaId).get(),
+      fpmsForms.doc(formId).collection("tasks").where("criteriaId", "==", criteriaId).get(),
+    ]);
+
+    const tasksByModule = {};
+    tasksSnap.docs.forEach((doc) => {
+      const d = doc.data();
+      const mid = String(d.moduleId || "");
+      if (!tasksByModule[mid]) tasksByModule[mid] = [];
+      tasksByModule[mid].push({ id: doc.id, title: String(d.title || ""), marks: Number(d.marks || 0), marksType: String(d.marksType || "fixed"), order: Number(d.order || 0) });
+    });
+    Object.values(tasksByModule).forEach((arr) => arr.sort((a, b) => a.order - b.order));
+
+    const modules = modulesSnap.docs
+      .map((doc) => {
+        const d = doc.data();
+        return { id: doc.id, moduleNumber: Number(d.moduleNumber || 0), moduleName: String(d.moduleName || ""), totalMarks: Number(d.totalMarks || 0), order: Number(d.order || 0), tasks: tasksByModule[doc.id] || [] };
+      })
+      .sort((a, b) => a.order - b.order);
+
+    return res.json({ success: true, data: { modules } });
+  } catch (err) {
+    console.error("getFormStructure error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

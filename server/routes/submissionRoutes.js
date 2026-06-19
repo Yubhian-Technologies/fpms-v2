@@ -15,6 +15,7 @@ import {
   deleteSubmission,
   getReviewAccess,
   editReview,
+  getFormStructure,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -55,6 +56,9 @@ router.get("/my-reviewed", getReviewedSubmissions);
 router.post("/:id/review", reviewSubmission);
 router.put("/:id/edit-review", editReview);
 router.delete("/:id", deleteSubmission);
+
+// Form structure (for review/HOD display ordering)
+router.get("/form-structure/:formId/criteria/:criteriaId", getFormStructure);
 
 // Appeal reviewer endpoints
 router.get("/appeal-queue", getAppealQueue);
