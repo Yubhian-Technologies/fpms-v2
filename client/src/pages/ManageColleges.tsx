@@ -35,6 +35,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
@@ -99,6 +100,11 @@ export default function ManageColleges() {
     null,
   );
   const [collegeToDelete, setCollegeToDelete] = useState<College | null>(null);
+
+  // Reset evaluations state
+  const [resetCollegeName, setResetCollegeName] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const [isAddingCollege, setIsAddingCollege] = useState(false);
   const [editingCollege, setEditingCollege] = useState<string | null>(null);
@@ -632,6 +638,28 @@ export default function ManageColleges() {
       });
     } finally {
       setIsSavingCollegeEditLoading(false);
+    }
+  };
+
+  const handleResetEvaluations = async () => {
+    if (!resetCollegeName) return;
+    try {
+      setIsResetting(true);
+      const res = await api.post("/api/superadmin/reset-evaluations", { college: resetCollegeName });
+      toast({
+        title: "Evaluations Reset",
+        description: res.data.message,
+      });
+      setShowResetConfirm(false);
+      setResetCollegeName("");
+    } catch (err: any) {
+      toast({
+        title: "Reset Failed",
+        description: err.response?.data?.message || "Server error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -1779,6 +1807,62 @@ export default function ManageColleges() {
                     Click "Register Member" to add a committee member for the
                     society.
                   </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Danger Zone: Reset HOD Evaluations ───────────────────── */}
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Reset HOD Evaluations
+              </CardTitle>
+              <CardDescription>
+                Clears all HOD review scores for a college and resets submission statuses back to "Submitted". Submissions are kept — only evaluation scores are removed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Select College</Label>
+                <Select value={resetCollegeName} onValueChange={setResetCollegeName}>
+                  <SelectTrigger className="w-full max-w-sm">
+                    <SelectValue placeholder="Choose a college…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {colleges.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {!showResetConfirm ? (
+                <Button
+                  variant="destructive"
+                  disabled={!resetCollegeName}
+                  onClick={() => setShowResetConfirm(true)}
+                >
+                  Reset Evaluations
+                </Button>
+              ) : (
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 space-y-3">
+                  <p className="text-sm font-medium text-destructive">
+                    This will reset all HOD-reviewed scores for <strong>{resetCollegeName}</strong>. Are you sure?
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      onClick={handleResetEvaluations}
+                      disabled={isResetting}
+                    >
+                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {isResetting ? "Resetting…" : "Yes, Reset"}
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowResetConfirm(false)} disabled={isResetting}>
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

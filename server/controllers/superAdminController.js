@@ -1448,3 +1448,55 @@ export const getInternalCommittees = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export const resetCollegeEvaluations = async (req, res) => {
+  try {
+    const { college } = req.body;
+    if (!college || !String(college).trim()) {
+      return res.status(400).json({ success: false, message: "College name is required" });
+    }
+    const collegeName = String(college).trim();
+
+    // Statuses that have HOD review data attached
+    const reviewedStatuses = ["reviewed", "accepted", "auto-approved"];
+
+    const snapshot = await db
+      .collection("submissions")
+      .where("college", "==", collegeName)
+      .get();
+
+    const toReset = snapshot.docs.filter((doc) =>
+      reviewedStatuses.includes(doc.data().status)
+    );
+
+    if (toReset.length === 0) {
+      return res.status(200).json({ success: true, message: "No evaluated submissions found for this college.", count: 0 });
+    }
+
+    const CHUNK = 400;
+    for (let i = 0; i < toReset.length; i += CHUNK) {
+      const batch = db.batch();
+      toReset.slice(i, i + CHUNK).forEach((doc) => {
+        batch.update(doc.ref, {
+          status: "submitted",
+          reviewerScore: null,
+          reviewerReason: null,
+          reviewedBy: null,
+          reviewedAt: null,
+          finalScore: null,
+          updatedAt: new Date().toISOString(),
+        });
+      });
+      await batch.commit();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Reset ${toReset.length} submission(s) for "${collegeName}" back to submitted.`,
+      count: toReset.length,
+    });
+  } catch (error) {
+    console.error("resetCollegeEvaluations error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

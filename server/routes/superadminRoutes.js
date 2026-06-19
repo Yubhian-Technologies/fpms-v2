@@ -20,6 +20,7 @@ import {
   updateCollege,
   updateCommitteeMember,
   updateRole,
+  resetCollegeEvaluations,
 } from "../controllers/superAdminController.js";
 import { superadminAuth } from "../middleware/superAdminAuth.js";
 
@@ -63,5 +64,7 @@ superadminRouter.get("/forms/:id", superadminAuth, getFormById);
 superadminRouter.post("/forms", superadminAuth, createForm);
 superadminRouter.put("/forms/:id", superadminAuth, updateForm);
 superadminRouter.delete("/forms/:id", superadminAuth, deleteForm);
+
+superadminRouter.post("/reset-evaluations", superadminAuth, resetCollegeEvaluations);
 
 export default superadminRouter;
