@@ -506,10 +506,11 @@ export default function Review() {
                     const anyFormId = criteriaEntries.map(([, v]) => v.formId).find(Boolean);
                     const criteriaOrder = anyFormId ? (formCriteriaCache[anyFormId] || []) : [];
                     if (criteriaOrder.length > 0) {
-                      const orderMap = new Map(criteriaOrder.map((c, idx) => [c.criteriaName.trim().toLowerCase(), idx]));
-                      criteriaEntries.sort(([a], [b]) => {
-                        const ai = orderMap.get(a.trim().toLowerCase()) ?? 999;
-                        const bi = orderMap.get(b.trim().toLowerCase()) ?? 999;
+                      // Match by criteriaId (exact) for reliable ordering
+                      const orderById = new Map(criteriaOrder.map((c, idx) => [c.id, idx]));
+                      criteriaEntries.sort(([, a], [, b]) => {
+                        const ai = orderById.get(a.criteriaId || "") ?? 999;
+                        const bi = orderById.get(b.criteriaId || "") ?? 999;
                         return ai - bi;
                       });
                     }
