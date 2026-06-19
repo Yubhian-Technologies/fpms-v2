@@ -1886,27 +1886,31 @@ export default function Dashboard() {
 
                     const staffRow = (s: any) => {
                       const subs = s.submissions || [];
-                      const achieved = subs.reduce(
-                        (sum: number, sub: any) =>
-                          sum + getConfirmedScore(sub),
-                        0,
-                      );
+                      const claimedTotal = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+                      const reviewerTotal = subs.reduce((sum: number, sub: any) => sub.reviewerScore != null ? sum + Number(sub.reviewerScore) : sum, 0);
+                      const appealTotal = subs.reduce((sum: number, sub: any) => sub.appealerScore != null ? sum + Number(sub.appealerScore) : sum, 0);
+                      const finalTotal = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+                      const hasAppeal = subs.some((sub: any) => sub.appealerScore != null);
                       const done = subs.filter(
                         (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired",
                       ).length;
                       const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
                       return (
                         <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">{s.email || "—"}</td>
-                          <td className="px-4 py-3">{s.designation || "—"}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-3 font-medium whitespace-nowrap">{s.name || "—"}</td>
+                          <td className="px-3 py-3 text-muted-foreground text-xs">{s.email || "—"}</td>
+                          <td className="px-3 py-3 whitespace-nowrap">{s.designation || "—"}</td>
+                          <td className="px-3 py-3 text-center">
                             <Badge variant="outline">{subs.length}</Badge>
                           </td>
-                          <td className="px-4 py-3 text-center font-medium">
-                            {achieved}{s.designationTarget ? ` / ${s.designationTarget}` : ""}
+                          <td className="px-3 py-3 text-center text-muted-foreground">
+                            {s.designationTarget ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-center text-xs font-medium">{pct}%</td>
+                          <td className="px-3 py-3 text-center">{claimedTotal}</td>
+                          <td className="px-3 py-3 text-center">{reviewerTotal}</td>
+                          <td className="px-3 py-3 text-center">{hasAppeal ? appealTotal : "—"}</td>
+                          <td className="px-3 py-3 text-center font-semibold text-primary">{finalTotal}</td>
+                          <td className="px-3 py-3 text-center text-xs font-medium">{pct}%</td>
                         </tr>
                       );
                     };
@@ -1916,12 +1920,16 @@ export default function Dashboard() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b bg-muted/30">
-                              <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                              <th className="text-left px-4 py-2.5 font-medium">Email</th>
-                              <th className="text-left px-4 py-2.5 font-medium">Designation</th>
-                              <th className="text-center px-4 py-2.5 font-medium">Submissions</th>
-                              <th className="text-center px-4 py-2.5 font-medium">Score</th>
-                              <th className="text-center px-4 py-2.5 font-medium">Completion</th>
+                              <th className="text-left px-3 py-2.5 font-medium whitespace-nowrap">Name</th>
+                              <th className="text-left px-3 py-2.5 font-medium">Email</th>
+                              <th className="text-left px-3 py-2.5 font-medium whitespace-nowrap">Designation</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Submissions</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Target</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Claimed</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Reviewer</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Appeal</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Final</th>
+                              <th className="text-center px-3 py-2.5 font-medium whitespace-nowrap">Completion</th>
                             </tr>
                           </thead>
                           <tbody>{rows.map(staffRow)}</tbody>
