@@ -5,6 +5,17 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+if (import.meta.env.VITE_MAINTENANCE_MODE === "true") {
+  document.getElementById("root")!.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;font-family:sans-serif;padding:24px;text-align:center;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:20px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <h1 style="font-size:28px;font-weight:700;color:#1e293b;margin:0 0 12px">Site Under Maintenance</h1>
+      <p style="font-size:16px;color:#64748b;max-width:420px;margin:0 0 8px">We are performing scheduled maintenance. We'll be back shortly.</p>
+      <p style="font-size:14px;color:#94a3b8;">— Sri Vishnu Educational Society</p>
+    </div>`;
+  throw new Error("maintenance");
+}
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { FPMSProvider } from "@/contexts/FPMSContext";
 import Index from "./pages/Index";
