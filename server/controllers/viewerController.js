@@ -18,10 +18,18 @@ export const getViewerStats = async (req, res) => {
 
     const collegeDesignationMap = {};
     const collegeCodeMap = {};
+    const collegeDeadlineMap = {};
     (saData.colleges || []).forEach((c) => {
       const key = normStr(c?.name);
       collegeDesignationMap[key] = {};
       if (c?.code) collegeCodeMap[key] = String(c.code).trim().toUpperCase();
+      collegeDeadlineMap[key] = {
+        submissionStart: c?.assessmentStart || null,
+        submissionEnd: c?.assessmentEnd || c?.deadline || null,
+        evaluationEnd: c?.evaluationEnd || null,
+        appealEnd: c?.appealEnd || null,
+        appealReviewEnd: c?.appealReviewEnd || null,
+      };
       (c.designations || []).forEach((d) => {
         if (!d?.name) return;
         const nameKey = normStr(d.name);
@@ -109,6 +117,7 @@ export const getViewerStats = async (req, res) => {
       avgScore: c.total ? Math.round(c.totalScore / c.total) : 0,
       completionPct: c.totalTarget ? Math.round((c.totalScore / c.totalTarget) * 100) : 0,
       submissionRate: c.total ? Math.round((c.submitted / c.total) * 100) : 0,
+      deadlines: collegeDeadlineMap[normStr(c.college)] || null,
     }));
 
     // Dept-wise aggregation

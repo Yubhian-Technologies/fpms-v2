@@ -782,11 +782,18 @@ export default function Dashboard() {
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Avg Score</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Appeals</th>
+                        <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground whitespace-nowrap">Deadlines</th>
                         <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground min-w-[160px]">Completion</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {collegeStats.map((c: any, i: number) => (
+                      {collegeStats.map((c: any, i: number) => {
+                        const dl = c.deadlines;
+                        const fmtDate = (d: string | null) => {
+                          if (!d) return null;
+                          return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                        };
+                        return (
                         <tr key={c.college} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3 text-muted-foreground font-medium">{i + 1}</td>
                           <td className="px-4 py-3">
@@ -806,6 +813,24 @@ export default function Dashboard() {
                               ? <span className="text-orange-500 font-medium">{c.appealedCount}</span>
                               : <span className="text-muted-foreground">—</span>}
                           </td>
+                          <td className="px-3 py-3">
+                            {dl ? (
+                              <div className="text-xs space-y-0.5 whitespace-nowrap">
+                                {(dl.submissionStart || dl.submissionEnd) && (
+                                  <div><span className="text-muted-foreground">Sub: </span>{fmtDate(dl.submissionStart) ?? "—"} – {fmtDate(dl.submissionEnd) ?? "—"}</div>
+                                )}
+                                {dl.evaluationEnd && (
+                                  <div><span className="text-muted-foreground">Eval: </span>{fmtDate(dl.evaluationEnd)}</div>
+                                )}
+                                {dl.appealEnd && (
+                                  <div><span className="text-muted-foreground">Appeal: </span>{fmtDate(dl.appealEnd)}</div>
+                                )}
+                                {dl.appealReviewEnd && (
+                                  <div><span className="text-muted-foreground">Appeal Review: </span>{fmtDate(dl.appealReviewEnd)}</div>
+                                )}
+                              </div>
+                            ) : <span className="text-muted-foreground text-xs">—</span>}
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <Progress value={Math.min(c.completionPct, 100)} className="flex-1 h-2" />
@@ -815,7 +840,8 @@ export default function Dashboard() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
