@@ -16,7 +16,7 @@ export const getCollegeFaculty = async (req, res) => {
     if (!college) return res.status(400).json({ success: false, message: "College is required" });
     const collegeName = String(college).trim();
 
-    const excluded = new Set(["committee", "viewer", "superadmin", "internal committee"]);
+    const excluded = new Set(["committee", "viewer", "superadmin", "internal committee", "principal", "principle", "vice principal", "vice principle", "vice-principal", "viceprincipal", "director"]);
 
     const [usersSnap, subsSnap] = await Promise.all([
       db.collection("users")
