@@ -136,6 +136,59 @@ const autoFreezeAllColleges = async () => {
   }
 };
 
+// Auto-accepts "reviewed" submissions for a college after the appeal period ends.
+// Faculty who did not accept/appeal during the appeal phase have their HOD score finalized.
+const autoFinalizeReviewedForCollege = async (college) => {
+  if (!college) return;
+  try {
+    const saData = await getSuperadminConfig();
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase()
+    );
+    const phase = getCollegePhase(collegeDef);
+    if (phase !== "appeal-review" && phase !== "locked") return;
+
+    const snapshot = await db.collection("submissions")
+      .where("college", "==", college)
+      .where("status", "==", "reviewed")
+      .get();
+    if (snapshot.empty) return;
+
+    const now = new Date().toISOString();
+    const CHUNK = 400;
+    for (let i = 0; i < snapshot.docs.length; i += CHUNK) {
+      const batch = db.batch();
+      snapshot.docs.slice(i, i + CHUNK).forEach((doc) => {
+        const d = doc.data();
+        batch.update(doc.ref, {
+          status: "accepted",
+          finalScore: Number(d.reviewerScore ?? 0),
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error("autoFinalizeReviewedForCollege error:", err);
+  }
+};
+
+const autoFinalizeAllColleges = async () => {
+  try {
+    const saData = await getSuperadminConfig();
+    await Promise.all(
+      (saData.colleges || [])
+        .filter((c) => {
+          const phase = getCollegePhase(c);
+          return phase === "appeal-review" || phase === "locked";
+        })
+        .map((c) => autoFinalizeReviewedForCollege(String(c.name || "").trim()))
+    );
+  } catch (err) {
+    console.error("autoFinalizeAllColleges error:", err);
+  }
+};
+
 const normalizeRoleForWorkflow = (value) => {
   const role = String(value || "")
     .trim()
@@ -640,6 +693,7 @@ export const getMySubmissions = async (req, res) => {
     // Auto-approve unreviewed submissions and freeze expired appeals as needed
     await autoApproveUnreviewedForCollege(userCollege);
     await autoFreezeExpiredAppeals(userCollege);
+    await autoFinalizeReviewedForCollege(userCollege);
 
     let query = db.collection("submissions").where("userId", "==", userId);
 
@@ -738,9 +792,11 @@ export const getReviewQueue = async (req, res) => {
     if (college) {
       await autoApproveUnreviewedForCollege(college);
       await autoFreezeExpiredAppeals(college);
+      await autoFinalizeReviewedForCollege(college);
     } else if (isCommitteeRole(effectiveRole)) {
       await autoApproveAllColleges();
       await autoFreezeAllColleges();
+      await autoFinalizeAllColleges();
     }
 
     // ── Principal-level fast-path ─────────────────────────────────────────────
@@ -1151,9 +1207,11 @@ export const getAppealQueue = async (req, res) => {
     if (college) {
       await autoApproveUnreviewedForCollege(college);
       await autoFreezeExpiredAppeals(college);
+      await autoFinalizeReviewedForCollege(college);
     } else if (isCommitteeRole(userRole)) {
       await autoApproveAllColleges();
       await autoFreezeAllColleges();
+      await autoFinalizeAllColleges();
     }
 
     let query = db.collection("submissions").where("status", "==", "appealed");
@@ -1513,5 +1571,50 @@ export const deleteSubmission = async (req, res) => {
   } catch (error) {
     console.error("deleteSubmission error:", error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Allows HOD to edit an already-submitted review score during the evaluation phase only.
+export const editReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reviewerScore, reviewerReason } = req.body;
+
+    if (reviewerScore === undefined) {
+      return res.status(400).json({ success: false, message: "Score is required" });
+    }
+
+    const docRef = db.collection("submissions").doc(id);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    const data = docSnap.data();
+    if (data.status !== "reviewed") {
+      return res.status(400).json({ success: false, message: "Only reviewed submissions can be edited" });
+    }
+
+    const saData = await getSuperadminConfig();
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === (data.college || "").trim().toLowerCase()
+    );
+    const phase = getCollegePhase(collegeDef);
+    if (phase !== "evaluation") {
+      return res.status(400).json({ success: false, message: "Score can only be edited during the evaluation period" });
+    }
+
+    const score = Number(reviewerScore);
+    await docRef.update({
+      reviewerScore: score,
+      reviewerReason: reviewerReason || "",
+      finalScore: score,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return res.status(200).json({ success: true, message: "Review updated successfully" });
+  } catch (err) {
+    console.error("editReview error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };

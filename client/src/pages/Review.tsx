@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, TrendingUp } from "lucide-react";
+import { Loader2, FileText, TrendingUp, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCollegePhase } from "@/hooks/useCollegePhase";
 import { useReviewAccess } from "@/hooks/useReviewAccess";
@@ -187,6 +187,7 @@ export default function Review() {
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const [editMode, setEditMode] = useState<Record<string, boolean>>({});
   const [reviewInputs, setReviewInputs] = useState<
     Record<string, { verifiedScore: string; remarks: string }>
   >({});
@@ -721,6 +722,69 @@ export default function Review() {
     }
   };
 
+  const startEdit = (id: string, item: SubmissionItem) => {
+    setEditMode((prev) => ({ ...prev, [id]: true }));
+    setReviewInputs((prev) => ({
+      ...prev,
+      [id]: {
+        verifiedScore: item.reviewerScore != null ? String(item.reviewerScore) : "",
+        remarks: item.reviewerReason || "",
+      },
+    }));
+  };
+
+  const cancelEdit = (id: string) => {
+    setEditMode((prev) => ({ ...prev, [id]: false }));
+  };
+
+  const handleEditReview = async (item: SubmissionItem) => {
+    const id = String(item.id || "").trim();
+    if (!id) return;
+
+    const input = reviewInputs[id] || { verifiedScore: "", remarks: "" };
+    const score = Number(input.verifiedScore);
+    const isRef = item.marksType === "range";
+    const max = Number(item.maxMarks || 0);
+
+    if (!Number.isFinite(score) || score < 0 || (!isRef && score > max)) {
+      toast({
+        title: "Invalid score",
+        description: isRef
+          ? "Score must be 0 or greater."
+          : `Score must be between 0 and ${max}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setReviewing((prev) => ({ ...prev, [id]: true }));
+    try {
+      await api.put(`/api/submissions/${id}/edit-review`, {
+        reviewerScore: score,
+        reviewerReason: input.remarks,
+      });
+
+      setReviewedItems((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, reviewerScore: score, reviewerReason: input.remarks, finalScore: score }
+            : r,
+        ),
+      );
+      setEditMode((prev) => ({ ...prev, [id]: false }));
+
+      toast({ title: "Review updated successfully." });
+    } catch (err: any) {
+      toast({
+        title: "Edit failed",
+        description: err?.response?.data?.message || "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setReviewing((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   const renderSubmissionCard = (
     item: SubmissionItem,
     type: "pending" | "reviewed",
@@ -831,14 +895,19 @@ export default function Review() {
                 value={
                   type === "pending"
                     ? input.verifiedScore
+                    : editMode[id]
+                    ? input.verifiedScore
                     : (item.reviewerScore ?? "")
                 }
-                onChange={(e) =>
-                  type === "pending" &&
-                  updateReviewInput(id, "verifiedScore", e.target.value, max, item.marksType ?? undefined)
-                }
-                disabled={type === "reviewed" || isReviewing}
-                className={type === "reviewed" ? "bg-muted" : ""}
+                onChange={(e) => {
+                  if (type === "pending") {
+                    updateReviewInput(id, "verifiedScore", e.target.value, max, item.marksType ?? undefined);
+                  } else if (editMode[id]) {
+                    updateReviewInput(id, "verifiedScore", e.target.value, max, item.marksType ?? undefined);
+                  }
+                }}
+                disabled={(type === "reviewed" && !editMode[id]) || isReviewing}
+                className={(type === "reviewed" && !editMode[id]) ? "bg-muted" : ""}
               />
             </div>
             <div>
@@ -849,16 +918,21 @@ export default function Review() {
                 value={
                   type === "pending"
                     ? input.remarks
+                    : editMode[id]
+                    ? input.remarks
                     : (item.reviewerReason ?? "")
                 }
-                onChange={(e) =>
-                  type === "pending" &&
-                  updateReviewInput(id, "remarks", e.target.value)
-                }
+                onChange={(e) => {
+                  if (type === "pending") {
+                    updateReviewInput(id, "remarks", e.target.value);
+                  } else if (editMode[id]) {
+                    updateReviewInput(id, "remarks", e.target.value);
+                  }
+                }}
                 placeholder="Optional remarks..."
                 rows={2}
-                disabled={type === "reviewed" || isReviewing}
-                className={`min-h-[80px] ${type === "reviewed" ? "bg-muted" : ""}`}
+                disabled={(type === "reviewed" && !editMode[id]) || isReviewing}
+                className={`min-h-[80px] ${(type === "reviewed" && !editMode[id]) ? "bg-muted" : ""}`}
               />
             </div>
           </div>
@@ -882,10 +956,42 @@ export default function Review() {
               </Button>
             </div>
           ) : (
-            <div className="flex justify-end pt-1">
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                {item.status === "appealed" ? "Appealed" : "Reviewed"}
-              </Badge>
+            <div className="flex justify-end items-center gap-2 pt-1">
+              {phase === "evaluation" && item.status === "reviewed" && !editMode[id] && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => startEdit(id, item)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit Score
+                </Button>
+              )}
+              {phase === "evaluation" && editMode[id] && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => cancelEdit(id)}
+                    disabled={isReviewing}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleEditReview(item)}
+                    disabled={isReviewing}
+                  >
+                    {isReviewing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isReviewing ? "Saving..." : "Save"}
+                  </Button>
+                </>
+              )}
+              {!editMode[id] && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  {item.status === "appealed" ? "Appealed" : "Reviewed"}
+                </Badge>
+              )}
             </div>
           )}
         </CardContent>

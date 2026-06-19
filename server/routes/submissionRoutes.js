@@ -14,6 +14,7 @@ import {
   updateSubmission,
   deleteSubmission,
   getReviewAccess,
+  editReview,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -52,6 +53,7 @@ router.get("/review-access", getReviewAccess);
 router.get("/review-queue", getReviewQueue);
 router.get("/my-reviewed", getReviewedSubmissions);
 router.post("/:id/review", reviewSubmission);
+router.put("/:id/edit-review", editReview);
 router.delete("/:id", deleteSubmission);
 
 // Appeal reviewer endpoints

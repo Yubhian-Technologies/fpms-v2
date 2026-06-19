@@ -782,7 +782,7 @@ export default function Submissions() {
                                             </p>
                                           </div>
                                         )}
-                                        {sub.reviewerScore != null && (
+                                        {sub.reviewerScore != null && phase !== "evaluation" && (
                                           <div>
                                             <p className="text-xs text-muted-foreground">
                                               Reviewer
@@ -831,7 +831,15 @@ export default function Submissions() {
                                         </div>
                                       )}
 
-                                      {(sub.reviewerReason ||
+                                      {phase === "evaluation" && sub.status === "reviewed" && (
+                                        <div className="border-t pt-4">
+                                          <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                            <Clock className="h-4 w-4" />
+                                            Your score has been reviewed. It will be visible when the appeal period starts.
+                                          </p>
+                                        </div>
+                                      )}
+                                      {phase !== "evaluation" && (sub.reviewerReason ||
                                         sub.reviewerScore != null) && (
                                         <div className="border-t pt-4">
                                           <p className="font-medium mb-3 flex items-center gap-2">
@@ -959,7 +967,7 @@ export default function Submissions() {
                                         </div>
                                       )}
 
-                                      {sub.status === "reviewed" && (phase === "evaluation" || phase === "appeal") && (
+                                      {sub.status === "reviewed" && phase === "appeal" && (
                                         <div className="border-t pt-4 flex flex-wrap items-center gap-2">
                                           <Button
                                             size="sm"
@@ -968,16 +976,14 @@ export default function Submissions() {
                                           >
                                             {actionLoading[sub.id] ? "Processing..." : "Accept"}
                                           </Button>
-                                          {phase === "appeal" && (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() => handleAppeal(sub)}
-                                              disabled={!!actionLoading[sub.id]}
-                                            >
-                                              Appeal
-                                            </Button>
-                                          )}
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleAppeal(sub)}
+                                            disabled={!!actionLoading[sub.id]}
+                                          >
+                                            Appeal
+                                          </Button>
                                         </div>
                                       )}
                                       {(sub.status === "auto-approved" || sub.status === "accepted") && phase === "appeal" && !sub.isAppealed && (
@@ -1133,7 +1139,7 @@ export default function Submissions() {
                             </div>
                           )}
 
-                          {sub.status === "reviewed" && (phase === "evaluation" || phase === "appeal") && (
+                          {sub.status === "reviewed" && phase === "appeal" && (
                             <div className="border-t pt-4 flex flex-wrap items-center gap-2">
                               <Button
                                 size="sm"
@@ -1142,16 +1148,14 @@ export default function Submissions() {
                               >
                                 {actionLoading[sub.id] ? "Processing..." : "Accept"}
                               </Button>
-                              {phase === "appeal" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleAppeal(sub)}
-                                  disabled={!!actionLoading[sub.id]}
-                                >
-                                  Appeal
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleAppeal(sub)}
+                                disabled={!!actionLoading[sub.id]}
+                              >
+                                Appeal
+                              </Button>
                             </div>
                           )}
                           {(sub.status === "auto-approved" || sub.status === "accepted") && phase === "appeal" && !sub.isAppealed && (
