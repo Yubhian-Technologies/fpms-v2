@@ -790,7 +790,125 @@ export default function Dashboard() {
               {collegeStats.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">No data</p>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                {/* ── Mobile: card per college ── */}
+                <div className="md:hidden divide-y">
+                  {collegeStats.map((c: any, i: number) => {
+                    const active = c.activeStaff ?? c.total;
+                    const subRate = active > 0 ? Math.round(((c.submitted ?? 0) / active) * 100) : 0;
+                    const achieverPct = active > 0 ? Math.round(((c.targetAchievers ?? 0) / active) * 100) : 0;
+                    const subRateColor = subRate >= 80 ? "text-emerald-600" : subRate >= 50 ? "text-amber-600" : "text-red-500";
+                    const completionColor = c.completionPct >= 75 ? "text-emerald-600" : c.completionPct >= 40 ? "text-amber-600" : "text-red-500";
+                    return (
+                      <div key={c.college} className="p-4 space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-xs font-semibold text-muted-foreground mr-2">#{i + 1}</span>
+                            <span className="font-semibold text-sm">{c.college}</span>
+                            {c.code && <div className="text-xs text-muted-foreground mt-0.5">{c.code}</div>}
+                          </div>
+                          <span className={`text-lg font-bold shrink-0 ${completionColor}`}>{c.completionPct}%</span>
+                        </div>
+                        {/* Completion bar */}
+                        <Progress value={Math.min(c.completionPct, 100)} className="h-1.5" />
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: "Total Staff", value: c.total },
+                            { label: "Active Staff", value: active },
+                            { label: "Submissions", value: c.submissionCount },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="rounded-lg bg-muted/40 px-2.5 py-2 text-center">
+                              <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+                              <p className="text-base font-bold leading-tight mt-0.5">{value}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+                            <p className="text-[10px] text-muted-foreground leading-tight">Sub Rate</p>
+                            <p className={`text-sm font-bold leading-tight mt-0.5 ${subRateColor}`}>
+                              {c.submitted ?? 0} / {active}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">{subRate}%</p>
+                          </div>
+                          <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+                            <p className="text-[10px] text-muted-foreground leading-tight">Target Achievers</p>
+                            <p className="text-sm font-bold leading-tight mt-0.5 text-emerald-600">{c.targetAchievers ?? 0}</p>
+                            <p className="text-[10px] text-muted-foreground">{achieverPct}% of active</p>
+                          </div>
+                        </div>
+                        {/* Tap to expand */}
+                        <button
+                          onClick={() => handleCollegeDetailClick(c.college)}
+                          className="w-full text-xs text-primary font-medium hover:underline text-center pt-1"
+                        >
+                          {expandedCollegeDetail === c.college ? "Hide faculty details ▲" : "View faculty details ▼"}
+                        </button>
+                        {/* Expanded faculty detail (mobile) */}
+                        {expandedCollegeDetail === c.college && (() => {
+                          const facultyList = collegeFacultyCache[c.college] || [];
+                          const notSub = facultyList.filter((f: any) => !f.hasSubmitted);
+                          const sub = facultyList.filter((f: any) => f.hasSubmitted);
+                          return (
+                            <div className="space-y-3 pt-1">
+                              {isLoadingCollegeDetail && <p className="text-xs text-muted-foreground text-center py-2">Loading…</p>}
+                              {notSub.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide mb-1.5">Not Submitted ({notSub.length})</p>
+                                  <div className="space-y-1.5">
+                                    {notSub.map((f: any) => (
+                                      <div key={f.uid} className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+                                        <p className="font-medium">{f.name || "—"}</p>
+                                        <p className="text-muted-foreground">{f.department} · {f.designation}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {sub.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1.5">Submitted ({sub.length})</p>
+                                  <div className="space-y-1.5">
+                                    {sub.map((f: any) => (
+                                      <div key={f.uid} className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <p className="font-medium">{f.name || "—"}</p>
+                                            <p className="text-muted-foreground">{f.department} · {f.designation}</p>
+                                          </div>
+                                          {f.overallStatus && (
+                                            <span className={`ml-2 shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                              f.overallStatus === "Completed" ? "bg-emerald-100 text-emerald-700" :
+                                              f.overallStatus === "Pending Review" ? "bg-teal-100 text-teal-700" :
+                                              f.overallStatus === "Appealed" ? "bg-yellow-100 text-yellow-700" :
+                                              "bg-slate-100 text-slate-700"
+                                            }`}>{f.overallStatus}</span>
+                                          )}
+                                        </div>
+                                        {f.targetScore > 0 && (
+                                          <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
+                                            <span>Target: <span className="font-medium text-foreground">{f.targetScore}</span></span>
+                                            <span>Claimed: <span className="font-medium text-foreground">{f.claimedScore}</span></span>
+                                            <span>Reviewer: <span className="font-medium text-foreground">{f.reviewerScore}</span></span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── Desktop: table ── */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/40">
@@ -1005,6 +1123,8 @@ export default function Dashboard() {
                     </tbody>
                   </table>
                 </div>
+                </div> {/* end desktop table */}
+                </> /* end fragment */
               )}
             </CardContent>
           </Card>
