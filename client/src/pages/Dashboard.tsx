@@ -742,7 +742,6 @@ export default function Dashboard() {
                 <div style={{ height: Math.max(180, rolePerformanceData.length * 44), minHeight: 180 }}>
                   <ResponsiveContainer width="100%" height="100%" minHeight={180}>
                     <BarChart layout="vertical" data={rolePerformanceData} margin={{ top: 4, right: 44, left: 0, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                       <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
                       <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomRoleTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
