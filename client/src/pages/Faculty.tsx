@@ -957,7 +957,6 @@ export default function Faculty() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
                       <SelectItem value="long-leave">Long Leave</SelectItem>
                       <SelectItem value="maternity-leave">Maternity Leave</SelectItem>
                       <SelectItem value="recently-joined">Recently Joined</SelectItem>
