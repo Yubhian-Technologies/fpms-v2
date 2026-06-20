@@ -33,16 +33,15 @@ export const getCollegeFaculty = async (req, res) => {
       getSuperadminConfig(),
     ]);
 
-    // Build designation → target map for this college
+    // Build designation → target map for this college (keyed by name__phd / name__nophd)
     const collegeConfig = (saData.colleges || []).find((c) => normStr(c?.name) === normStr(collegeName));
     const desigMap = {};
     (collegeConfig?.designations || []).forEach((d) => {
       if (!d?.name) return;
       const key = normStr(d.name);
-      const phdKey = `${key}__phd`;
-      const nophdKey = `${key}__nophd`;
+      const phdKey = `${key}__${d.phd ? "phd" : "nophd"}`;
       desigMap[phdKey] = Number(d.target) || 0;
-      desigMap[nophdKey] = Number(d.target) || 0;
+      // Fallback: store plain key only if not already set (first entry wins)
       if (!desigMap[key]) desigMap[key] = Number(d.target) || 0;
     });
 
@@ -81,6 +80,7 @@ export const getCollegeFaculty = async (req, res) => {
           designation: d.designation || "",
           staffStatus: d.staffStatus || null,
           statusNote: d.statusNote || null,
+          hasPhd: Boolean(d.hasPhd),
           hasSubmitted: submittedUids.has(doc.id),
           submissionCount: subs.length,
           targetScore,

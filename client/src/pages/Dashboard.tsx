@@ -899,6 +899,7 @@ export default function Dashboard() {
                                         <th className="text-left px-3 py-1.5 font-medium">Role</th>
                                         {showStatus && <th className="text-left px-3 py-1.5 font-medium">Status</th>}
                                         {showScores && <>
+                                          <th className="text-left px-3 py-1.5 font-medium">PhD</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Target</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Claimed</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Reviewer</th>
@@ -925,6 +926,11 @@ export default function Dashboard() {
                                             </td>
                                           )}
                                           {showScores && <>
+                                            <td className="px-3 py-1.5">
+                                              {f.hasPhd
+                                                ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>
+                                                : <span className="text-muted-foreground text-xs">—</span>}
+                                            </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">{f.targetScore ?? "—"}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">{f.claimedScore ?? "—"}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums font-medium">{f.reviewerScore ?? "—"}</td>
