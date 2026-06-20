@@ -641,14 +641,14 @@ export default function Dashboard() {
     };
 
     return (
-      <DashboardLayout title="Institution Overview">
+      <DashboardLayout title="Institution Snapshot">
         <div className="space-y-6">
 
           {/* ── Row 1: 6 summary stat cards ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { label: "Colleges", value: summary.totalColleges ?? "—", icon: School, color: "bg-amber-500/10 text-amber-600" },
-              { label: "Total Staff", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-600" },
+              { label: "Total Faculty", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-600" },
               { label: "Departments", value: summary.totalDepts ?? "—", icon: Building, color: "bg-purple-500/10 text-purple-600" },
               { label: "Submissions", value: summary.totalSubmissions ?? "—", icon: FileText, color: "bg-blue-500/10 text-blue-600" },
               { label: "Target Achievers", value: `${achievedCount} (${achievedPct}%)`, icon: CheckCircle, color: "bg-emerald-500/10 text-emerald-600" },
@@ -676,7 +676,7 @@ export default function Dashboard() {
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Staff Submitted</span>
+                    <span className="text-muted-foreground">Faculty Submitted</span>
                     <span className="font-semibold">{summary.totalSubmitted ?? 0} / {summary.totalStaff ?? 0} <span className="text-muted-foreground font-normal">({submittedPct}%)</span></span>
                   </div>
                   <Progress value={submittedPct} className="h-2.5" />
@@ -704,7 +704,7 @@ export default function Dashboard() {
             <Card className="flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Target Achievement</CardTitle>
-                <CardDescription>Staff who have reached 100%+ of their designation target</CardDescription>
+                <CardDescription>Faculty who have reached 100%+ of their designation target</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col flex-1 justify-between gap-3">
                 <div className="relative w-full flex-1" style={{ minHeight: 220 }}>
