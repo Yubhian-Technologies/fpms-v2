@@ -147,6 +147,8 @@ export const addFaculty = async (req, res) => {
       isActive,
       hasPhd,
       dateOfJoining,
+      staffStatus,
+      statusNote,
     } = req.body;
 
     const normalizedName = String(name || "").trim();
@@ -276,6 +278,8 @@ export const addFaculty = async (req, res) => {
           hasPhd: Boolean(hasPhd),
           role: "faculty",
           ...(dateOfJoining ? { dateOfJoining: String(dateOfJoining) } : {}),
+          ...(staffStatus ? { staffStatus: String(staffStatus) } : {}),
+          ...(staffStatus === "other" && statusNote ? { statusNote: String(statusNote) } : {}),
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
@@ -376,6 +380,8 @@ export const updateFaculty = async (req, res) => {
       isActive,
       hasPhd,
       dateOfJoining,
+      staffStatus,
+      statusNote,
     } = req.body;
 
     const facultyRef = db.collection(USERS_COLLECTION).doc(id);
@@ -445,6 +451,8 @@ export const updateFaculty = async (req, res) => {
     if (hasPhd !== undefined) updateData.hasPhd = Boolean(hasPhd);
     if (dateOfJoining !== undefined)
       updateData.dateOfJoining = String(dateOfJoining);
+    if (staffStatus !== undefined) updateData.staffStatus = String(staffStatus);
+    if (statusNote !== undefined) updateData.statusNote = staffStatus === "other" ? String(statusNote) : "";
 
     const resolvedPassword = String(password ?? pass ?? "");
     const resolvedConfirmPassword = String(

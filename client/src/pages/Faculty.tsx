@@ -48,6 +48,17 @@ import { downloadDemoExcel, excelHeaders } from "@/lib/excelUtils";
 import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
 import * as XLSX from "xlsx";
 
+type StaffStatus = "active" | "inactive" | "long-leave" | "maternity-leave" | "recently-joined" | "other";
+
+const STAFF_STATUS_LABELS: Record<StaffStatus, string> = {
+  "active": "Active",
+  "inactive": "Inactive",
+  "long-leave": "Long Leave",
+  "maternity-leave": "Maternity Leave",
+  "recently-joined": "Recently Joined",
+  "other": "Other",
+};
+
 interface FacultyMember {
   id: string;
   name: string;
@@ -61,6 +72,8 @@ interface FacultyMember {
   dateOfJoining?: string;
   hasPhd: boolean;
   isActive: boolean;
+  staffStatus?: StaffStatus;
+  statusNote?: string;
 }
 
 interface DesignationOption {
@@ -135,7 +148,8 @@ export default function Faculty() {
     level: 0,
     dateOfJoining: "",
     experience: "0",
-    status: "active" as "active" | "inactive",
+    status: "active" as StaffStatus,
+    statusNote: "",
     hasPhd: false,
   });
 
@@ -176,6 +190,8 @@ export default function Faculty() {
       experience: Number(item.experience || 0),
       hasPhd: Boolean(item.hasPhd ?? item.hasPhD ?? false),
       isActive: Boolean(item.isActive ?? true),
+      staffStatus: (item.staffStatus as StaffStatus) || undefined,
+      statusNote: item.statusNote || undefined,
     }));
 
     setFaculty(normalized);
@@ -314,7 +330,8 @@ export default function Faculty() {
       experience: joiningDate
         ? String(calculateExperience(joiningDate))
         : String(member.experience || 0),
-      status: member.isActive ? "active" : "inactive",
+      status: member.staffStatus || (member.isActive ? "active" : "inactive"),
+      statusNote: member.statusNote || "",
       hasPhd: resolvedHasPhd,
     });
     setEditingId(member.id);
@@ -374,7 +391,9 @@ export default function Faculty() {
         level: Number(formData.level),
         dateOfJoining: formData.dateOfJoining || undefined,
         experience: Number(formData.experience || 0),
-        isActive: formData.status === "active",
+        isActive: formData.status === "active" || formData.status === "recently-joined",
+        staffStatus: formData.status,
+        statusNote: formData.status === "other" ? formData.statusNote : undefined,
         hasPhd: formData.hasPhd,
       };
 
@@ -929,8 +948,8 @@ export default function Faculty() {
                   <Label>Status *</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value: "active" | "inactive") =>
-                      setFormData((prev) => ({ ...prev, status: value }))
+                    onValueChange={(value: StaffStatus) =>
+                      setFormData((prev) => ({ ...prev, status: value, statusNote: "" }))
                     }
                   >
                     <SelectTrigger>
@@ -939,8 +958,20 @@ export default function Faculty() {
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="long-leave">Long Leave</SelectItem>
+                      <SelectItem value="maternity-leave">Maternity Leave</SelectItem>
+                      <SelectItem value="recently-joined">Recently Joined</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  {formData.status === "other" && (
+                    <Input
+                      placeholder="Specify reason…"
+                      value={formData.statusNote}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, statusNote: e.target.value }))}
+                      className="mt-2"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Target Score</Label>
@@ -1134,11 +1165,24 @@ export default function Faculty() {
                           {member.level ?? facultyRoleLevel}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={member.isActive ? "default" : "secondary"}
-                          >
-                            {member.isActive ? "active" : "inactive"}
-                          </Badge>
+                          {(() => {
+                            const s = member.staffStatus || (member.isActive ? "active" : "inactive");
+                            const label = STAFF_STATUS_LABELS[s as StaffStatus] || s;
+                            const note = s === "other" && member.statusNote ? ` — ${member.statusNote}` : "";
+                            const colorMap: Record<string, string> = {
+                              "active": "bg-green-100 text-green-800",
+                              "recently-joined": "bg-blue-100 text-blue-800",
+                              "long-leave": "bg-orange-100 text-orange-800",
+                              "maternity-leave": "bg-purple-100 text-purple-800",
+                              "inactive": "bg-gray-100 text-gray-600",
+                              "other": "bg-gray-100 text-gray-600",
+                            };
+                            return (
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorMap[s] || "bg-gray-100 text-gray-600"}`}>
+                                {label}{note}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
