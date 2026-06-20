@@ -29,8 +29,9 @@ export function DashboardLayout({
                 {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
               </div>
               {badge && (
-                <span className="mt-1 inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 whitespace-nowrap shrink-0">
-                  Academic Year: {badge}
+                <span className="mt-1 inline-flex flex-col items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 shrink-0 text-center leading-tight">
+                  <span>Academic Year</span>
+                  <span className="font-bold">{badge}</span>
                 </span>
               )}
             </div>
