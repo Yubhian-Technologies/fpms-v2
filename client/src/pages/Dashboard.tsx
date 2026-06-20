@@ -1165,7 +1165,57 @@ export default function Dashboard() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pt-1 pb-3">
-                          <div className="rounded-lg border overflow-x-auto">
+                          {/* Mobile: cards */}
+                          <div className="md:hidden space-y-2 px-1">
+                            {rows.map((d: any) => {
+                              const active = d.activeStaff ?? d.total;
+                              const subRate = active > 0 ? Math.round(((d.submitted ?? 0) / active) * 100) : 0;
+                              const achieverPct = active > 0 ? Math.round(((d.targetAchievers ?? 0) / active) * 100) : 0;
+                              const subRateColor = subRate >= 80 ? "text-emerald-600" : subRate >= 50 ? "text-amber-600" : "text-red-500";
+                              const completionColor = d.completionPct >= 75 ? "text-emerald-600" : d.completionPct >= 40 ? "text-amber-600" : "text-red-500";
+                              return (
+                                <div key={d.department} className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-xs font-semibold leading-tight flex-1">{d.department}</p>
+                                    <span className={`text-sm font-bold shrink-0 ${completionColor}`}>{d.completionPct}%</span>
+                                  </div>
+                                  <Progress value={Math.min(d.completionPct, 100)} className="h-1" />
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    {[
+                                      { label: "Total", value: d.total },
+                                      { label: "Active", value: active },
+                                      { label: "Subs", value: d.submissionCount },
+                                    ].map(({ label, value }) => (
+                                      <div key={label} className="rounded bg-background border px-2 py-1.5 text-center">
+                                        <p className="text-[9px] text-muted-foreground">{label}</p>
+                                        <p className="text-sm font-bold">{value}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                                    <div className="rounded bg-background border px-2 py-1.5">
+                                      <p className="text-muted-foreground">Sub Rate</p>
+                                      <p className={`font-bold ${subRateColor}`}>{d.submitted ?? 0}/{active}</p>
+                                      <p className="text-muted-foreground">{subRate}%</p>
+                                    </div>
+                                    <div className="rounded bg-background border px-2 py-1.5">
+                                      <p className="text-muted-foreground">Achievers</p>
+                                      <p className="font-bold text-emerald-600">{d.targetAchievers ?? 0}</p>
+                                      <p className="text-muted-foreground">{achieverPct}%</p>
+                                    </div>
+                                    <div className="rounded bg-background border px-2 py-1.5">
+                                      <p className="text-muted-foreground">Appeals</p>
+                                      <p className={`font-bold ${d.appealedCount > 0 ? "text-orange-500" : "text-muted-foreground"}`}>
+                                        {d.appealedCount > 0 ? d.appealedCount : "—"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Desktop: table */}
+                          <div className="hidden md:block rounded-lg border overflow-x-auto">
                             <table className="w-full min-w-[640px] text-xs">
                               <thead>
                                 <tr className="bg-muted/40 border-b">
