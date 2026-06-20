@@ -1527,3 +1527,101 @@ export const resetCollegeEvaluations = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// ── Duplicate submission helpers ──────────────────────────────────────────────
+// Group submissions by userId+taskId, determine which to keep (scored > newest)
+const buildDuplicateGroups = (docs) => {
+  const groups = {};
+  docs.forEach((doc) => {
+    const d = doc.data ? { id: doc.id, ...doc.data() } : doc;
+    const key = `${d.userId}||${d.taskId}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(d);
+  });
+
+  return Object.values(groups)
+    .filter((subs) => subs.length > 1)
+    .map((subs) => {
+      const sorted = [...subs].sort((a, b) => {
+        // Prefer the one that already has a reviewer score
+        const aScored = a.reviewerScore != null ? 1 : 0;
+        const bScored = b.reviewerScore != null ? 1 : 0;
+        if (bScored !== aScored) return bScored - aScored;
+        // Otherwise keep the newest submission
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
+      return { keep: sorted[0], toDelete: sorted.slice(1) };
+    });
+};
+
+export const previewDuplicateSubmissions = async (req, res) => {
+  try {
+    const college = String(req.query.college || "").trim();
+    if (!college) return res.status(400).json({ success: false, message: "College is required" });
+
+    const snap = await db.collection("submissions").where("college", "==", college).get();
+    const groups = buildDuplicateGroups(snap.docs);
+    const toDeleteAll = groups.flatMap((g) => g.toDelete);
+
+    return res.json({
+      success: true,
+      data: {
+        totalGroups: groups.length,
+        totalToDelete: toDeleteAll.length,
+        groups: groups.map((g) => ({
+          keep: {
+            id: g.keep.id,
+            taskName: g.keep.taskName,
+            userName: g.keep.userName,
+            department: g.keep.department,
+            status: g.keep.status,
+            reviewerScore: g.keep.reviewerScore ?? null,
+            createdAt: g.keep.createdAt || null,
+          },
+          toDelete: g.toDelete.map((s) => ({
+            id: s.id,
+            status: s.status,
+            reviewerScore: s.reviewerScore ?? null,
+            createdAt: s.createdAt || null,
+          })),
+        })),
+      },
+    });
+  } catch (err) {
+    console.error("previewDuplicateSubmissions error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const deleteDuplicateSubmissions = async (req, res) => {
+  try {
+    const college = String(req.body.college || "").trim();
+    if (!college) return res.status(400).json({ success: false, message: "College is required" });
+
+    const snap = await db.collection("submissions").where("college", "==", college).get();
+    const groups = buildDuplicateGroups(snap.docs);
+    const toDeleteIds = groups.flatMap((g) => g.toDelete.map((s) => s.id));
+
+    if (toDeleteIds.length === 0) {
+      return res.json({ success: true, message: "No duplicates found.", count: 0 });
+    }
+
+    const CHUNK = 400;
+    for (let i = 0; i < toDeleteIds.length; i += CHUNK) {
+      const batch = db.batch();
+      toDeleteIds.slice(i, i + CHUNK).forEach((id) => {
+        batch.delete(db.collection("submissions").doc(id));
+      });
+      await batch.commit();
+    }
+
+    return res.json({
+      success: true,
+      message: `Deleted ${toDeleteIds.length} duplicate submission(s). ${groups.length} task(s) deduplicated.`,
+      count: toDeleteIds.length,
+    });
+  } catch (err) {
+    console.error("deleteDuplicateSubmissions error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

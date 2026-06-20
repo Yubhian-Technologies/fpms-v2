@@ -22,6 +22,8 @@ import {
   updateRole,
   resetCollegeEvaluations,
   getCollegeStaff,
+  previewDuplicateSubmissions,
+  deleteDuplicateSubmissions,
 } from "../controllers/superAdminController.js";
 import { superadminAuth } from "../middleware/superAdminAuth.js";
 
@@ -68,5 +70,7 @@ superadminRouter.delete("/forms/:id", superadminAuth, deleteForm);
 
 superadminRouter.get("/college-staff", superadminAuth, getCollegeStaff);
 superadminRouter.post("/reset-evaluations", superadminAuth, resetCollegeEvaluations);
+superadminRouter.get("/duplicate-submissions", superadminAuth, previewDuplicateSubmissions);
+superadminRouter.delete("/duplicate-submissions", superadminAuth, deleteDuplicateSubmissions);
 
 export default superadminRouter;

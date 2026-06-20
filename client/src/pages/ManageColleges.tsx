@@ -110,6 +110,13 @@ export default function ManageColleges() {
   const [isResetting, setIsResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // Duplicate cleanup state
+  const [dupCollege, setDupCollege] = useState("");
+  const [dupPreview, setDupPreview] = useState<{ totalGroups: number; totalToDelete: number } | null>(null);
+  const [isDupLoading, setIsDupLoading] = useState(false);
+  const [isDupDeleting, setIsDupDeleting] = useState(false);
+  const [showDupConfirm, setShowDupConfirm] = useState(false);
+
   const [isAddingCollege, setIsAddingCollege] = useState(false);
   const [editingCollege, setEditingCollege] = useState<string | null>(null);
 
@@ -690,6 +697,38 @@ export default function ManageColleges() {
       setIsResetting(false);
     }
   };
+
+  const handleDupPreview = async () => {
+    if (!dupCollege) return;
+    setIsDupLoading(true);
+    setDupPreview(null);
+    setShowDupConfirm(false);
+    try {
+      const res = await api.get(`/api/superadmin/duplicate-submissions?college=${encodeURIComponent(dupCollege)}`);
+      setDupPreview(res.data.data);
+    } catch (err: any) {
+      toast({ title: "Preview Failed", description: err.response?.data?.message || "Server error", variant: "destructive" });
+    } finally {
+      setIsDupLoading(false);
+    }
+  };
+
+  const handleDupDelete = async () => {
+    if (!dupCollege) return;
+    setIsDupDeleting(true);
+    try {
+      const res = await api.delete("/api/superadmin/duplicate-submissions", { data: { college: dupCollege } });
+      toast({ title: "Duplicates Removed", description: res.data.message });
+      setDupPreview(null);
+      setShowDupConfirm(false);
+      setDupCollege("");
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err.response?.data?.message || "Server error", variant: "destructive" });
+    } finally {
+      setIsDupDeleting(false);
+    }
+  };
+
 
   const toggleStatus = async (collegeId: string) => {
     const target = colleges.find((c) => c.id === collegeId);
@@ -1952,6 +1991,69 @@ export default function ManageColleges() {
                     </Button>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Duplicate Submission Cleanup ─────────────────────────────── */}
+          <Card className="border-orange-300/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-600">
+                <AlertTriangle className="h-5 w-5" />
+                Clean Up Duplicate Submissions
+              </CardTitle>
+              <CardDescription>
+                Finds faculty who submitted the same task more than once (e.g. after an evaluation reset). Keeps the scored copy or the newest — safely deletes the rest.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-end gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label>College <span className="text-destructive">*</span></Label>
+                  <Select value={dupCollege} onValueChange={(v) => { setDupCollege(v); setDupPreview(null); setShowDupConfirm(false); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a college…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colleges.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button variant="outline" disabled={!dupCollege || isDupLoading} onClick={handleDupPreview}>
+                  {isDupLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {isDupLoading ? "Scanning…" : "Find Duplicates"}
+                </Button>
+              </div>
+
+              {dupPreview && (
+                dupPreview.totalToDelete === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No duplicate submissions found for <strong>{dupCollege}</strong>.</p>
+                ) : (
+                  <div className="rounded-md border border-orange-300/60 bg-orange-50/50 p-4 space-y-3">
+                    <p className="text-sm font-medium text-orange-700">
+                      Found <strong>{dupPreview.totalToDelete}</strong> duplicate submission(s) across <strong>{dupPreview.totalGroups}</strong> task(s).
+                      The safe copy (scored or newest) will be kept; duplicates will be permanently deleted.
+                    </p>
+                    {!showDupConfirm ? (
+                      <Button variant="destructive" onClick={() => setShowDupConfirm(true)}>
+                        Delete {dupPreview.totalToDelete} Duplicate(s)
+                      </Button>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-destructive font-medium">Are you sure? This cannot be undone.</p>
+                        <div className="flex gap-2">
+                          <Button variant="destructive" onClick={handleDupDelete} disabled={isDupDeleting}>
+                            {isDupDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            {isDupDeleting ? "Deleting…" : "Yes, Delete"}
+                          </Button>
+                          <Button variant="outline" onClick={() => setShowDupConfirm(false)} disabled={isDupDeleting}>Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
               )}
             </CardContent>
           </Card>
