@@ -43,12 +43,13 @@ export function formatRoleLabel(role?: string): string {
   const capitalize = (w: string) =>
     ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
 
-  return role
-    ? role
-        .split(/[\s_]+/)
-        .map(capitalize)
-        .join(" ")
-    : "";
+  const splitWords = (s: string) =>
+    s
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .split(/[\s\-_]+/)
+      .filter(Boolean);
+
+  return role ? splitWords(role).map(capitalize).join(" ") : "";
 }
 
 // Returns the confirmed score for a submission only after faculty accepts or
