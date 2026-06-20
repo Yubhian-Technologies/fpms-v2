@@ -904,6 +904,7 @@ export default function Dashboard() {
                                           <th className="text-right px-3 py-1.5 font-medium">Reviewer</th>
                                           <th className="text-left px-3 py-1.5 font-medium">Appeal</th>
                                           <th className="text-right px-3 py-1.5 font-medium">%</th>
+                                          <th className="text-left px-3 py-1.5 font-medium">Status</th>
                                         </>}
                                       </tr>
                                     </thead>
@@ -940,6 +941,20 @@ export default function Dashboard() {
                                               {f.percentage != null
                                                 ? <span className={f.percentage >= 100 ? "text-green-600" : f.percentage >= 60 ? "text-blue-600" : "text-orange-600"}>{f.percentage}%</span>
                                                 : "—"}
+                                            </td>
+                                            <td className="px-3 py-1.5">
+                                              {(() => {
+                                                const s = f.overallStatus;
+                                                const cfg: Record<string, string> = {
+                                                  "Accepted":       "bg-emerald-500 text-white",
+                                                  "Pending Review": "bg-teal-400 text-white",
+                                                  "Under Review":   "bg-slate-800 text-white",
+                                                  "Appealed":       "bg-yellow-500 text-white",
+                                                };
+                                                return s ? (
+                                                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${cfg[s] || "bg-gray-200 text-gray-700"}`}>{s}</span>
+                                                ) : "—";
+                                              })()}
                                             </td>
                                           </>}
                                         </tr>

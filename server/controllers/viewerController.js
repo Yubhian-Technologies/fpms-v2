@@ -71,6 +71,14 @@ export const getCollegeFaculty = async (req, res) => {
         const isAppealed = subs.some((s) => s.status === "appealed" || s.isAppealed);
         const percentage = targetScore > 0 ? Math.round((reviewerScore / targetScore) * 100) : null;
 
+        let overallStatus = "Not Submitted";
+        if (subs.length > 0) {
+          if (subs.some((s) => s.status === "appealed")) overallStatus = "Appealed";
+          else if (subs.some((s) => s.status === "submitted")) overallStatus = "Pending Review";
+          else if (subs.some((s) => s.status === "reviewed")) overallStatus = "Under Review";
+          else overallStatus = "Accepted";
+        }
+
         return {
           uid: doc.id,
           name: d.name || "",
@@ -89,6 +97,7 @@ export const getCollegeFaculty = async (req, res) => {
           finalScore,
           isAppealed,
           percentage,
+          overallStatus,
         };
       })
       .filter(Boolean)
