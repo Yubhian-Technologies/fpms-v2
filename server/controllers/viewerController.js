@@ -18,23 +18,60 @@ export const getCollegeFaculty = async (req, res) => {
 
     const excluded = new Set(["committee", "viewer", "superadmin", "internal committee", "principal", "principle", "vice principal", "vice principle", "vice-principal", "viceprincipal", "director"]);
 
-    const [usersSnap, subsSnap] = await Promise.all([
+    const normStr = (s) => String(s || "").trim().toLowerCase();
+    const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+
+    const [usersSnap, subsSnap, saData] = await Promise.all([
       db.collection("users")
         .where("college", "==", collegeName)
-        .select("uid", "name", "email", "role", "department", "designation", "staffStatus", "statusNote")
+        .select("uid", "name", "email", "role", "department", "designation", "staffStatus", "statusNote", "hasPhd")
         .get(),
       db.collection("submissions")
         .where("college", "==", collegeName)
-        .select("userId", "status")
+        .select("userId", "status", "score", "reviewerScore", "finalScore", "isAppealed")
         .get(),
+      getSuperadminConfig(),
     ]);
+
+    // Build designation → target map for this college
+    const collegeConfig = (saData.colleges || []).find((c) => normStr(c?.name) === normStr(collegeName));
+    const desigMap = {};
+    (collegeConfig?.designations || []).forEach((d) => {
+      if (!d?.name) return;
+      const key = normStr(d.name);
+      const phdKey = `${key}__phd`;
+      const nophdKey = `${key}__nophd`;
+      desigMap[phdKey] = Number(d.target) || 0;
+      desigMap[nophdKey] = Number(d.target) || 0;
+      if (!desigMap[key]) desigMap[key] = Number(d.target) || 0;
+    });
+
+    // Group submissions by userId
+    const subsByUser = new Map();
+    subsSnap.docs.forEach((doc) => {
+      const s = { id: doc.id, ...doc.data() };
+      if (!subsByUser.has(s.userId)) subsByUser.set(s.userId, []);
+      subsByUser.get(s.userId).push(s);
+    });
 
     const submittedUids = new Set(subsSnap.docs.map((d) => d.data().userId).filter(Boolean));
 
     const faculty = usersSnap.docs
       .map((doc) => {
         const d = doc.data();
-        if (excluded.has(String(d.role || "").trim().toLowerCase())) return null;
+        if (excluded.has(normStr(d.role))) return null;
+
+        const subs = subsByUser.get(doc.id) || [];
+        const designKey = normStr(d.designation);
+        const phdKey = `${designKey}__${d.hasPhd ? "phd" : "nophd"}`;
+        const targetScore = desigMap[phdKey] || desigMap[designKey] || 0;
+
+        const claimedScore = subs.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
+        const reviewerScore = subs.reduce((sum, s) => sum + (s.reviewerScore != null ? Number(s.reviewerScore) : 0), 0);
+        const finalScore = subs.reduce((sum, s) => FINALIZED.has(s.status) ? sum + Number(s.finalScore ?? s.score ?? 0) : sum, 0);
+        const isAppealed = subs.some((s) => s.status === "appealed" || s.isAppealed);
+        const percentage = targetScore > 0 ? Math.round((reviewerScore / targetScore) * 100) : null;
+
         return {
           uid: doc.id,
           name: d.name || "",
@@ -45,7 +82,13 @@ export const getCollegeFaculty = async (req, res) => {
           staffStatus: d.staffStatus || null,
           statusNote: d.statusNote || null,
           hasSubmitted: submittedUids.has(doc.id),
-          submissionCount: subsSnap.docs.filter((s) => s.data().userId === doc.id).length,
+          submissionCount: subs.length,
+          targetScore,
+          claimedScore,
+          reviewerScore,
+          finalScore,
+          isAppealed,
+          percentage,
         };
       })
       .filter(Boolean)

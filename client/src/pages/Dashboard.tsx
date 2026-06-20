@@ -886,7 +886,7 @@ export default function Dashboard() {
                             "inactive": "bg-gray-100 text-gray-600",
                             "other": "bg-gray-100 text-gray-600",
                           };
-                          const FacultyTable = ({ rows, emptyMsg, showStatus }: { rows: any[]; emptyMsg: string; showStatus?: boolean }) => (
+                          const FacultyTable = ({ rows, emptyMsg, showStatus, showScores }: { rows: any[]; emptyMsg: string; showStatus?: boolean; showScores?: boolean }) => (
                             rows.length === 0
                               ? <p className="text-xs text-muted-foreground py-2 text-center">{emptyMsg}</p>
                               : <div className="overflow-x-auto">
@@ -894,18 +894,23 @@ export default function Dashboard() {
                                     <thead>
                                       <tr className="border-b bg-muted/20">
                                         <th className="text-left px-3 py-1.5 font-medium">Name</th>
-                                        <th className="text-left px-3 py-1.5 font-medium">Email</th>
                                         <th className="text-left px-3 py-1.5 font-medium">Department</th>
                                         <th className="text-left px-3 py-1.5 font-medium">Designation</th>
                                         <th className="text-left px-3 py-1.5 font-medium">Role</th>
                                         {showStatus && <th className="text-left px-3 py-1.5 font-medium">Status</th>}
+                                        {showScores && <>
+                                          <th className="text-right px-3 py-1.5 font-medium">Target</th>
+                                          <th className="text-right px-3 py-1.5 font-medium">Claimed</th>
+                                          <th className="text-right px-3 py-1.5 font-medium">Reviewer</th>
+                                          <th className="text-left px-3 py-1.5 font-medium">Appeal</th>
+                                          <th className="text-right px-3 py-1.5 font-medium">%</th>
+                                        </>}
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {rows.map((f: any) => (
                                         <tr key={f.uid} className="border-b last:border-0 hover:bg-muted/10">
                                           <td className="px-3 py-1.5 font-medium whitespace-nowrap">{f.name || "—"}</td>
-                                          <td className="px-3 py-1.5 text-muted-foreground">{f.email || "—"}</td>
                                           <td className="px-3 py-1.5">{f.department || "—"}</td>
                                           <td className="px-3 py-1.5">{f.designation || "—"}</td>
                                           <td className="px-3 py-1.5 capitalize">{f.role || "—"}</td>
@@ -919,6 +924,21 @@ export default function Dashboard() {
                                               ) : "—"}
                                             </td>
                                           )}
+                                          {showScores && <>
+                                            <td className="px-3 py-1.5 text-right tabular-nums">{f.targetScore ?? "—"}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums">{f.claimedScore ?? "—"}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{f.reviewerScore ?? "—"}</td>
+                                            <td className="px-3 py-1.5">
+                                              {f.isAppealed
+                                                ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">Appealed</span>
+                                                : <span className="text-muted-foreground">—</span>}
+                                            </td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">
+                                              {f.percentage != null
+                                                ? <span className={f.percentage >= 100 ? "text-green-600" : f.percentage >= 60 ? "text-blue-600" : "text-orange-600"}>{f.percentage}%</span>
+                                                : "—"}
+                                            </td>
+                                          </>}
                                         </tr>
                                       ))}
                                     </tbody>
@@ -943,7 +963,7 @@ export default function Dashboard() {
                                         <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-2">
                                           Submitted ({submitted.length})
                                         </p>
-                                        <FacultyTable rows={submitted} emptyMsg="No submissions yet." />
+                                        <FacultyTable rows={submitted} emptyMsg="No submissions yet." showScores />
                                       </div>
                                     </>
                                   )}
