@@ -71,12 +71,16 @@ export const getCollegeFaculty = async (req, res) => {
         const isAppealed = subs.some((s) => s.status === "appealed" || s.isAppealed);
         const percentage = targetScore > 0 ? Math.round((reviewerScore / targetScore) * 100) : null;
 
+        const FINALIZED_SET = ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"];
+        const hasAppealed  = subs.some((s) => s.status === "appealed");
+        const hasPending   = subs.some((s) => s.status === "submitted");
+        const hasCompleted = subs.some((s) => FINALIZED_SET.includes(s.status));
         let overallStatus = "Not Submitted";
         if (subs.length > 0) {
-          if (subs.some((s) => s.status === "appealed")) overallStatus = "Appealed";
-          else if (subs.some((s) => s.status === "submitted")) overallStatus = "Pending Review";
-          else if (subs.some((s) => s.status === "reviewed")) overallStatus = "Under Review";
-          else overallStatus = "Accepted";
+          if (hasAppealed)       overallStatus = "Appealed";
+          else if (hasPending)   overallStatus = "Pending Review";
+          else if (hasCompleted) overallStatus = "Completed";
+          else                   overallStatus = "Under Review";
         }
 
         return {

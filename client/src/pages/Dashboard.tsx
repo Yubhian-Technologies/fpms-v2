@@ -946,7 +946,7 @@ export default function Dashboard() {
                                               {(() => {
                                                 const s = f.overallStatus;
                                                 const cfg: Record<string, string> = {
-                                                  "Accepted":       "bg-emerald-500 text-white",
+                                                  "Completed":      "bg-emerald-500 text-white",
                                                   "Pending Review": "bg-teal-400 text-white",
                                                   "Under Review":   "bg-slate-800 text-white",
                                                   "Appealed":       "bg-yellow-500 text-white",
