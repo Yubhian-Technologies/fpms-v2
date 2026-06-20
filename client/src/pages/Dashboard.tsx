@@ -706,7 +706,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="flex flex-col flex-1 justify-between gap-3">
                 <div className="relative w-full flex-1" style={{ minHeight: 220 }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                     <PieChart>
                       <Pie data={targetDonut} cx="50%" cy="50%" innerRadius="42%" outerRadius="62%"
                         paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
@@ -739,8 +739,8 @@ export default function Dashboard() {
                 <CardDescription>Average target completion % per role</CardDescription>
               </CardHeader>
               <CardContent>
-                <div style={{ height: Math.max(180, rolePerformanceData.length * 44) }}>
-                  <ResponsiveContainer width="100%" height="100%">
+                <div style={{ height: Math.max(180, rolePerformanceData.length * 44), minHeight: 180 }}>
+                  <ResponsiveContainer width="100%" height="100%" minHeight={180}>
                     <BarChart layout="vertical" data={rolePerformanceData} margin={{ top: 4, right: 44, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                       <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
@@ -762,8 +762,8 @@ export default function Dashboard() {
                 <CardDescription>Faculty count in each target completion % band</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-52" style={{ minHeight: 208 }}>
+                  <ResponsiveContainer width="100%" height="100%" minHeight={208}>
                     <BarChart data={rangeChartData} margin={{ top: 16, right: 16, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -853,7 +853,7 @@ export default function Dashboard() {
                           const sub = facultyList.filter((f: any) => f.hasSubmitted);
                           return (
                             <div className="space-y-3 pt-1">
-                              {isLoadingCollegeDetail && <p className="text-xs text-muted-foreground text-center py-2">Loading…</p>}
+                              {isLoadingCollegeFaculty && <p className="text-xs text-muted-foreground text-center py-2">Loading…</p>}
                               {notSub.length > 0 && (
                                 <div>
                                   <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-wide mb-1.5">Not Submitted ({notSub.length})</p>
