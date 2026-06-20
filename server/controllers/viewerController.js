@@ -28,7 +28,7 @@ export const getCollegeFaculty = async (req, res) => {
         .get(),
       db.collection("submissions")
         .where("college", "==", collegeName)
-        .select("userId", "status", "score", "reviewerScore", "finalScore", "isAppealed")
+        .select("userId", "status", "claimedScore", "reviewerScore", "finalScore", "isAppealed")
         .get(),
       getSuperadminConfig(),
     ]);
@@ -66,7 +66,7 @@ export const getCollegeFaculty = async (req, res) => {
         const phdKey = `${designKey}__${d.hasPhd ? "phd" : "nophd"}`;
         const targetScore = desigMap[phdKey] || desigMap[designKey] || 0;
 
-        const claimedScore = subs.reduce((sum, s) => sum + (Number(s.score) || 0), 0);
+        const claimedScore = subs.reduce((sum, s) => sum + (Number(s.claimedScore) || 0), 0);
         const reviewerScore = subs.reduce((sum, s) => sum + (s.reviewerScore != null ? Number(s.reviewerScore) : 0), 0);
         const finalScore = subs.reduce((sum, s) => FINALIZED.has(s.status) ? sum + Number(s.finalScore ?? s.score ?? 0) : sum, 0);
         const isAppealed = subs.some((s) => s.status === "appealed" || s.isAppealed);
