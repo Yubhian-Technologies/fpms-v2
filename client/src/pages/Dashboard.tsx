@@ -796,7 +796,8 @@ export default function Dashboard() {
                       <tr className="border-b bg-muted/40">
                         <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground w-8">#</th>
                         <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">College</th>
-                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Staff</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Total Staff</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Active Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Avg Score</th>
@@ -821,16 +822,25 @@ export default function Dashboard() {
                             {c.code && <div className="text-xs text-muted-foreground mt-0.5">{c.code}</div>}
                           </td>
                           <td className="px-3 py-3 text-center font-medium">{c.total}</td>
+                          <td className="px-3 py-3 text-center font-medium">{c.activeStaff ?? c.total}</td>
                           <td className="px-3 py-3 text-center text-muted-foreground">{c.submissionCount}</td>
                           <td className="px-3 py-3 text-center">
                             <button
                               onClick={() => handleCollegeDetailClick(c.college)}
                               className="hover:underline focus:outline-none"
                             >
-                              <span className={`font-semibold ${c.submissionRate >= 80 ? "text-emerald-600" : c.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                                {c.submitted ?? 0} / {c.total}
-                              </span>
-                              <div className="text-xs text-muted-foreground">{c.submissionRate}%</div>
+                              {(() => {
+                                const active = c.activeStaff ?? c.total;
+                                const subRate = active > 0 ? Math.round(((c.submitted ?? 0) / active) * 100) : 0;
+                                return (
+                                  <>
+                                    <span className={`font-semibold ${subRate >= 80 ? "text-emerald-600" : subRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                                      {c.submitted ?? 0} / {active}
+                                    </span>
+                                    <div className="text-xs text-muted-foreground">{subRate}%</div>
+                                  </>
+                                );
+                              })()}
                             </button>
                           </td>
                           <td className="px-3 py-3 text-center font-medium">{c.avgScore}</td>

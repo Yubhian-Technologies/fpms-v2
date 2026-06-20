@@ -146,7 +146,7 @@ export const getViewerStats = async (req, res) => {
     });
 
     const [usersSnap, subsSnap] = await Promise.all([
-      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd").get(),
+      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd", "staffStatus").get(),
       db.collection("submissions").select("userId", "college", "status", "finalScore", "score").get(),
     ]);
 
@@ -173,6 +173,8 @@ export const getViewerStats = async (req, res) => {
         const target = desigMap[phdKey] || desigMap[nameKey] || 0;
         const userSubs = subsMap.get(data.uid) || [];
         const score = userSubs.reduce((sum, s) => sum + getConfirmedScore(s), 0);
+        const INACTIVE_STATUSES = new Set(["long-leave", "maternity-leave"]);
+        const isActive = !INACTIVE_STATUSES.has(normStr(data.staffStatus || ""));
         return {
           uid: data.uid || doc.id,
           name: data.name || "",
@@ -183,6 +185,7 @@ export const getViewerStats = async (req, res) => {
           designation: String(data.designation || "").trim(),
           target,
           score,
+          isActive,
           submissionCount: userSubs.length,
           acceptedCount: userSubs.filter((s) => FINALIZED.has(s.status)).length,
           appealedCount: userSubs.filter((s) => s.status === "appealed").length,
@@ -200,13 +203,14 @@ export const getViewerStats = async (req, res) => {
         const code = collegeCodeMap[normStr(c)] || "";
         collegeMap[c] = {
           college: c, code,
-          total: 0, submitted: 0,
+          total: 0, activeStaff: 0, submitted: 0,
           submissionCount: 0, acceptedCount: 0,
           appealedCount: 0, pendingReviewCount: 0, reviewedCount: 0,
           totalScore: 0, totalTarget: 0,
         };
       }
       collegeMap[c].total++;
+      if (s.isActive) collegeMap[c].activeStaff++;
       if (s.submissionCount > 0) collegeMap[c].submitted++;
       collegeMap[c].submissionCount += s.submissionCount;
       collegeMap[c].acceptedCount += s.acceptedCount;
