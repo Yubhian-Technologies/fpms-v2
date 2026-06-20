@@ -759,7 +759,7 @@ export default function Dashboard() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Completion Bands</CardTitle>
-                <CardDescription>Staff count in each target completion % band</CardDescription>
+                <CardDescription>Faculty count in each target completion % band</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-52">
