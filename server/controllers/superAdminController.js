@@ -1509,6 +1509,7 @@ export const resetCollegeEvaluations = async (req, res) => {
           reviewerScore: null,
           reviewerReason: null,
           reviewedBy: null,
+          reviewerId: null,
           reviewedAt: null,
           finalScore: null,
           updatedAt: new Date().toISOString(),

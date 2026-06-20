@@ -237,8 +237,26 @@ export default function Review() {
         ? reviewedRes.data.data
         : [];
 
-      setQueue(pending);
-      setReviewedItems(reviewed);
+      // Deduplicate by userId+taskId — keep the latest (by createdAt) or the scored one.
+      // Hides older duplicate submissions created after evaluation resets without deleting data.
+      const dedupe = (items: SubmissionItem[]): SubmissionItem[] => {
+        const map = new Map<string, SubmissionItem>();
+        items.forEach((item) => {
+          const key = `${item.userId || ""}||${item.taskId || item.taskName || ""}`;
+          const existing = map.get(key);
+          if (!existing) { map.set(key, item); return; }
+          // Prefer the one with a reviewer score; otherwise prefer newer createdAt
+          const itemScored = item.reviewerScore != null;
+          const existingScored = existing.reviewerScore != null;
+          if (itemScored && !existingScored) { map.set(key, item); return; }
+          if (!itemScored && existingScored) return;
+          if ((item.createdAt || "") > (existing.createdAt || "")) map.set(key, item);
+        });
+        return Array.from(map.values());
+      };
+
+      setQueue(dedupe(pending));
+      setReviewedItems(dedupe(reviewed));
 
       setReviewInputs((prev) => {
         const next = { ...prev };

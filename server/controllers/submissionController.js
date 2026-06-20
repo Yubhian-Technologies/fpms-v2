@@ -951,10 +951,11 @@ export const getReviewedSubmissions = async (req, res) => {
     }
 
     const snapshot = await query.get();
-    const submissions = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const submissions = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      // Exclude submissions that were reset back to "submitted" — they already
+      // appear in the pending queue and must not show up twice in the review page.
+      .filter((s) => s.status !== "submitted");
 
     return res.status(200).json({
       success: true,
