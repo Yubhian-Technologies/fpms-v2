@@ -642,7 +642,7 @@ export default function Dashboard() {
     };
 
     return (
-      <DashboardLayout title="Institution Snapshot">
+      <DashboardLayout title="Institution Snapshot" badge="2025-26">
         <div className="space-y-6">
 
           {/* ── Row 1: 6 summary stat cards ── */}
