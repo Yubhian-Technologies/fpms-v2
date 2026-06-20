@@ -669,7 +669,6 @@ export default function Dashboard() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Submission Pipeline</CardTitle>
-                <CardDescription>Institution-wide submission status breakdown</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
