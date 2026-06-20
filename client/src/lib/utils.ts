@@ -39,10 +39,14 @@ export function formatRoleLabel(role?: string): string {
   if (normalized === "faculty") return "Faculty";
   if (normalized === "committee" || normalized === "commitee") return "Committee";
 
+  const ACRONYMS = new Set(["t&p", "iqac", "r&d", "hod", "it"]);
+  const capitalize = (w: string) =>
+    ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+
   return role
     ? role
-        .split(" ")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .split(/[\s_]+/)
+        .map(capitalize)
         .join(" ")
     : "";
 }
