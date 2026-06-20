@@ -364,22 +364,121 @@ export function AppSidebar() {
         </button>
       </div>
 
-      {/* Mobile backdrop */}
+      {/* Mobile full-screen overlay menu */}
       {isMobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setIsMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-50 flex flex-col bg-sidebar md:hidden">
+          {/* Overlay header */}
+          <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-white p-0.5">
+                <img src={vishnuLogo} alt="Vishnu Logo" className="h-full w-full object-contain" />
+              </div>
+              <span className="font-display text-base font-bold text-sidebar-foreground">VISHNU FPMS</span>
+            </div>
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {/* Nav items */}
+          <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+            {navItems.map((item) => {
+              const dropdownId = item.dropdownId || item.label;
+              if (item.isDropdown) {
+                const isOpen = expandedDropdown === dropdownId;
+                const isAnyChildActive = item.children?.some((child) => location.pathname.startsWith(child.href)) ?? false;
+                return (
+                  <div key={dropdownId} className="space-y-1">
+                    <button
+                      onClick={() => toggleDropdown(dropdownId)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-medium transition-colors",
+                        isAnyChildActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {isOpen && item.children && (
+                      <div className="ml-10 space-y-1">
+                        {item.children.map((child) => {
+                          const isActive = location.pathname === child.href;
+                          return (
+                            <Link
+                              key={child.href}
+                              to={child.href}
+                              onClick={(event) => {
+                                if (child.isLoading) { event.preventDefault(); return; }
+                                setExpandedDropdown(null);
+                                setIsMobileOpen(false);
+                              }}
+                              className={cn(
+                                "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-colors",
+                                isActive
+                                  ? "bg-sidebar-primary/50 text-sidebar-primary-foreground"
+                                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50",
+                                child.isLoading && "opacity-70 cursor-default",
+                              )}
+                            >
+                              {child.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              <span>{child.title}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setIsMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          {/* User footer */}
+          <div className="border-t border-sidebar-border p-4 shrink-0">
+            <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/50 p-3">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground font-medium">
+                  {avatarInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</p>
+                <p className="text-xs text-sidebar-foreground/60 capitalize">{formatRoleLabel(user.role)}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={handleLogout}
+                className="text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
-      <aside className={cn(
-        "fixed top-0 z-40 h-screen w-64 bg-sidebar transition-transform duration-300",
-        "left-0 border-r border-sidebar-border md:translate-x-0",
-        "max-md:left-auto max-md:right-0 max-md:border-r-0 max-md:border-l max-md:border-sidebar-border",
-        isMobileOpen ? "translate-x-0" : "max-md:translate-x-full"
-      )}>
+      {/* Desktop sidebar */}
+      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border hidden md:block">
         <div className="flex h-full flex-col overflow-y-auto">
-          {" "}
           <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
             <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5">
               <img
@@ -396,28 +495,18 @@ export function AppSidebar() {
                 Employee Performance
               </p>
             </div>
-            <button
-              onClick={() => setIsMobileOpen(false)}
-              className="md:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground ml-auto"
-              aria-label="Close menu"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto hide-scrollbar">
-            {" "}
             {navItems.map((item) => {
               const dropdownId = item.dropdownId || item.label;
 
               if (item.isDropdown) {
                 const isOpen = expandedDropdown === dropdownId;
-
                 const isAnyChildActive =
                   item.children?.some((child) =>
                     location.pathname.startsWith(child.href),
                   ) ?? false;
-
                 return (
                   <div key={dropdownId} className="space-y-1">
                     <button
@@ -431,13 +520,8 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="flex-1 text-left">{item.label}</span>
-                      {isOpen ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
+                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     </button>
-
                     {isOpen && item.children && (
                       <div className="ml-8 space-y-1">
                         {item.children.map((child) => {
@@ -447,10 +531,7 @@ export function AppSidebar() {
                               key={child.href}
                               to={child.href}
                               onClick={(event) => {
-                                if (child.isLoading) {
-                                  event.preventDefault();
-                                  return;
-                                }
+                                if (child.isLoading) { event.preventDefault(); return; }
                                 setExpandedDropdown(null);
                               }}
                               className={cn(
@@ -458,13 +539,10 @@ export function AppSidebar() {
                                 isActive
                                   ? "bg-sidebar-primary/50 text-sidebar-primary-foreground"
                                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                                child.isLoading &&
-                                  "opacity-70 cursor-default pointer-events-auto",
+                                child.isLoading && "opacity-70 cursor-default pointer-events-auto",
                               )}
                             >
-                              {child.isLoading ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : null}
+                              {child.isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                               <span>{child.title}</span>
                             </Link>
                           );
