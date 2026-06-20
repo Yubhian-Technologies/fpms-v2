@@ -354,10 +354,10 @@ export function AppSidebar() {
             </div>
             <div>
               <h1 className="font-display text-lg font-bold text-sidebar-foreground">
-                FPMS
+                VISHNU FPMS
               </h1>
               <p className="text-xs text-sidebar-foreground/60">
-                Performance System
+                Employee Performance
               </p>
             </div>
           </div>
