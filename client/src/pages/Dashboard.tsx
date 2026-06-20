@@ -645,14 +645,12 @@ export default function Dashboard() {
         <div className="space-y-6">
 
           {/* ── Row 1: 6 summary stat cards ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { label: "Colleges", value: summary.totalColleges ?? "—", icon: School, color: "bg-amber-500/10 text-amber-600" },
               { label: "Total Faculty", value: summary.totalStaff ?? "—", icon: Users, color: "bg-indigo-500/10 text-indigo-600" },
-              { label: "Departments", value: summary.totalDepts ?? "—", icon: Building, color: "bg-purple-500/10 text-purple-600" },
               { label: "Submissions", value: summary.totalSubmissions ?? "—", icon: FileText, color: "bg-blue-500/10 text-blue-600" },
               { label: "Target Achievers", value: `${achievedCount} (${achievedPct}%)`, icon: CheckCircle, color: "bg-emerald-500/10 text-emerald-600" },
-              { label: "Avg Score", value: summary.overallAvgScore ?? "—", icon: Award, color: "bg-teal-500/10 text-teal-600" },
             ].map(({ label, value, icon: Icon, color }) => (
               <Card key={label} className="border-border/60">
                 <CardContent className="pt-4 pb-3 px-4">
