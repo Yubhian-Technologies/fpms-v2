@@ -741,10 +741,10 @@ export default function Dashboard() {
               <CardContent>
                 <div style={{ height: Math.max(180, rolePerformanceData.length * 44) }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart layout="vertical" data={rolePerformanceData} margin={{ top: 4, right: 52, left: 4, bottom: 4 }}>
+                    <BarChart layout="vertical" data={rolePerformanceData} margin={{ top: 4, right: 44, left: 0, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
-                      <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                      <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomRoleTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
                       <Bar dataKey="completion" radius={[0, 6, 6, 0]} maxBarSize={26}>
                         {rolePerformanceData.map((entry: any, i: number) => <Cell key={i} fill={entry.fill} />)}
@@ -794,8 +794,8 @@ export default function Dashboard() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/40">
-                        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground w-8">#</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground">College</th>
+                        <th className="sticky left-0 z-10 bg-muted/40 text-left px-4 py-2.5 font-semibold text-muted-foreground w-8">#</th>
+                        <th className="sticky left-8 z-10 bg-muted/40 text-left px-4 py-2.5 font-semibold text-muted-foreground min-w-[160px]">College</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Total Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Active Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
@@ -815,8 +815,8 @@ export default function Dashboard() {
                         return (
                         <Fragment key={c.college}>
                         <tr className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 text-muted-foreground font-medium">{i + 1}</td>
-                          <td className="px-4 py-3">
+                          <td className="sticky left-0 z-10 bg-background px-4 py-3 text-muted-foreground font-medium">{i + 1}</td>
+                          <td className="sticky left-8 z-10 bg-background px-4 py-3">
                             <div className="font-medium leading-tight">{c.college}</div>
                             {c.code && <div className="text-xs text-muted-foreground mt-0.5">{c.code}</div>}
                           </td>
@@ -1046,8 +1046,8 @@ export default function Dashboard() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pt-1 pb-3">
-                          <div className="rounded-lg border overflow-hidden">
-                            <table className="w-full text-xs">
+                          <div className="rounded-lg border overflow-x-auto">
+                            <table className="w-full min-w-[640px] text-xs">
                               <thead>
                                 <tr className="bg-muted/40 border-b">
                                   <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Department</th>

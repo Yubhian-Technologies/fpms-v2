@@ -20,6 +20,8 @@ import {
   KeyRound,
   UserCheck,
   CalendarClock,
+  Menu,
+  X,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -276,9 +278,13 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { canReview, canReviewAppeals } = useReviewAccess();
 
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [expandedDropdown, setExpandedDropdown] = useState<string | null>(null);
   const [dynamicForms, setDynamicForms] = useState<DynamicFormItem[]>([]);
   const [isFormsLoading, setIsFormsLoading] = useState(false);
+
+  useEffect(() => { setIsMobileOpen(false); }, [location.pathname]);
+
   useEffect(() => {
     const fetchForms = async () => {
       if (!user?.role) {
@@ -341,7 +347,34 @@ export function AppSidebar() {
         </div>
       )}
 
-      <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border">
+      {/* Mobile top bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 md:hidden">
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="text-sidebar-foreground/80 hover:text-sidebar-foreground"
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-white p-0.5">
+          <img src={vishnuLogo} alt="Vishnu Logo" className="h-full w-full object-contain" />
+        </div>
+        <span className="font-display text-base font-bold text-sidebar-foreground">VISHNU FPMS</span>
+      </div>
+
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      <aside className={cn(
+        "fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border transition-transform duration-300",
+        "md:translate-x-0",
+        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <div className="flex h-full flex-col overflow-y-auto">
           {" "}
           <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
@@ -352,7 +385,7 @@ export function AppSidebar() {
                 className="h-full w-full rounded-md object-contain"
               />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="font-display text-lg font-bold text-sidebar-foreground">
                 VISHNU FPMS
               </h1>
@@ -360,6 +393,13 @@ export function AppSidebar() {
                 Employee Performance
               </p>
             </div>
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="md:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground ml-auto"
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto hide-scrollbar">

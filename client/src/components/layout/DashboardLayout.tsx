@@ -20,9 +20,9 @@ export function DashboardLayout({
       <AppSidebar />
 
       {/* Main content with proper sidebar offset */}
-      <div className="ml-64 flex flex-col min-h-screen">
+      <div className="ml-0 md:ml-64 flex flex-col min-h-screen">
         <main className="flex-1">
-          <div className="container py-8">
+          <div className="container py-8 pt-20 md:pt-8">
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h1 className="text-3xl font-bold">{title}</h1>
