@@ -850,6 +850,23 @@ export default function Dashboard() {
                           const facultyList = collegeFacultyCache[c.college] || [];
                           const notSub = facultyList.filter((f: any) => !f.hasSubmitted);
                           const sub = facultyList.filter((f: any) => f.hasSubmitted);
+                          const staffStatusLabel: Record<string, string> = {
+                            "active": "Active", "recently-joined": "Recently Joined",
+                            "long-leave": "Long Leave", "maternity-leave": "Maternity Leave", "other": "Other",
+                          };
+                          const staffStatusColor: Record<string, string> = {
+                            "active": "bg-green-100 text-green-700",
+                            "recently-joined": "bg-blue-100 text-blue-700",
+                            "long-leave": "bg-orange-100 text-orange-700",
+                            "maternity-leave": "bg-purple-100 text-purple-700",
+                            "other": "bg-gray-100 text-gray-600",
+                          };
+                          const StaffStatusBadge = ({ status }: { status?: string }) =>
+                            status ? (
+                              <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ${staffStatusColor[status] || "bg-gray-100 text-gray-600"}`}>
+                                {staffStatusLabel[status] || status}
+                              </span>
+                            ) : null;
                           return (
                             <div className="space-y-3 pt-1">
                               {isLoadingCollegeFaculty && <p className="text-xs text-muted-foreground text-center py-2">Loading…</p>}
@@ -859,8 +876,13 @@ export default function Dashboard() {
                                   <div className="space-y-1.5">
                                     {notSub.map((f: any) => (
                                       <div key={f.uid} className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                                        <p className="font-medium">{f.name || "—"}</p>
-                                        <p className="text-muted-foreground">{f.department} · {f.designation}</p>
+                                        <div className="flex items-start justify-between gap-1">
+                                          <div>
+                                            <p className="font-medium">{f.name || "—"}</p>
+                                            <p className="text-muted-foreground">{f.department} · {f.designation}</p>
+                                          </div>
+                                          <StaffStatusBadge status={f.staffStatus} />
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -872,19 +894,22 @@ export default function Dashboard() {
                                   <div className="space-y-1.5">
                                     {sub.map((f: any) => (
                                       <div key={f.uid} className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                                        <div className="flex justify-between items-start">
+                                        <div className="flex justify-between items-start gap-1">
                                           <div>
                                             <p className="font-medium">{f.name || "—"}</p>
                                             <p className="text-muted-foreground">{f.department} · {f.designation}</p>
                                           </div>
-                                          {f.overallStatus && (
-                                            <span className={`ml-2 shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                              f.overallStatus === "Completed" ? "bg-emerald-100 text-emerald-700" :
-                                              f.overallStatus === "Pending Review" ? "bg-teal-100 text-teal-700" :
-                                              f.overallStatus === "Appealed" ? "bg-yellow-100 text-yellow-700" :
-                                              "bg-slate-100 text-slate-700"
-                                            }`}>{f.overallStatus}</span>
-                                          )}
+                                          <div className="flex flex-col items-end gap-1 shrink-0">
+                                            <StaffStatusBadge status={f.staffStatus} />
+                                            {f.overallStatus && (
+                                              <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                                f.overallStatus === "Completed" ? "bg-emerald-100 text-emerald-700" :
+                                                f.overallStatus === "Pending Review" ? "bg-teal-100 text-teal-700" :
+                                                f.overallStatus === "Appealed" ? "bg-yellow-100 text-yellow-700" :
+                                                "bg-slate-100 text-slate-700"
+                                              }`}>{f.overallStatus}</span>
+                                            )}
+                                          </div>
                                         </div>
                                         {f.targetScore > 0 && (
                                           <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
