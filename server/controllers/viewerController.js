@@ -237,13 +237,15 @@ export const getViewerStats = async (req, res) => {
       if (!deptMap[key]) {
         deptMap[key] = {
           college: s.college, department: s.department,
-          total: 0, submitted: 0,
+          total: 0, activeStaff: 0, submitted: 0, targetAchievers: 0,
           submissionCount: 0, acceptedCount: 0, appealedCount: 0,
           totalScore: 0, totalTarget: 0,
         };
       }
       deptMap[key].total++;
+      if (s.isActive) deptMap[key].activeStaff++;
       if (s.submissionCount > 0) deptMap[key].submitted++;
+      if (s.target > 0 && s.score >= s.target) deptMap[key].targetAchievers++;
       deptMap[key].submissionCount += s.submissionCount;
       deptMap[key].acceptedCount += s.acceptedCount;
       deptMap[key].appealedCount += s.appealedCount;

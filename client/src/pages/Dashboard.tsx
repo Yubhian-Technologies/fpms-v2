@@ -1051,11 +1051,12 @@ export default function Dashboard() {
                               <thead>
                                 <tr className="bg-muted/40 border-b">
                                   <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Department</th>
-                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Staff</th>
-                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Subs</th>
-                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Sub Rate</th>
-                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Avg Score</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Total Staff</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Active Staff</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Submissions</th>
                                   <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Appeals</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Sub Rate</th>
+                                  <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Target Achievers</th>
                                   <th className="text-left px-3 py-2 font-semibold text-muted-foreground min-w-[140px]">Completion</th>
                                 </tr>
                               </thead>
@@ -1064,17 +1065,34 @@ export default function Dashboard() {
                                   <tr key={d.department} className="border-b last:border-0 hover:bg-muted/20">
                                     <td className="px-3 py-2 font-medium max-w-[200px] truncate" title={d.department}>{d.department}</td>
                                     <td className="px-3 py-2 text-center text-muted-foreground">{d.total}</td>
+                                    <td className="px-3 py-2 text-center text-muted-foreground">{d.activeStaff ?? d.total}</td>
                                     <td className="px-3 py-2 text-center text-muted-foreground">{d.submissionCount}</td>
-                                    <td className="px-3 py-2 text-center">
-                                      <span className={`font-semibold ${d.submissionRate >= 80 ? "text-emerald-600" : d.submissionRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
-                                        {d.submissionRate}%
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-center font-medium">{d.avgScore}</td>
                                     <td className="px-3 py-2 text-center">
                                       {d.appealedCount > 0
                                         ? <span className="text-orange-500 font-medium">{d.appealedCount}</span>
                                         : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      {(() => {
+                                        const active = d.activeStaff ?? d.total;
+                                        const subRate = active > 0 ? Math.round(((d.submitted ?? 0) / active) * 100) : 0;
+                                        return (
+                                          <>
+                                            <span className={`font-semibold ${subRate >= 80 ? "text-emerald-600" : subRate >= 50 ? "text-amber-600" : "text-red-500"}`}>
+                                              {d.submitted ?? 0} / {active}
+                                            </span>
+                                            <div className="text-xs text-muted-foreground">{subRate}%</div>
+                                          </>
+                                        );
+                                      })()}
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className="font-semibold text-emerald-600">{d.targetAchievers ?? 0}</span>
+                                      {(d.activeStaff ?? d.total) > 0 && (
+                                        <div className="text-xs text-muted-foreground">
+                                          {Math.round(((d.targetAchievers ?? 0) / (d.activeStaff ?? d.total)) * 100)}%
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="px-3 py-2">
                                       <div className="flex items-center gap-1.5">
