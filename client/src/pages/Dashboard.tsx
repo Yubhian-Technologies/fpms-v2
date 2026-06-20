@@ -701,7 +701,7 @@ export default function Dashboard() {
             <Card className="flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Target Achievement</CardTitle>
-                <CardDescription>Faculty who have reached 100%+ of their designation target</CardDescription>
+                <CardDescription>Faculty who have achieved 100% and more of their target</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col flex-1 justify-between gap-3">
                 <div className="relative w-full flex-1" style={{ minHeight: 220 }}>
