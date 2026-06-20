@@ -605,8 +605,9 @@ export default function Dashboard() {
       label: b.label, count: b.count, fill: RANGE_COLORS[b.label] || "#6366f1",
     }));
 
+    const EXCLUDED_ROLES = new Set(["principal", "principle", "vice principal", "vice principle", "director"]);
     const rolePerformanceData = roleStats
-      .filter((r: any) => r.total > 0)
+      .filter((r: any) => r.total > 0 && !EXCLUDED_ROLES.has(String(r.role || "").trim().toLowerCase()))
       .map((r: any, i: number) => ({
         name: formatRoleLabel(r.role),
         completion: r.completionPct,
@@ -734,7 +735,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Performance by Role</CardTitle>
+                <CardTitle className="text-base">Performance by Role across all Colleges</CardTitle>
                 <CardDescription>Average target completion % per role</CardDescription>
               </CardHeader>
               <CardContent>
