@@ -21,7 +21,7 @@ export const getCollegeFaculty = async (req, res) => {
     const [usersSnap, subsSnap] = await Promise.all([
       db.collection("users")
         .where("college", "==", collegeName)
-        .select("uid", "name", "email", "role", "department", "designation")
+        .select("uid", "name", "email", "role", "department", "designation", "staffStatus", "statusNote")
         .get(),
       db.collection("submissions")
         .where("college", "==", collegeName)
@@ -42,6 +42,8 @@ export const getCollegeFaculty = async (req, res) => {
           role: d.role || "",
           department: d.department || "",
           designation: d.designation || "",
+          staffStatus: d.staffStatus || null,
+          statusNote: d.statusNote || null,
           hasSubmitted: submittedUids.has(doc.id),
           submissionCount: subsSnap.docs.filter((s) => s.data().userId === doc.id).length,
         };

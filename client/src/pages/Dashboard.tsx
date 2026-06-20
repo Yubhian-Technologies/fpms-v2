@@ -873,7 +873,20 @@ export default function Dashboard() {
                           const notSubmitted = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
                           const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
                           const colSpan = 9;
-                          const FacultyTable = ({ rows, emptyMsg }: { rows: any[]; emptyMsg: string }) => (
+                          const statusLabel: Record<string, string> = {
+                            "active": "Active", "inactive": "Inactive",
+                            "long-leave": "Long Leave", "maternity-leave": "Maternity Leave",
+                            "recently-joined": "Recently Joined", "other": "Other",
+                          };
+                          const statusColor: Record<string, string> = {
+                            "active": "bg-green-100 text-green-800",
+                            "recently-joined": "bg-blue-100 text-blue-800",
+                            "long-leave": "bg-orange-100 text-orange-800",
+                            "maternity-leave": "bg-purple-100 text-purple-800",
+                            "inactive": "bg-gray-100 text-gray-600",
+                            "other": "bg-gray-100 text-gray-600",
+                          };
+                          const FacultyTable = ({ rows, emptyMsg, showStatus }: { rows: any[]; emptyMsg: string; showStatus?: boolean }) => (
                             rows.length === 0
                               ? <p className="text-xs text-muted-foreground py-2 text-center">{emptyMsg}</p>
                               : <div className="overflow-x-auto">
@@ -885,6 +898,7 @@ export default function Dashboard() {
                                         <th className="text-left px-3 py-1.5 font-medium">Department</th>
                                         <th className="text-left px-3 py-1.5 font-medium">Designation</th>
                                         <th className="text-left px-3 py-1.5 font-medium">Role</th>
+                                        {showStatus && <th className="text-left px-3 py-1.5 font-medium">Status</th>}
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -895,6 +909,16 @@ export default function Dashboard() {
                                           <td className="px-3 py-1.5">{f.department || "—"}</td>
                                           <td className="px-3 py-1.5">{f.designation || "—"}</td>
                                           <td className="px-3 py-1.5 capitalize">{f.role || "—"}</td>
+                                          {showStatus && (
+                                            <td className="px-3 py-1.5">
+                                              {f.staffStatus ? (
+                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[f.staffStatus] || "bg-gray-100 text-gray-600"}`}>
+                                                  {statusLabel[f.staffStatus] || f.staffStatus}
+                                                  {f.staffStatus === "other" && f.statusNote ? ` — ${f.statusNote}` : ""}
+                                                </span>
+                                              ) : "—"}
+                                            </td>
+                                          )}
                                         </tr>
                                       ))}
                                     </tbody>
@@ -913,7 +937,7 @@ export default function Dashboard() {
                                         <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">
                                           Not Submitted ({notSubmitted.length})
                                         </p>
-                                        <FacultyTable rows={notSubmitted} emptyMsg="All staff have submitted." />
+                                        <FacultyTable rows={notSubmitted} emptyMsg="All staff have submitted." showStatus />
                                       </div>
                                       <div>
                                         <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-2">
