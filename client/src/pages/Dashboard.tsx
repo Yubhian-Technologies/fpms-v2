@@ -1123,8 +1123,7 @@ export default function Dashboard() {
                     </tbody>
                   </table>
                 </div>
-                </div> {/* end desktop table */}
-                </> /* end fragment */
+                </>
               )}
             </CardContent>
           </Card>
