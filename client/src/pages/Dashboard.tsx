@@ -848,8 +848,8 @@ export default function Dashboard() {
                         {/* Expanded faculty detail (mobile) */}
                         {expandedCollegeDetail === c.college && (() => {
                           const facultyList = collegeFacultyCache[c.college] || [];
-                          const notSub = facultyList.filter((f: any) => !f.hasSubmitted);
-                          const sub = facultyList.filter((f: any) => f.hasSubmitted);
+                          const notSub = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
+                          const sub = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (b.reviewerScore ?? -1) - (a.reviewerScore ?? -1) || (b.percentage ?? -1) - (a.percentage ?? -1));
                           const staffStatusLabel: Record<string, string> = {
                             "active": "Active", "recently-joined": "Recently Joined",
                             "long-leave": "Long Leave", "maternity-leave": "Maternity Leave", "other": "Other",
@@ -1022,7 +1022,7 @@ export default function Dashboard() {
                         {expandedCollegeDetail === c.college && (() => {
                           const facultyList = collegeFacultyCache[c.college] || [];
                           const notSubmitted = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
-                          const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
+                          const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (b.reviewerScore ?? -1) - (a.reviewerScore ?? -1) || (b.percentage ?? -1) - (a.percentage ?? -1));
                           const colSpan = 9;
                           const statusLabel: Record<string, string> = {
                             "active": "Active", "inactive": "Inactive",
