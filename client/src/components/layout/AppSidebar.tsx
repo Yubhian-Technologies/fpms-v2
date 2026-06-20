@@ -348,7 +348,13 @@ export function AppSidebar() {
       )}
 
       {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-sidebar-border bg-sidebar px-4 md:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-white p-0.5">
+            <img src={vishnuLogo} alt="Vishnu Logo" className="h-full w-full object-contain" />
+          </div>
+          <span className="font-display text-base font-bold text-sidebar-foreground">VISHNU FPMS</span>
+        </div>
         <button
           onClick={() => setIsMobileOpen(true)}
           className="text-sidebar-foreground/80 hover:text-sidebar-foreground"
@@ -356,10 +362,6 @@ export function AppSidebar() {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-md bg-white p-0.5">
-          <img src={vishnuLogo} alt="Vishnu Logo" className="h-full w-full object-contain" />
-        </div>
-        <span className="font-display text-base font-bold text-sidebar-foreground">VISHNU FPMS</span>
       </div>
 
       {/* Mobile backdrop */}
@@ -371,9 +373,10 @@ export function AppSidebar() {
       )}
 
       <aside className={cn(
-        "fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border transition-transform duration-300",
-        "md:translate-x-0",
-        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed top-0 z-40 h-screen w-64 bg-sidebar transition-transform duration-300",
+        "left-0 border-r border-sidebar-border md:translate-x-0",
+        "max-md:left-auto max-md:right-0 max-md:border-r-0 max-md:border-l max-md:border-sidebar-border",
+        isMobileOpen ? "translate-x-0" : "max-md:translate-x-full"
       )}>
         <div className="flex h-full flex-col overflow-y-auto">
           {" "}
