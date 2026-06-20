@@ -800,8 +800,7 @@ export default function Dashboard() {
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Active Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
-                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Avg Score</th>
-                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Appeals</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Target Achievers</th>
                         <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground whitespace-nowrap">Deadlines</th>
                         <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground min-w-[160px]">Completion</th>
                       </tr>
@@ -843,11 +842,13 @@ export default function Dashboard() {
                               })()}
                             </button>
                           </td>
-                          <td className="px-3 py-3 text-center font-medium">{c.avgScore}</td>
                           <td className="px-3 py-3 text-center">
-                            {c.appealedCount > 0
-                              ? <span className="text-orange-500 font-medium">{c.appealedCount}</span>
-                              : <span className="text-muted-foreground">—</span>}
+                            <span className="font-semibold text-emerald-600">{c.targetAchievers ?? 0}</span>
+                            {c.activeStaff > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {Math.round(((c.targetAchievers ?? 0) / c.activeStaff) * 100)}%
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-3">
                             {dl ? (
