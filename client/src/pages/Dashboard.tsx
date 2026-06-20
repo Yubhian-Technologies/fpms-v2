@@ -1151,15 +1151,15 @@ export default function Dashboard() {
                     return (
                       <AccordionItem key={college} value={college}>
                         <AccordionTrigger className="text-sm font-medium hover:no-underline py-3">
-                          <div className="flex items-center justify-between w-full pr-3 gap-4">
-                            <span className="text-left flex-1">{college}</span>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground font-normal shrink-0">
+                          <div className="flex flex-col gap-1.5 w-full pr-3 text-left">
+                            <span className="font-semibold leading-snug">{college}</span>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground font-normal flex-wrap">
                               <span>{rows.length} dept{rows.length !== 1 ? "s" : ""}</span>
                               <span>{totalSubs} subs</span>
                               {totalAppeals > 0 && <span className="text-orange-500">{totalAppeals} appeals</span>}
-                              <span className="w-32 flex items-center gap-1.5">
+                              <span className="flex items-center gap-1.5 flex-1 min-w-[100px]">
                                 <Progress value={Math.min(collegeAvg, 100)} className="h-1.5 flex-1" />
-                                <span className="w-8 text-right font-semibold">{collegeAvg}%</span>
+                                <span className="w-8 text-right font-semibold text-foreground">{collegeAvg}%</span>
                               </span>
                             </div>
                           </div>
