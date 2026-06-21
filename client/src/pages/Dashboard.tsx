@@ -3090,6 +3090,7 @@ export default function Dashboard() {
                   const deptCompleted = deptSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status)).length;
                   const deptAppealed = deptSubs.filter((s: any) => s.status === "appealed").length;
                   const deptPending = deptSubs.filter((s: any) => s.status === "submitted").length;
+                  const deptNeedAccept = deptSubs.filter((s: any) => s.status === "reviewed").length;
                   const completionPct = deptSubs.length > 0 ? Math.round((deptCompleted / deptSubs.length) * 100) : 0;
                   const deptTargetPct = deptWithTarget.length > 0 ? Math.round((deptTargetsReached / deptWithTarget.length) * 100) : 0;
                   const isSelected = selectedDeptDetail === deptName;
@@ -3122,14 +3123,18 @@ export default function Dashboard() {
                         </div>
 
                         {/* Submission stats */}
-                        <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
+                        <div className="grid grid-cols-2 gap-1.5 text-center text-xs">
                           <div className="bg-muted/30 rounded-md py-1.5">
                             <span className="font-semibold block">{deptSubs.length}</span>
-                            <span className="text-muted-foreground">Subs</span>
+                            <span className="text-muted-foreground">Submissions</span>
                           </div>
                           <div className={`rounded-md py-1.5 ${deptPending > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"}`}>
                             <span className="font-semibold block">{deptPending}</span>
-                            <span>Pending</span>
+                            <span>Pending Review</span>
+                          </div>
+                          <div className={`rounded-md py-1.5 ${deptNeedAccept > 0 ? "bg-blue-50 text-blue-700" : "bg-muted/30"}`}>
+                            <span className="font-semibold block">{deptNeedAccept}</span>
+                            <span>Need to Accept</span>
                           </div>
                           <div className={`rounded-md py-1.5 ${deptAppealed > 0 ? "bg-red-50 text-red-600" : "bg-muted/30"}`}>
                             <span className="font-semibold block">{deptAppealed}</span>
