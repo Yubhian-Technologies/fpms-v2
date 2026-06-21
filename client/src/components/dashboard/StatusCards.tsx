@@ -98,12 +98,12 @@ export function StatusCards({
 
       subs.forEach((sub: any) => {
         if (FINALIZED.has(sub.status)) totalScore += Number(sub.finalScore ?? 0);
-        if (sub.status === "reviewed") needToAcceptCount++;
         if (sub.status === "submitted") pendingReviewCount++;
         if (sub.status === "appealed") appealedCount++;
       });
 
       if (subs.length > 0) submittedFaculty++;
+      if (subs.some((sub: any) => sub.status === "reviewed")) needToAcceptCount++;
 
       const confirmedScore = subs.reduce(
         (sum: number, sub: any) => sum + (FINALIZED.has(sub.status) ? Number(sub.finalScore ?? 0) : 0),
@@ -137,7 +137,7 @@ export function StatusCards({
         <StatusCard
           title="Need to Accept"
           value={needToAcceptCount}
-          subtitle="reviewed, awaiting faculty"
+          subtitle="faculty with reviewed submissions"
           icon={BarChart2}
         />
         <StatusCard
