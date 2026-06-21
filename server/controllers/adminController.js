@@ -2336,13 +2336,29 @@ export const exportPrincipalReport = async (req, res) => {
       return res.status(400).json({ success: false, message: "Principal college not found" });
     }
 
-    const [usersSnap, subsSnap] = await Promise.all([
+    const [usersSnap, subsSnap, saDoc] = await Promise.all([
       db.collection(USERS_COLLECTION).where("college", "==", principalCollege).get(),
       db.collection("submissions").where("college", "==", principalCollege).get(),
+      db.collection("superadmin").doc(SUPERADMIN_DOC_ID).get(),
     ]);
 
+    // Build designation → target map for this college
+    const saColleges = saDoc.exists ? saDoc.data()?.colleges || [] : [];
+    const collegeDef = saColleges.find(
+      (c) => String(c?.name || "").trim().toLowerCase() === principalCollege.toLowerCase(),
+    );
+    const designationTargetMap = {};
+    (collegeDef?.designations || []).forEach((d) => {
+      if (d?.name) {
+        const phdKey = `${normDesigAdmin(d.name)}__${d.phd ? "phd" : "nophd"}`;
+        designationTargetMap[phdKey] = d.target || "";
+        if (!designationTargetMap[normDesigAdmin(d.name)])
+          designationTargetMap[normDesigAdmin(d.name)] = d.target || "";
+      }
+    });
+
     // Excluded system roles
-    const excludedRoles = new Set(["committee", "viewer", "superadmin", "principal", "principle", "viceprincipal", "vice principal", "vice-principal", "director"]);
+    const excludedRoles = new Set(["committee", "viewer", "superadmin", "principal", "principle", "viceprincipal", "vice principal", "vice-principal", "director", "viceprinciple", "vice principle"]);
 
     // uid → submissions[]
     const subsByUser = {};
@@ -2358,11 +2374,21 @@ export const exportPrincipalReport = async (req, res) => {
         const d = doc.data();
         const role = String(d.role || "").trim().toLowerCase();
         if (excludedRoles.has(role)) return null;
+        const designation = String(d.designation || "").trim();
+        const hasPhd = Boolean(d.hasPhd);
+        const phdKey = `${normDesigAdmin(designation)}__${hasPhd ? "phd" : "nophd"}`;
+        const designationTarget =
+          designationTargetMap[phdKey] ||
+          designationTargetMap[normDesigAdmin(designation)] ||
+          "";
         return {
           uid: d.uid || doc.id,
           name: d.name || d.email || doc.id,
           role,
           department: String(d.department || "").trim(),
+          designation,
+          hasPhd,
+          designationTarget,
           subs: (subsByUser[d.uid || doc.id] || []).sort((a, b) => {
             const cn = String(a.criteriaName || "").localeCompare(String(b.criteriaName || ""));
             if (cn !== 0) return cn;

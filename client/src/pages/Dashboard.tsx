@@ -1531,23 +1531,30 @@ export default function Dashboard() {
     // ── SUMMARY REPORT: one row per faculty, dept sheets with college/dept header ──
     const exportPrincipalReport = () => {
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
-      const NCOLS = 7;
-      const SUMMARY_HEADERS = ["S.No", "Name of the Faculty", "Designation", "Submissions", "Score", "Target", "Status"];
-      const SUMMARY_WIDTHS = [{ wch: 6 }, { wch: 32 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }];
+      const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+      const NCOLS = 9;
+      const SUMMARY_HEADERS = ["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "%", "Status"];
+      const SUMMARY_WIDTHS = [{ wch: 6 }, { wch: 34 }, { wch: 20 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 20 }];
 
+      const FINALIZED_S = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
       const getStatus = (subs: any[]) => {
         if (!subs.length) return "Not Submitted";
-        if (subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "appeal-expired")) {
-          return subs.some((s: any) => s.status === "submitted") ? "Partially Reviewed" : "Completed";
-        }
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
-        return "Pending Review";
+        if (subs.some((s: any) => s.status === "submitted")) return "Pending Review";
+        if (subs.some((s: any) => s.status === "reviewed")) return "Under Review";
+        if (subs.some((s: any) => FINALIZED_S.has(s.status))) return "Completed";
+        return "Under Review";
       };
 
       const buildSummarySheet = (deptName: string, staffArr: any[]) => {
+        const sorted = [...staffArr].sort((a, b) => {
+          const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+          const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+          return bR - aR;
+        });
         const rows: any[][] = [
-          [collegeName, "", "", "", "", "", ""],
-          [deptName, "", "", "", "", "", ""],
+          [collegeName, ...Array(NCOLS - 1).fill("")],
+          [`Department: ${deptName}   |   Date: ${dateStr}`, ...Array(NCOLS - 1).fill("")],
           SUMMARY_HEADERS,
         ];
         const merges: XLSX.Range[] = [
@@ -1555,22 +1562,37 @@ export default function Dashboard() {
           { s: { r: 1, c: 0 }, e: { r: 1, c: NCOLS - 1 } },
         ];
         let sno = 1;
-        for (const s of staffArr) {
+        for (const s of sorted) {
           const subs = s.submissions || [];
-          const score = subs.reduce((sum: number, sub: any) =>
-            sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
-          rows.push([sno++, s.name || s.email || "—", s.designation || "—",
-            subs.length, score, s.designationTarget || "—", getStatus(subs)]);
+          const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+          const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+          const target = Number(s.designationTarget || 0);
+          const pct = target > 0 ? `${Math.round((reviewer / target) * 100)}%` : "—";
+          rows.push([
+            sno++,
+            s.name || s.email || "—",
+            s.designation || "—",
+            formatRoleLabel(s.role),
+            target || "—",
+            subs.length > 0 ? claimed : "—",
+            subs.length > 0 ? reviewer : "—",
+            subs.length > 0 ? pct : "—",
+            getStatus(subs),
+          ]);
         }
         const ws = XLSX.utils.aoa_to_sheet(rows);
         ws["!merges"] = merges;
         ws["!cols"] = SUMMARY_WIDTHS;
-        // Bold the title rows
         return ws;
       };
 
       const wb = XLSX.utils.book_new();
-      const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+      const adminRoles = new Set([
+        "committee", "internal committee",
+        "principle", "principal",
+        "vice principle", "vice principal", "vice-principal", "viceprincipal",
+        "director",
+      ]);
       const faculty = staffList.filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
 
       const deptMap: Record<string, any[]> = {};
@@ -1604,18 +1626,19 @@ export default function Dashboard() {
 
         const wb = XLSX.utils.book_new();
         const DETAIL_HEADERS = [
-          "S.No", "Name of the Faculty", "Modules", "Sub Modules", "Tasks",
+          "S.No", "Name of the Faculty", "Designation", "Modules", "Sub Modules", "Tasks",
           "Max Points", "Claimed Score", "Reviewer Score", "Appeal Score", "Final Score", "Total Score",
         ];
         const DETAIL_WIDTHS = [
-          { wch: 6 }, { wch: 30 }, { wch: 22 }, { wch: 22 }, { wch: 32 },
+          { wch: 6 }, { wch: 30 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 32 },
           { wch: 10 }, { wch: 14 }, { wch: 15 }, { wch: 13 }, { wch: 12 }, { wch: 12 },
         ];
 
         const buildDetailSheet = (deptName: string, staffArr: any[]) => {
+          const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
           const titleRows: any[][] = [
             [collegeName, ...Array(DETAIL_HEADERS.length - 1).fill("")],
-            [deptName, ...Array(DETAIL_HEADERS.length - 1).fill("")],
+            [`Department: ${deptName}   |   Date: ${dateStr}`, ...Array(DETAIL_HEADERS.length - 1).fill("")],
             DETAIL_HEADERS,
           ];
           const merges: XLSX.Range[] = [
@@ -1632,7 +1655,7 @@ export default function Dashboard() {
             const subs: any[] = person.subs || [];
             const totalScore = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
             if (subs.length === 0) {
-              rows.push([sno++, person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
+              rows.push([sno++, person.name, person.designation || "—", "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
               continue;
             }
 
@@ -1661,6 +1684,7 @@ export default function Dashboard() {
                   rows.push([
                     firstFac ? sno : "",
                     firstFac ? person.name : "",
+                    firstFac ? (person.designation || "—") : "",
                     firstCrit ? criteriaKey : "",
                     smIdx === 0 ? smKey : "",
                     sub.taskName || "-",
@@ -1674,12 +1698,13 @@ export default function Dashboard() {
                   firstFac = false;
                   firstCrit = false;
                 });
-                addMerge(3, smStart, rows.length - 1);
+                addMerge(4, smStart, rows.length - 1);
               }
-              addMerge(2, critStart, rows.length - 1);
+              addMerge(3, critStart, rows.length - 1);
             }
             addMerge(0, facStart, rows.length - 1);
             addMerge(1, facStart, rows.length - 1);
+            addMerge(2, facStart, rows.length - 1);
             sno++;
           }
 
@@ -1718,9 +1743,8 @@ export default function Dashboard() {
       const ML = 14; const MR = 14;
       const usableW = pw - ML - MR; // 269
 
-      // Column widths that sum to exactly usableW (269mm)
-      // S.No(12) + Name(100) + Desig(48) + Subs(22) + Score(22) + Target(22) + Status(43) = 269
-      const COL_WIDTHS = [12, 100, 48, 22, 22, 22, 43];
+      // S.No(10) + Name(72) + Desig(38) + Role(28) + Target(18) + Claimed(22) + Reviewer(22) + %(16) + Status(43) = 269
+      const COL_WIDTHS = [10, 72, 38, 28, 18, 22, 22, 16, 43];
 
       const addPageHeader = (deptName?: string) => {
         doc.setFillColor(0, 31, 63);
@@ -1786,13 +1810,14 @@ export default function Dashboard() {
       const SIG_BLOCK_H = 44;
       const FOOTER_H = 10;
 
-      const getStatusLabel = (subs: any[]) => {
+      const FINALIZED_PDF = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+      const getPDFStatus = (subs: any[]) => {
         if (!subs.length) return "Not Submitted";
-        const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
-        if (hasAccepted && subs.some((s: any) => s.status === "submitted")) return "Partial";
-        if (hasAccepted) return "Completed";
-        return "Pending Review";
+        if (subs.some((s: any) => s.status === "submitted")) return "Pending Review";
+        if (subs.some((s: any) => s.status === "reviewed")) return "Under Review";
+        if (subs.some((s: any) => FINALIZED_PDF.has(s.status))) return "Completed";
+        return "Under Review";
       };
 
       let isFirst = true;
@@ -1801,44 +1826,58 @@ export default function Dashboard() {
         isFirst = false;
         addPageHeader(dept.name);
 
-        const rows = dept.staff.map((s: any, idx: number) => {
+        const sortedStaff = [...dept.staff].sort((a: any, b: any) => {
+          const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+          const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+          return bR - aR;
+        });
+
+        const rows = sortedStaff.map((s: any, idx: number) => {
           const subs = s.submissions || [];
-          const score = subs.reduce((sum: number, sub: any) =>
-            sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
-          const targetReached = s.designationTarget && score >= Number(s.designationTarget);
+          const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+          const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+          const target = Number(s.designationTarget || 0);
+          const pct = target > 0 ? `${Math.round((reviewer / target) * 100)}%` : "—";
           return [
             idx + 1,
             s.name || s.email || "—",
             s.designation || "—",
-            subs.length,
-            score,
-            s.designationTarget || "—",
-            targetReached ? "✓ Reached" : getStatusLabel(subs),
+            formatRoleLabel(s.role || ""),
+            target || "—",
+            subs.length > 0 ? claimed : "—",
+            subs.length > 0 ? reviewer : "—",
+            subs.length > 0 ? pct : "—",
+            getPDFStatus(subs),
           ];
         });
 
         autoTable(doc, {
-          head: [["S.No", "Name of the Faculty", "Designation", "Submissions", "Score", "Target", "Status"]],
+          head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "%", "Status"]],
           body: rows,
           startY: 30,
           margin: { left: ML, right: MR },
           tableWidth: usableW,
-          styles: { fontSize: 9, cellPadding: 3, overflow: "linebreak" },
+          styles: { fontSize: 8.5, cellPadding: 2.5, overflow: "linebreak" },
           headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center" },
           alternateRowStyles: { fillColor: [245, 247, 250] },
           columnStyles: {
             0: { cellWidth: COL_WIDTHS[0], halign: "center" },
             1: { cellWidth: COL_WIDTHS[1] },
             2: { cellWidth: COL_WIDTHS[2] },
-            3: { cellWidth: COL_WIDTHS[3], halign: "center" },
+            3: { cellWidth: COL_WIDTHS[3] },
             4: { cellWidth: COL_WIDTHS[4], halign: "center" },
             5: { cellWidth: COL_WIDTHS[5], halign: "center" },
             6: { cellWidth: COL_WIDTHS[6], halign: "center" },
+            7: { cellWidth: COL_WIDTHS[7], halign: "center" },
+            8: { cellWidth: COL_WIDTHS[8], halign: "center" },
           },
           didDrawCell: (data: any) => {
-            if (data.section === "body" && data.column.index === 6) {
+            if (data.section === "body" && data.column.index === 8) {
               const val = String(data.cell.text?.[0] || "");
-              doc.setTextColor(val.includes("Reached") ? 22 : 0, val.includes("Reached") ? 163 : 0, val.includes("Reached") ? 74 : 0);
+              if (val === "Completed") doc.setTextColor(22, 163, 74);
+              else if (val === "Appealed") doc.setTextColor(220, 38, 38);
+              else if (val === "Under Review") doc.setTextColor(30, 41, 59);
+              else doc.setTextColor(0, 0, 0);
             }
           },
         });
@@ -1891,7 +1930,12 @@ export default function Dashboard() {
 
     // ── PRINCIPAL PDF EXPORT ──
     const exportPrincipalPDF = () => {
-      const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+      const adminRoles = new Set([
+        "committee", "internal committee",
+        "principle", "principal",
+        "vice principle", "vice principal", "vice-principal", "viceprincipal",
+        "director",
+      ]);
       const faculty = staffList.filter((s: any) => !adminRoles.has(String(s.role || "").toLowerCase()));
 
       const deptMap: Record<string, any[]> = {};
