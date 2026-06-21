@@ -75,19 +75,21 @@ export function StatusCards({
       (s: any) => !adminRoles.has(String(s.role || "").toLowerCase()),
     );
 
-    let totalSubmissions = 0;
+    const totalStaff = staff.length;
     let totalScore = 0;
     let totalTarget = 0;
     let completedCount = 0;
+    let needToAcceptCount = 0;
     let appealedCount = 0;
 
     staff.forEach((s: any) => {
       totalTarget += Number(s.designationTarget || 0);
       (s.submissions || []).forEach((sub: any) => {
-        totalSubmissions++;
         totalScore += Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0);
         if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired")
           completedCount++;
+        if (sub.status === "reviewed")
+          needToAcceptCount++;
         if (sub.status === "appealed" || sub.status === "appeal-resolved")
           appealedCount++;
       });
@@ -97,14 +99,14 @@ export function StatusCards({
 
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatusCard title="Total Submissions" value={totalSubmissions} icon={Award} />
-        <StatusCard title="Completed" value={completedCount} icon={CheckCircle} />
-        <StatusCard title="Completion Rate" value={`${completionRate.toFixed(1)}%`} icon={BarChart2} />
+        <StatusCard title="Total Faculty" value={totalStaff} icon={Users} />
+        <StatusCard title="Accepted" value={completedCount} icon={CheckCircle} />
+        <StatusCard title="Need to Accept" value={needToAcceptCount} subtitle="Reviewed, awaiting faculty" icon={Award} />
         <StatusCard
           title="Overall Score"
           value={`${Math.round(totalScore)} / ${totalTarget}`}
           subtitle={`${completionRate.toFixed(1)}% achieved`}
-          icon={AlertCircle}
+          icon={BarChart2}
         />
         <StatusCard title="Appealed" value={appealedCount} icon={AlertCircle} />
       </div>
