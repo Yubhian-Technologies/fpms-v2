@@ -3261,76 +3261,88 @@ export default function Dashboard() {
                   </CardHeader>
                   <CardContent className="p-0">
                     {(() => {
+                      const FINALIZED_SET = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
                       const staffRow = (s: any) => {
                         const subs = s.submissions || [];
-                        const achieved = subs.reduce((sum: number, sub: any) => sum + Number(sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
-                        const maxScore = subs.reduce((sum: number, sub: any) => sum + (sub.maxMarks ?? 0), 0);
                         const target = s.designationTarget ? Number(s.designationTarget) : null;
-                        const targetReached = target !== null && achieved >= target;
-                        const done = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status)).length;
+                        const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+                        const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+                        const appealSub = subs.find((sub: any) => sub.status === "appealed");
+                        const appealScore = appealSub ? (appealSub.appealScore ?? appealSub.reviewerScore ?? null) : null;
+                        const pct = target && target > 0 ? Math.round((reviewer / target) * 100) : null;
                         const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                         const hasPending = subs.some((sub: any) => sub.status === "submitted");
-                        const pct = subs.length > 0 ? Math.round((done / subs.length) * 100) : 0;
-                        const scorePct = maxScore > 0 ? Math.min(100, (achieved / maxScore) * 100) : 0;
+                        const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
+                        const hasCompleted = subs.some((sub: any) => FINALIZED_SET.has(sub.status));
+                        let overallStatus = "Not Submitted";
+                        if (subs.length > 0) {
+                          if (hasAppealed) overallStatus = "Appealed";
+                          else if (hasPending) overallStatus = "Pending Review";
+                          else if (hasReviewed) overallStatus = "Under Review";
+                          else if (hasCompleted) overallStatus = "Completed";
+                          else overallStatus = "Under Review";
+                        }
                         return (
                           <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 min-w-[160px]">
                               <div className="font-medium">{s.name || "—"}</div>
                               {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
                             </td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
-                            <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col items-center gap-1 min-w-[90px]">
-                                <span className="font-semibold text-sm">
-                                  {achieved}
-                                  {maxScore > 0 && <span className="text-muted-foreground font-normal text-xs">/{maxScore}</span>}
-                                </span>
-                                {maxScore > 0 && <Progress value={scorePct} className="h-1.5 w-20" />}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {target !== null ? (
-                                targetReached
-                                  ? <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs"><CircleCheck className="h-3.5 w-3.5" /> Reached</span>
-                                  : <span className="text-xs text-muted-foreground">{achieved}/{target}</span>
-                              ) : <span className="text-xs text-muted-foreground">—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-center text-xs font-medium">{pct}%</td>
-                            <td className="px-4 py-3 text-center">
-                              {subs.length === 0 ? (
-                                <Badge variant="outline" className="text-xs">Not Submitted</Badge>
-                              ) : hasAppealed ? (
-                                <Badge variant="warning" className="text-xs">Appealed</Badge>
-                              ) : hasPending ? (
-                                <Badge variant="secondary" className="text-xs">Pending</Badge>
-                              ) : done > 0 ? (
-                                <Badge variant="success" className="text-xs">Accepted</Badge>
-                              ) : (
-                                <Badge variant="default" className="text-xs">Under Review</Badge>
+                            <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                              {s.designation || "—"}
+                              {s.hasPhd && (
+                                <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>
                               )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{formatRoleLabel(s.role)}</td>
+                            <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
+                            <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
+                            <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
+                            <td className="px-4 py-3 text-center text-sm text-muted-foreground">{appealScore != null ? appealScore : "—"}</td>
+                            <td className="px-4 py-3 text-center text-sm font-semibold">
+                              {pct != null ? (
+                                <span className={pct >= 100 ? "text-green-600" : pct >= 75 ? "text-amber-600" : "text-muted-foreground"}>
+                                  {pct}%
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {overallStatus === "Not Submitted" && <Badge variant="outline" className="text-xs">Not Submitted</Badge>}
+                              {overallStatus === "Pending Review" && <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">Pending Review</Badge>}
+                              {overallStatus === "Under Review" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Under Review</Badge>}
+                              {overallStatus === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
+                              {overallStatus === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
                             </td>
                           </tr>
                         );
                       };
-                      const staffTable = (rows: any[]) => (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b bg-muted/30">
-                                <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                                <th className="text-left px-4 py-2.5 font-medium">Designation</th>
-                                <th className="text-center px-4 py-2.5 font-medium">Subs</th>
-                                <th className="text-center px-4 py-2.5 font-medium">Score</th>
-                                <th className="text-center px-4 py-2.5 font-medium">Target</th>
-                                <th className="text-center px-4 py-2.5 font-medium">Done%</th>
-                                <th className="text-center px-4 py-2.5 font-medium">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>{rows.map(staffRow)}</tbody>
-                          </table>
-                        </div>
-                      );
+                      const staffTable = (rows: any[]) => {
+                        const sorted = [...rows].sort((a: any, b: any) => {
+                          const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+                          const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+                          return bR - aR;
+                        });
+                        return (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/30">
+                                  <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                                  <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                                  <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Target</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Claimed</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Reviewer</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">%</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>{sorted.map(staffRow)}</tbody>
+                            </table>
+                          </div>
+                        );
+                      };
                       return (
                         <>
                           {deptMap[selectedDeptDetail].hods.length > 0 && (
