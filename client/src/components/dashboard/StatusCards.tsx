@@ -70,7 +70,12 @@ export function StatusCards({
 
   // ── Principal / Vice Principal / Director: show college-wide aggregates ──
   if (isPrincipalRole) {
-    const adminRoles = new Set(["committee", "principle", "vice principle", "director", "internal committee"]);
+    const adminRoles = new Set([
+      "committee", "internal committee",
+      "principle", "principal",
+      "vice principle", "vice principal", "vice-principal", "viceprincipal",
+      "director",
+    ]);
     const staff = (committeeData?.staff || []).filter(
       (s: any) => !adminRoles.has(String(s.role || "").toLowerCase()),
     );
@@ -136,9 +141,9 @@ export function StatusCards({
           icon={BarChart2}
         />
         <StatusCard
-          title="Pending Review"
-          value={pendingReviewCount}
-          subtitle={appealedCount > 0 ? `${appealedCount} appealed` : "awaiting evaluator"}
+          title="Appeals"
+          value={appealedCount}
+          subtitle="active faculty appeals"
           icon={AlertCircle}
         />
       </div>
