@@ -56,12 +56,17 @@ const normalizeRoleForAccess = (role?: string) => {
   ) {
     return "vice principle";
   }
-
   if (value === "internal committee" || value === "internal commitee") {
     return "internal committee";
   }
 
-  return value;
+  // Known explicit roles pass through unchanged
+  const KNOWN_ROLES = new Set(["faculty", "hod", "committee", "viewer", "superadmin"]);
+  if (KNOWN_ROLES.has(value)) return value;
+
+  // Any unrecognized role (e.g. "training & placements", "t&p", department-named roles)
+  // gets hod-level sidebar access so staff can access FPMS, submissions, appeals
+  return "hod";
 };
 
 const getNavItems = (
