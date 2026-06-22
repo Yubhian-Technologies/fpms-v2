@@ -42,6 +42,48 @@ const autoApproveAllColleges = async () => {
   }
 };
 
+// Reverts system-auto-approved submissions back to "submitted" when the
+// evaluation period is still open (deadline was extended after auto-approval ran).
+// Idempotent — safe to call on every review queue fetch.
+const autoRevertAutoApprovedForCollege = async (college) => {
+  if (!college) return;
+  try {
+    const saData = await getSuperadminConfig();
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase()
+    );
+    const phase = getCollegePhase(collegeDef);
+    // Only revert when evaluation is still open (deadline not yet passed)
+    if (phase !== "evaluation") return;
+
+    const snap = await db.collection("submissions")
+      .where("college", "==", college)
+      .where("status", "==", "auto-approved")
+      .get();
+    if (snap.empty) return;
+
+    const now = new Date().toISOString();
+    const CHUNK = 400;
+    for (let i = 0; i < snap.docs.length; i += CHUNK) {
+      const batch = db.batch();
+      snap.docs.slice(i, i + CHUNK).forEach((doc) => {
+        batch.update(doc.ref, {
+          status: "submitted",
+          reviewerScore: null,
+          finalScore: null,
+          reviewerReason: null,
+          reviewerId: null,
+          reviewerRole: null,
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error("autoRevertAutoApprovedForCollege error:", err);
+  }
+};
+
 // Auto-approves all "submitted" (unreviewed) submissions for a college when
 // the evaluation period has ended. Idempotent — safe to call on every fetch.
 const autoApproveUnreviewedForCollege = async (college) => {
@@ -788,8 +830,10 @@ export const getReviewQueue = async (req, res) => {
       });
     }
 
-    // Auto-approve unreviewed submissions and freeze expired appeals as needed
+    // Auto-approve unreviewed submissions and freeze expired appeals as needed.
+    // Also revert system-auto-approved records if the deadline was later extended.
     if (college) {
+      await autoRevertAutoApprovedForCollege(college);
       await autoApproveUnreviewedForCollege(college);
       await autoFreezeExpiredAppeals(college);
       await autoFinalizeReviewedForCollege(college);
