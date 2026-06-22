@@ -2400,12 +2400,10 @@ export const exportPrincipalReport = async (req, res) => {
       })
       .filter(Boolean);
 
-    const isDean = (role) => String(role || "").toLowerCase().includes("dean");
-
     // Group: deans → own sheet, rest → by department
-    const deans = staff.filter((s) => isDean(s.role));
+    const deans = staff.filter((s) => isDeanRole(s.role));
     const byDept = {};
-    staff.filter((s) => !isDean(s.role) && s.department).forEach((s) => {
+    staff.filter((s) => !isDeanRole(s.role) && s.department).forEach((s) => {
       if (!byDept[s.department]) byDept[s.department] = [];
       byDept[s.department].push(s);
     });

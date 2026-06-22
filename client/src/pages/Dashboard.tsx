@@ -1598,7 +1598,7 @@ export default function Dashboard() {
       const deptMap: Record<string, any[]> = {};
       const deans: any[] = [];
       faculty.forEach((s: any) => {
-        if (String(s.role || "").toLowerCase().includes("dean")) {
+        if (String(s.role || "").toLowerCase().includes("dean") || String(s.role || "").toLowerCase().includes("training")) {
           deans.push(s);
         } else if (s.department) {
           if (!deptMap[s.department]) deptMap[s.department] = [];
@@ -1941,7 +1941,7 @@ export default function Dashboard() {
       const deptMap: Record<string, any[]> = {};
       const deans: any[] = [];
       faculty.forEach((s: any) => {
-        if (String(s.role || "").toLowerCase().includes("dean")) deans.push(s);
+        if (String(s.role || "").toLowerCase().includes("dean") || String(s.role || "").toLowerCase().includes("training")) deans.push(s);
         else if (s.department) {
           if (!deptMap[s.department]) deptMap[s.department] = [];
           deptMap[s.department].push(s);
@@ -2310,7 +2310,7 @@ export default function Dashboard() {
 
                     const isLeaderRole = (role: string) => {
                       const r = String(role || "").toLowerCase().trim();
-                      return r === "principle" || r === "vice principle" || r === "director" || r.includes("dean");
+                      return r === "principle" || r === "vice principle" || r === "director" || r.includes("dean") || r.includes("training");
                     };
                     const leaders = detailStaff.filter((s: any) => isLeaderRole(s.role));
                     const deptStaff = detailStaff.filter((s: any) => !isLeaderRole(s.role));
@@ -2609,7 +2609,7 @@ export default function Dashboard() {
             };
 
             const wb = XLSX.utils.book_new();
-            const isDean = (role: string) => String(role || "").toLowerCase().includes("dean");
+            const isDean = (role: string) => { const r = String(role || "").toLowerCase(); return r.includes("dean") || r.includes("training"); };
 
             const deans = nonCommitteeStaff.filter((s: any) => isDean(s.role));
             const byDept: Record<string, any[]> = {};
@@ -3027,7 +3027,7 @@ export default function Dashboard() {
 
           const deans = staffList.filter((s: any) => {
             const r = String(s.role || "").toLowerCase();
-            return r.includes("dean") || (!s.department && r !== "hod" && r !== "faculty");
+            return r.includes("dean") || r.includes("training") || (!s.department && r !== "hod" && r !== "faculty");
           });
 
           const targetPct = totalWithTarget.length > 0 ? Math.round((totalTargetsReached / totalWithTarget.length) * 100) : 0;

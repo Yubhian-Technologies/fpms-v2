@@ -44,7 +44,7 @@ const normalizeRoleForAccess = (role?: string) => {
     .trim()
     .toLowerCase();
 
-  if (value.includes("dean")) return "dean";
+  if (value.includes("dean") || value.includes("training") || value === "t&p") return "dean";
   if (value === "principal" || value === "principle" || value === "admin" || value === "director") {
     return "principle";
   }
