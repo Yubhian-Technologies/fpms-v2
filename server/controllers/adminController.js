@@ -2457,6 +2457,39 @@ export const updatePrincipalCollegeDeadlines = async (req, res) => {
     await docRef.set({ colleges: nextColleges, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     invalidateSuperadminCache();
 
+    // If evaluationEnd is being pushed to a future date, revert any system auto-approved
+    // submissions back to "submitted" so reviewers can actually score them.
+    if (evaluationEnd && new Date(evaluationEnd) > new Date()) {
+      try {
+        const autoApprovedSnap = await db.collection("submissions")
+          .where("college", "==", principalCollege)
+          .where("status", "==", "auto-approved")
+          .get();
+        if (!autoApprovedSnap.empty) {
+          const now = new Date().toISOString();
+          const CHUNK = 400;
+          for (let i = 0; i < autoApprovedSnap.docs.length; i += CHUNK) {
+            const batch = db.batch();
+            autoApprovedSnap.docs.slice(i, i + CHUNK).forEach((doc) => {
+              batch.update(doc.ref, {
+                status: "submitted",
+                reviewerScore: null,
+                finalScore: null,
+                reviewerReason: null,
+                reviewerId: null,
+                reviewerRole: null,
+                updatedAt: now,
+              });
+            });
+            await batch.commit();
+          }
+        }
+      } catch (revertErr) {
+        console.error("revert auto-approved error:", revertErr);
+        // Non-fatal: deadline was saved, revert is best-effort
+      }
+    }
+
     return res.status(200).json({ success: true, message: "Deadlines updated successfully" });
   } catch (error) {
     console.error("updatePrincipalCollegeDeadlines error:", error);
