@@ -942,6 +942,7 @@ export default function Dashboard() {
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Active Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Appeals</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Final Score</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Target Achievers</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Non-Achievers</th>
@@ -971,6 +972,12 @@ export default function Dashboard() {
                             {(c.appealedFaculty ?? c.appealedCount) > 0
                               ? <span className="font-medium text-orange-500">{c.appealedFaculty ?? c.appealedCount}</span>
                               : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <span className="font-semibold">{c.totalScore ?? 0}</span>
+                            {c.submitted > 0 && (
+                              <div className="text-xs text-muted-foreground">avg {c.avgScore ?? 0}</div>
+                            )}
                           </td>
                           <td className="px-3 py-3 text-center">
                             <button
@@ -1049,7 +1056,7 @@ export default function Dashboard() {
                           const facultyList = collegeFacultyCache[c.college] || [];
                           const notSubmitted = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
                           const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (b.reviewerScore ?? -1) - (a.reviewerScore ?? -1) || (b.percentage ?? -1) - (a.percentage ?? -1));
-                          const colSpan = 11;
+                          const colSpan = 12;
                           const statusLabel: Record<string, string> = {
                             "active": "Active", "inactive": "Inactive",
                             "long-leave": "Long Leave", "maternity-leave": "Maternity Leave",
