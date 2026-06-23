@@ -81,9 +81,9 @@ export const getCollegeFaculty = async (req, res) => {
         if (subs.length > 0) {
           if (hasAppealed)        overallStatus = "Appealed";
           else if (hasPending)    overallStatus = "Pending Review";
-          else if (hasReviewed)   overallStatus = "Under Review";
+          else if (hasReviewed)   overallStatus = "Pending Acceptance";
           else if (allFinalized)  overallStatus = "Completed";
-          else                    overallStatus = "Under Review";
+          else                    overallStatus = "Pending Acceptance";
         }
 
         return {

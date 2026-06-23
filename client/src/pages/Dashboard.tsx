@@ -84,7 +84,7 @@ const statusConfig: Record<
 > = {
   pending: { label: "Pending", variant: "outline" },
   submitted: { label: "Submitted", variant: "secondary" },
-  reviewed: { label: "Under Review", variant: "default" },
+  reviewed: { label: "Pending Acceptance", variant: "default" },
   accepted: { label: "Accepted", variant: "success" },
   appealed: { label: "Appealed", variant: "warning" },
   "appeal-resolved": { label: "Appeal Resolved", variant: "success" },
@@ -508,7 +508,7 @@ export default function Dashboard() {
       const hasPending = subs.some((s: any) => s.status === "submitted");
       const hasReviewedSub = subs.some((s: any) => s.status === "reviewed");
       const allFinalizedSub = subs.length > 0 && subs.every((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
-      const status = !subs.length ? "Not Submitted" : hasAppealed ? "Appealed" : hasPending ? "Pending Review" : hasReviewedSub ? "Under Review" : allFinalizedSub ? "Completed" : "Under Review";
+      const status = !subs.length ? "Not Submitted" : hasAppealed ? "Appealed" : hasPending ? "Pending Review" : hasReviewedSub ? "Pending Acceptance" : allFinalizedSub ? "Completed" : "Pending Acceptance";
       summaryRows.push([sno++, staff.name || "", staff.email || "", staff.role || "", staff.department || "", staff.designation || "", subs.length, score, staff.designationTarget || "—", status]);
     }
 
@@ -1133,7 +1133,7 @@ export default function Dashboard() {
                                                 const cfg: Record<string, string> = {
                                                   "Completed":      "bg-emerald-500 text-white",
                                                   "Pending Review": "bg-teal-400 text-white",
-                                                  "Under Review":   "bg-slate-800 text-white",
+                                                  "Pending Acceptance":   "bg-slate-800 text-white",
                                                   "Appealed":       "bg-yellow-500 text-white",
                                                 };
                                                 return s ? (
@@ -1581,9 +1581,9 @@ export default function Dashboard() {
         if (!subs.length) return "Not Submitted";
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
         if (subs.some((s: any) => s.status === "submitted")) return "Pending Review";
-        if (subs.some((s: any) => s.status === "reviewed")) return "Under Review";
+        if (subs.some((s: any) => s.status === "reviewed")) return "Pending Acceptance";
         if (subs.some((s: any) => FINALIZED_S.has(s.status))) return "Completed";
-        return "Under Review";
+        return "Pending Acceptance";
       };
 
       const buildSummarySheet = (deptName: string, staffArr: any[]) => {
@@ -1855,9 +1855,9 @@ export default function Dashboard() {
         if (!subs.length) return "Not Submitted";
         if (subs.some((s: any) => s.status === "appealed")) return "Appealed";
         if (subs.some((s: any) => s.status === "submitted")) return "Pending Review";
-        if (subs.some((s: any) => s.status === "reviewed")) return "Under Review";
+        if (subs.some((s: any) => s.status === "reviewed")) return "Pending Acceptance";
         if (subs.some((s: any) => FINALIZED_PDF.has(s.status))) return "Completed";
-        return "Under Review";
+        return "Pending Acceptance";
       };
 
       let isFirst = true;
@@ -1916,7 +1916,7 @@ export default function Dashboard() {
               const val = String(data.cell.text?.[0] || "");
               if (val === "Completed") doc.setTextColor(22, 163, 74);
               else if (val === "Appealed") doc.setTextColor(220, 38, 38);
-              else if (val === "Under Review") doc.setTextColor(30, 41, 59);
+              else if (val === "Pending Acceptance") doc.setTextColor(30, 41, 59);
               else doc.setTextColor(0, 0, 0);
             }
           },
@@ -2775,7 +2775,7 @@ export default function Dashboard() {
                       <SelectContent>
                         <SelectItem value="All">All Statuses</SelectItem>
                         <SelectItem value="submitted">Submitted</SelectItem>
-                        <SelectItem value="reviewed">Under Review</SelectItem>
+                        <SelectItem value="reviewed">Pending Acceptance</SelectItem>
                         <SelectItem value="accepted">Accepted</SelectItem>
                         <SelectItem value="appealed">Appealed</SelectItem>
                         <SelectItem value="appeal-resolved">Appeal Resolved</SelectItem>
@@ -2895,11 +2895,11 @@ export default function Dashboard() {
                                       ) : hasPending ? (
                                         <Badge variant="secondary" className="text-xs">Pending Review</Badge>
                                       ) : hasReviewedStatus ? (
-                                        <Badge variant="default" className="text-xs">Under Review</Badge>
+                                        <Badge variant="default" className="text-xs">Pending Acceptance</Badge>
                                       ) : allFinalizedStatus ? (
                                         <Badge variant="success" className="text-xs">Accepted</Badge>
                                       ) : (
-                                        <Badge variant="default" className="text-xs">Under Review</Badge>
+                                        <Badge variant="default" className="text-xs">Pending Acceptance</Badge>
                                       )}
                                     </td>
                                   </tr>
@@ -3320,7 +3320,7 @@ export default function Dashboard() {
                                   ) : accepted > 0 ? (
                                     <Badge variant="success">{accepted} Accepted</Badge>
                                   ) : (
-                                    <Badge variant="default">Under Review</Badge>
+                                    <Badge variant="default">Pending Acceptance</Badge>
                                   )}
                                 </td>
                               </tr>
@@ -3371,9 +3371,9 @@ export default function Dashboard() {
                         if (subs.length > 0) {
                           if (hasAppealed) overallStatus = "Appealed";
                           else if (hasPending) overallStatus = "Pending Review";
-                          else if (hasReviewed) overallStatus = "Under Review";
+                          else if (hasReviewed) overallStatus = "Pending Acceptance";
                           else if (hasCompleted) overallStatus = "Completed";
-                          else overallStatus = "Under Review";
+                          else overallStatus = "Pending Acceptance";
                         }
                         return (
                           <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
@@ -3402,7 +3402,7 @@ export default function Dashboard() {
                             <td className="px-4 py-3 text-center">
                               {overallStatus === "Not Submitted" && <Badge variant="outline" className="text-xs">Not Submitted</Badge>}
                               {overallStatus === "Pending Review" && <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">Pending Review</Badge>}
-                              {overallStatus === "Under Review" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Under Review</Badge>}
+                              {overallStatus === "Pending Acceptance" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Pending Acceptance</Badge>}
                               {overallStatus === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
                               {overallStatus === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
                             </td>
@@ -3665,7 +3665,7 @@ export default function Dashboard() {
                                   ) : hasAccepted ? (
                                     <Badge variant="success" className="text-xs">Accepted</Badge>
                                   ) : (
-                                    <Badge variant="default" className="text-xs">Under Review</Badge>
+                                    <Badge variant="default" className="text-xs">Pending Acceptance</Badge>
                                   )}
                                 </td>
                               </tr>
