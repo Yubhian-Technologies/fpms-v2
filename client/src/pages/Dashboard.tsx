@@ -1181,10 +1181,7 @@ export default function Dashboard() {
                               <span>{rows.length} dept{rows.length !== 1 ? "s" : ""}</span>
                               <span>{totalSubs} subs</span>
                               {totalAppeals > 0 && <span className="text-orange-500">{totalAppeals} appeals</span>}
-                              <span className="flex items-center gap-1.5 flex-1 min-w-[100px]">
-                                <Progress value={Math.min(collegeAvg, 100)} className="h-1.5 flex-1" />
-                                <span className="w-8 text-right font-semibold text-foreground">{collegeAvg}%</span>
-                              </span>
+                              <Progress value={Math.min(collegeAvg, 100)} className="h-1.5 flex-1 min-w-[100px]" />
                             </div>
                           </div>
                         </AccordionTrigger>
