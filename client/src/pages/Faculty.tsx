@@ -48,7 +48,7 @@ import { downloadDemoExcel, excelHeaders } from "@/lib/excelUtils";
 import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
 import * as XLSX from "xlsx";
 
-type StaffStatus = "active" | "inactive" | "long-leave" | "maternity-leave" | "recently-joined" | "retrainership" | "other";
+type StaffStatus = "active" | "inactive" | "long-leave" | "maternity-leave" | "recently-joined" | "retainership" | "other";
 
 const STAFF_STATUS_LABELS: Record<StaffStatus, string> = {
   "active": "Active",
@@ -56,7 +56,7 @@ const STAFF_STATUS_LABELS: Record<StaffStatus, string> = {
   "long-leave": "Long Leave",
   "maternity-leave": "Maternity Leave",
   "recently-joined": "Recently Joined",
-  "retrainership": "Retrainership",
+  "retainership": "Retainership",
   "other": "Other",
 };
 
@@ -961,7 +961,7 @@ export default function Faculty() {
                       <SelectItem value="long-leave">Long Leave</SelectItem>
                       <SelectItem value="maternity-leave">Maternity Leave</SelectItem>
                       <SelectItem value="recently-joined">Recently Joined</SelectItem>
-                      <SelectItem value="retrainership">Retrainership</SelectItem>
+                      <SelectItem value="retainership">Retainership</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1175,7 +1175,7 @@ export default function Faculty() {
                               "recently-joined": "bg-blue-100 text-blue-800",
                               "long-leave": "bg-orange-100 text-orange-800",
                               "maternity-leave": "bg-purple-100 text-purple-800",
-                              "retrainership": "bg-yellow-100 text-yellow-800",
+                              "retainership": "bg-yellow-100 text-yellow-800",
                               "inactive": "bg-gray-100 text-gray-600",
                               "other": "bg-gray-100 text-gray-600",
                             };
