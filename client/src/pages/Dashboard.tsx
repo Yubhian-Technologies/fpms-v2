@@ -3125,6 +3125,11 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredDepts.map(([deptName, deptData]: any) => {
                   const deptAllStaff = [...deptData.hods, ...deptData.faculty];
+                  const deptTotalStaff = deptAllStaff.length;
+                  const deptSubmittedFaculty = deptAllStaff.filter((s: any) => (s.submissions || []).length > 0).length;
+                  const deptNotSubmitted = deptTotalStaff - deptSubmittedFaculty;
+                  const deptNeedAccept = deptAllStaff.filter((s: any) => (s.submissions || []).some((sub: any) => sub.status === "reviewed")).length;
+                  const deptAppealed = deptAllStaff.filter((s: any) => (s.submissions || []).some((sub: any) => sub.status === "appealed")).length;
                   const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
                   const deptTargetsReached = deptWithTarget.filter((s: any) => {
                     const achieved = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
@@ -3132,9 +3137,6 @@ export default function Dashboard() {
                   }).length;
                   const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
                   const deptCompleted = deptSubs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status)).length;
-                  const deptAppealed = deptSubs.filter((s: any) => s.status === "appealed").length;
-                  const deptPending = deptSubs.filter((s: any) => s.status === "submitted").length;
-                  const deptNeedAccept = deptSubs.filter((s: any) => s.status === "reviewed").length;
                   const completionPct = deptSubs.length > 0 ? Math.round((deptCompleted / deptSubs.length) * 100) : 0;
                   const deptTargetPct = deptWithTarget.length > 0 ? Math.round((deptTargetsReached / deptWithTarget.length) * 100) : 0;
                   const isSelected = selectedDeptDetail === deptName;
@@ -3154,8 +3156,8 @@ export default function Dashboard() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {/* Staff counts */}
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Staff counts — HOD | Faculty | Total */}
+                        <div className="grid grid-cols-3 gap-1.5">
                           <div className="bg-muted/40 rounded-lg py-2 text-center">
                             <p className="text-lg font-bold">{deptData.hods.length}</p>
                             <p className="text-xs text-muted-foreground">HOD</p>
@@ -3164,17 +3166,21 @@ export default function Dashboard() {
                             <p className="text-lg font-bold">{deptData.faculty.length}</p>
                             <p className="text-xs text-muted-foreground">Faculty</p>
                           </div>
+                          <div className="bg-muted/40 rounded-lg py-2 text-center">
+                            <p className="text-lg font-bold">{deptTotalStaff}</p>
+                            <p className="text-xs text-muted-foreground">Total</p>
+                          </div>
                         </div>
 
-                        {/* Submission stats */}
+                        {/* Faculty-level stats */}
                         <div className="grid grid-cols-2 gap-1.5 text-center text-xs">
-                          <div className="bg-muted/30 rounded-md py-1.5">
-                            <span className="font-semibold block">{deptSubs.length}</span>
-                            <span className="text-muted-foreground">Submissions</span>
+                          <div className={`rounded-md py-1.5 ${deptSubmittedFaculty > 0 ? "bg-green-50 text-green-700" : "bg-muted/30"}`}>
+                            <span className="font-semibold block">{deptSubmittedFaculty}/{deptTotalStaff}</span>
+                            <span>Submitted</span>
                           </div>
-                          <div className={`rounded-md py-1.5 ${deptPending > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"}`}>
-                            <span className="font-semibold block">{deptPending}</span>
-                            <span>Pending Review</span>
+                          <div className={`rounded-md py-1.5 ${deptNotSubmitted > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"}`}>
+                            <span className="font-semibold block">{deptNotSubmitted}</span>
+                            <span>Not Submitted</span>
                           </div>
                           <div className={`rounded-md py-1.5 ${deptNeedAccept > 0 ? "bg-blue-50 text-blue-700" : "bg-muted/30"}`}>
                             <span className="font-semibold block">{deptNeedAccept}</span>
