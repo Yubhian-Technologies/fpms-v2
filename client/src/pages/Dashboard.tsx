@@ -942,7 +942,6 @@ export default function Dashboard() {
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Active Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Appeals</th>
-                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Final Score</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Target Achievers</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Non-Achievers</th>
@@ -972,12 +971,6 @@ export default function Dashboard() {
                             {(c.appealedFaculty ?? c.appealedCount) > 0
                               ? <span className="font-medium text-orange-500">{c.appealedFaculty ?? c.appealedCount}</span>
                               : <span className="text-muted-foreground">—</span>}
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <span className="font-semibold">{c.totalScore ?? 0}</span>
-                            {c.submitted > 0 && (
-                              <div className="text-xs text-muted-foreground">avg {c.avgScore ?? 0}</div>
-                            )}
                           </td>
                           <td className="px-3 py-3 text-center">
                             <button
@@ -1056,7 +1049,7 @@ export default function Dashboard() {
                           const facultyList = collegeFacultyCache[c.college] || [];
                           const notSubmitted = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
                           const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (b.reviewerScore ?? -1) - (a.reviewerScore ?? -1) || (b.percentage ?? -1) - (a.percentage ?? -1));
-                          const colSpan = 12;
+                          const colSpan = 11;
                           const statusLabel: Record<string, string> = {
                             "active": "Active", "inactive": "Inactive",
                             "long-leave": "Long Leave", "maternity-leave": "Maternity Leave",
@@ -1086,6 +1079,7 @@ export default function Dashboard() {
                                           <th className="text-right px-3 py-1.5 font-medium">Target</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Claimed</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Reviewer</th>
+                                          <th className="text-right px-3 py-1.5 font-medium">Final</th>
                                           <th className="text-left px-3 py-1.5 font-medium">Appeal</th>
                                           <th className="text-right px-3 py-1.5 font-medium">%</th>
                                           <th className="text-left px-3 py-1.5 font-medium">Status</th>
@@ -1116,6 +1110,11 @@ export default function Dashboard() {
                                             <td className="px-3 py-1.5 text-right tabular-nums">{f.targetScore ?? "—"}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">{f.claimedScore ?? "—"}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums font-medium">{f.reviewerScore ?? "—"}</td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
+                                              {f.finalScore != null && f.finalScore > 0
+                                                ? <span className="text-emerald-600">{f.finalScore}</span>
+                                                : <span className="text-muted-foreground">—</span>}
+                                            </td>
                                             <td className="px-3 py-1.5">
                                               {f.isAppealed
                                                 ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">Appealed</span>
