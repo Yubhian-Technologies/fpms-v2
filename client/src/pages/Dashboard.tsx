@@ -1250,7 +1250,6 @@ export default function Dashboard() {
                                   <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Appeals</th>
                                   <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Sub Rate</th>
                                   <th className="text-center px-3 py-2 font-semibold text-muted-foreground">Target Achievers</th>
-                                  <th className="text-left px-3 py-2 font-semibold text-muted-foreground min-w-[140px]">Completion</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1286,14 +1285,6 @@ export default function Dashboard() {
                                           {Math.round(((d.targetAchievers ?? 0) / (d.activeStaff ?? d.total)) * 100)}%
                                         </div>
                                       )}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <div className="flex items-center gap-1.5">
-                                        <Progress value={Math.min(d.completionPct, 100)} className="flex-1 h-1.5" />
-                                        <span className={`font-bold w-9 text-right ${d.completionPct >= 75 ? "text-emerald-600" : d.completionPct >= 40 ? "text-amber-600" : "text-red-500"}`}>
-                                          {d.completionPct}%
-                                        </span>
-                                      </div>
                                     </td>
                                   </tr>
                                 ))}
