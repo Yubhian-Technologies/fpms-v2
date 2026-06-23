@@ -686,6 +686,10 @@ export const updateCollege = async (req, res) => {
     if (appealReviewEnd !== undefined)
       updates.appealReviewEnd = appealReviewEnd ? new Date(appealReviewEnd).toISOString() : null;
 
+    const oldName = colleges[index].name;
+    const newName = updates.name;
+    const nameChanged = newName && newName !== oldName;
+
     const nextColleges = [...colleges];
     nextColleges[index] = {
       ...nextColleges[index],
@@ -700,6 +704,22 @@ export const updateCollege = async (req, res) => {
       },
       { merge: true },
     );
+
+    // When name changes, migrate all users and submissions to the new name
+    if (nameChanged) {
+      const CHUNK = 400;
+      const migrate = async (collection) => {
+        const snap = await db.collection(collection)
+          .where("college", "==", oldName)
+          .get();
+        for (let i = 0; i < snap.docs.length; i += CHUNK) {
+          const batch = db.batch();
+          snap.docs.slice(i, i + CHUNK).forEach((doc) => batch.update(doc.ref, { college: newName }));
+          await batch.commit();
+        }
+      };
+      await Promise.all([migrate("users"), migrate("submissions")]);
+    }
 
     invalidateSuperadminCache();
 
