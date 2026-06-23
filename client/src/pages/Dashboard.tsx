@@ -782,8 +782,8 @@ export default function Dashboard() {
           {/* ── Row 4: College Rankings Table ── */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">College Rankings</CardTitle>
-              <CardDescription>Ranked by target completion — performance across all colleges</CardDescription>
+              <CardTitle className="text-base">College Wise Participation</CardTitle>
+              <CardDescription>Performance across all colleges</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {collegeStats.length === 0 ? (
