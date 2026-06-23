@@ -1118,7 +1118,7 @@ export default function Dashboard() {
                                                 : <span className="text-muted-foreground">—</span>}
                                             </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
-                                              {!f.isAppealed && f.finalScore != null && f.finalScore > 0
+                                              {f.overallStatus === "Completed" && f.finalScore != null && f.finalScore > 0
                                                 ? <span className="text-emerald-600">{f.finalScore}</span>
                                                 : <span className="text-muted-foreground">—</span>}
                                             </td>
