@@ -1192,9 +1192,10 @@ export default function Dashboard() {
                       ? Math.round(rows.reduce((s: number, d: any) => s + d.completionPct, 0) / rows.length)
                       : 0;
                     const totalSubs = rows.reduce((s: number, d: any) => s + d.submissionCount, 0);
-                    const totalAccepted = rows.reduce((s: number, d: any) => s + (d.acceptedCount ?? 0), 0);
+                    const totalFaculty = rows.reduce((s: number, d: any) => s + (d.total ?? 0), 0);
+                    const totalAcceptedFaculty = rows.reduce((s: number, d: any) => s + (d.acceptedFaculty ?? 0), 0);
                     const totalAppeals = rows.reduce((s: number, d: any) => s + d.appealedCount, 0);
-                    const collegeReviewRate = totalSubs > 0 ? Math.round((totalAccepted / totalSubs) * 100) : 0;
+                    const collegeReviewRate = totalFaculty > 0 ? Math.round((totalAcceptedFaculty / totalFaculty) * 100) : 0;
                     const reviewRateColor = collegeReviewRate >= 75 ? "text-emerald-600" : collegeReviewRate >= 40 ? "text-amber-600" : "text-red-500";
                     return (
                       <AccordionItem key={college} value={college}>
@@ -1217,7 +1218,7 @@ export default function Dashboard() {
                               const active = d.activeStaff ?? d.total;
                               const subRate = active > 0 ? Math.round(((d.submitted ?? 0) / active) * 100) : 0;
                               const achieverPct = active > 0 ? Math.round(((d.targetAchievers ?? 0) / active) * 100) : 0;
-                              const reviewRate = d.submissionCount > 0 ? Math.round(((d.acceptedCount ?? 0) / d.submissionCount) * 100) : 0;
+                              const reviewRate = d.total > 0 ? Math.round(((d.acceptedFaculty ?? 0) / d.total) * 100) : 0;
                               const subRateColor = subRate >= 80 ? "text-emerald-600" : subRate >= 50 ? "text-amber-600" : "text-red-500";
                               const reviewRateColorMobile = reviewRate >= 75 ? "text-emerald-600" : reviewRate >= 40 ? "text-amber-600" : "text-red-500";
                               return (
@@ -1304,11 +1305,11 @@ export default function Dashboard() {
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                       {(() => {
-                                        const rr = d.submissionCount > 0 ? Math.round(((d.acceptedCount ?? 0) / d.submissionCount) * 100) : 0;
+                                        const rr = d.total > 0 ? Math.round(((d.acceptedFaculty ?? 0) / d.total) * 100) : 0;
                                         return (
                                           <>
                                             <span className={`font-semibold ${rr >= 75 ? "text-emerald-600" : rr >= 40 ? "text-amber-600" : "text-red-500"}`}>{rr}%</span>
-                                            <div className="text-xs text-muted-foreground">{d.acceptedCount ?? 0}/{d.submissionCount}</div>
+                                            <div className="text-xs text-muted-foreground">{d.acceptedFaculty ?? 0}/{d.total}</div>
                                           </>
                                         );
                                       })()}
