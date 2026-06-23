@@ -506,7 +506,9 @@ export default function Dashboard() {
       const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
       const hasAppealed = subs.some((s: any) => s.status === "appealed");
       const hasPending = subs.some((s: any) => s.status === "submitted");
-      const status = !subs.length ? "Not Submitted" : hasAppealed ? "Appealed" : hasPending ? "Pending Review" : hasAccepted ? "Completed" : "Under Review";
+      const hasReviewedSub = subs.some((s: any) => s.status === "reviewed");
+      const allFinalizedSub = subs.length > 0 && subs.every((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
+      const status = !subs.length ? "Not Submitted" : hasAppealed ? "Appealed" : hasPending ? "Pending Review" : hasReviewedSub ? "Under Review" : allFinalizedSub ? "Completed" : "Under Review";
       summaryRows.push([sno++, staff.name || "", staff.email || "", staff.role || "", staff.department || "", staff.designation || "", subs.length, score, staff.designationTarget || "—", status]);
     }
 
@@ -2860,7 +2862,8 @@ export default function Dashboard() {
                                 const targetReached = target !== null && score >= target;
                                 const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                                 const hasPending = subs.some((sub: any) => sub.status === "submitted");
-                                const hasAccepted = subs.some((sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired");
+                                const hasReviewedStatus = subs.some((sub: any) => sub.status === "reviewed");
+                                const allFinalizedStatus = subs.length > 0 && subs.every((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status));
                                 return (
                                   <tr key={s.id || s.uid || idx} className="hover:bg-muted/20 transition-colors">
                                     <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
@@ -2891,7 +2894,9 @@ export default function Dashboard() {
                                         <Badge variant="warning" className="text-xs">Appealed</Badge>
                                       ) : hasPending ? (
                                         <Badge variant="secondary" className="text-xs">Pending Review</Badge>
-                                      ) : hasAccepted ? (
+                                      ) : hasReviewedStatus ? (
+                                        <Badge variant="default" className="text-xs">Under Review</Badge>
+                                      ) : allFinalizedStatus ? (
                                         <Badge variant="success" className="text-xs">Accepted</Badge>
                                       ) : (
                                         <Badge variant="default" className="text-xs">Under Review</Badge>
