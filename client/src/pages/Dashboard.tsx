@@ -945,8 +945,8 @@ export default function Dashboard() {
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Target Achievers</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Non-Achievers</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Review Rate</th>
                         <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground whitespace-nowrap">Deadlines</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground min-w-[160px]">Completion</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1013,6 +1013,19 @@ export default function Dashboard() {
                               );
                             })()}
                           </td>
+                          <td className="px-3 py-3 text-center">
+                            {(() => {
+                              const sub = c.submitted ?? 0;
+                              const acc = c.acceptedFaculty ?? 0;
+                              const rr = sub > 0 ? Math.round((acc / sub) * 100) : 0;
+                              return (
+                                <>
+                                  <span className={`font-semibold ${rr >= 75 ? "text-emerald-600" : rr >= 40 ? "text-amber-600" : "text-red-500"}`}>{rr}%</span>
+                                  <div className="text-xs text-muted-foreground">{acc}/{sub}</div>
+                                </>
+                              );
+                            })()}
+                          </td>
                           <td className="px-3 py-3">
                             {dl ? (
                               <div className="text-xs space-y-0.5 whitespace-nowrap">
@@ -1030,14 +1043,6 @@ export default function Dashboard() {
                                 )}
                               </div>
                             ) : <span className="text-muted-foreground text-xs">—</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <Progress value={Math.min(c.completionPct, 100)} className="flex-1 h-2" />
-                              <span className={`text-xs font-bold w-10 text-right ${c.completionPct >= 75 ? "text-emerald-600" : c.completionPct >= 40 ? "text-amber-600" : "text-red-500"}`}>
-                                {c.completionPct}%
-                              </span>
-                            </div>
                           </td>
                         </tr>
                         {expandedCollegeDetail === c.college && (() => {
