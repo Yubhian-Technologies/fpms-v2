@@ -941,8 +941,10 @@ export default function Dashboard() {
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Total Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Active Staff</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Submissions</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Appeals</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Sub Rate</th>
                         <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Target Achievers</th>
+                        <th className="text-center px-3 py-2.5 font-semibold text-muted-foreground">Non-Achievers</th>
                         <th className="text-left px-3 py-2.5 font-semibold text-muted-foreground whitespace-nowrap">Deadlines</th>
                         <th className="text-left px-4 py-2.5 font-semibold text-muted-foreground min-w-[160px]">Completion</th>
                       </tr>
@@ -965,6 +967,11 @@ export default function Dashboard() {
                           <td className="px-3 py-3 text-center font-medium">{c.total}</td>
                           <td className="px-3 py-3 text-center font-medium">{c.activeStaff ?? c.total}</td>
                           <td className="px-3 py-3 text-center text-muted-foreground">{c.submissionCount}</td>
+                          <td className="px-3 py-3 text-center">
+                            {c.appealedCount > 0
+                              ? <span className="font-medium text-orange-500">{c.appealedCount}</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </td>
                           <td className="px-3 py-3 text-center">
                             <button
                               onClick={() => handleCollegeDetailClick(c.college)}
@@ -991,6 +998,20 @@ export default function Dashboard() {
                                 {Math.round(((c.targetAchievers ?? 0) / c.activeStaff) * 100)}%
                               </div>
                             )}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {(() => {
+                              const nonAchievers = (c.activeStaff ?? c.total) - (c.targetAchievers ?? 0);
+                              const nonPct = (c.activeStaff ?? c.total) > 0 ? Math.round((nonAchievers / (c.activeStaff ?? c.total)) * 100) : 0;
+                              return (
+                                <>
+                                  <span className={`font-semibold ${nonAchievers > 0 ? "text-red-500" : "text-muted-foreground"}`}>{nonAchievers}</span>
+                                  {(c.activeStaff ?? c.total) > 0 && (
+                                    <div className="text-xs text-muted-foreground">{nonPct}%</div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-3">
                             {dl ? (
@@ -1023,7 +1044,7 @@ export default function Dashboard() {
                           const facultyList = collegeFacultyCache[c.college] || [];
                           const notSubmitted = facultyList.filter((f: any) => !f.hasSubmitted).sort((a: any, b: any) => (a.department || "").localeCompare(b.department || "") || (a.name || "").localeCompare(b.name || ""));
                           const submitted = facultyList.filter((f: any) => f.hasSubmitted).sort((a: any, b: any) => (b.reviewerScore ?? -1) - (a.reviewerScore ?? -1) || (b.percentage ?? -1) - (a.percentage ?? -1));
-                          const colSpan = 9;
+                          const colSpan = 11;
                           const statusLabel: Record<string, string> = {
                             "active": "Active", "inactive": "Inactive",
                             "long-leave": "Long Leave", "maternity-leave": "Maternity Leave",
