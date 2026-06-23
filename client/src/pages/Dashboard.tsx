@@ -1079,8 +1079,8 @@ export default function Dashboard() {
                                           <th className="text-right px-3 py-1.5 font-medium">Target</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Claimed</th>
                                           <th className="text-right px-3 py-1.5 font-medium">Reviewer</th>
-                                          <th className="text-right px-3 py-1.5 font-medium">Final</th>
                                           <th className="text-left px-3 py-1.5 font-medium">Appeal</th>
+                                          <th className="text-right px-3 py-1.5 font-medium">Final</th>
                                           <th className="text-right px-3 py-1.5 font-medium">%</th>
                                           <th className="text-left px-3 py-1.5 font-medium">Status</th>
                                         </>}
@@ -1110,14 +1110,14 @@ export default function Dashboard() {
                                             <td className="px-3 py-1.5 text-right tabular-nums">{f.targetScore ?? "—"}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">{f.claimedScore ?? "—"}</td>
                                             <td className="px-3 py-1.5 text-right tabular-nums font-medium">{f.reviewerScore ?? "—"}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
-                                              {f.finalScore != null && f.finalScore > 0
-                                                ? <span className="text-emerald-600">{f.finalScore}</span>
-                                                : <span className="text-muted-foreground">—</span>}
-                                            </td>
                                             <td className="px-3 py-1.5">
                                               {f.isAppealed
                                                 ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">Appealed</span>
+                                                : <span className="text-muted-foreground">—</span>}
+                                            </td>
+                                            <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
+                                              {f.finalScore != null && f.finalScore > 0
+                                                ? <span className="text-emerald-600">{f.finalScore}</span>
                                                 : <span className="text-muted-foreground">—</span>}
                                             </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums font-medium">
