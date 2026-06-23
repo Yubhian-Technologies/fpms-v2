@@ -203,7 +203,7 @@ export const getViewerStats = async (req, res) => {
         const code = collegeCodeMap[normStr(c)] || "";
         collegeMap[c] = {
           college: c, code,
-          total: 0, activeStaff: 0, submitted: 0, acceptedFaculty: 0, targetAchievers: 0,
+          total: 0, activeStaff: 0, submitted: 0, acceptedFaculty: 0, appealedFaculty: 0, targetAchievers: 0,
           submissionCount: 0, acceptedCount: 0,
           appealedCount: 0, pendingReviewCount: 0, reviewedCount: 0,
           totalScore: 0, totalTarget: 0,
@@ -213,6 +213,7 @@ export const getViewerStats = async (req, res) => {
       if (s.isActive) collegeMap[c].activeStaff++;
       if (s.submissionCount > 0) collegeMap[c].submitted++;
       if (s.acceptedCount > 0) collegeMap[c].acceptedFaculty++;
+      if (s.appealedCount > 0) collegeMap[c].appealedFaculty++;
       if (s.target > 0 && s.score >= s.target) collegeMap[c].targetAchievers++;
       collegeMap[c].submissionCount += s.submissionCount;
       collegeMap[c].acceptedCount += s.acceptedCount;

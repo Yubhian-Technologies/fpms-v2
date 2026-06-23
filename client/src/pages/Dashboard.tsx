@@ -968,8 +968,8 @@ export default function Dashboard() {
                           <td className="px-3 py-3 text-center font-medium">{c.activeStaff ?? c.total}</td>
                           <td className="px-3 py-3 text-center text-muted-foreground">{c.submissionCount}</td>
                           <td className="px-3 py-3 text-center">
-                            {c.appealedCount > 0
-                              ? <span className="font-medium text-orange-500">{c.appealedCount}</span>
+                            {(c.appealedFaculty ?? c.appealedCount) > 0
+                              ? <span className="font-medium text-orange-500">{c.appealedFaculty ?? c.appealedCount}</span>
                               : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="px-3 py-3 text-center">
