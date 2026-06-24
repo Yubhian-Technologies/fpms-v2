@@ -799,7 +799,8 @@ export default function Dashboard() {
                     const subRate = active > 0 ? Math.round(((c.submitted ?? 0) / active) * 100) : 0;
                     const achieverPct = active > 0 ? Math.round(((c.targetAchievers ?? 0) / active) * 100) : 0;
                     const subRateColor = subRate >= 80 ? "text-emerald-600" : subRate >= 50 ? "text-amber-600" : "text-red-500";
-                    const completionColor = c.completionPct >= 75 ? "text-emerald-600" : c.completionPct >= 40 ? "text-amber-600" : "text-red-500";
+                    const mobileReviewRate = (c.submitted ?? 0) > 0 ? Math.round(((c.acceptedFaculty ?? 0) / (c.submitted ?? 0)) * 100) : 0;
+                    const reviewRateColorMobile = mobileReviewRate >= 75 ? "text-emerald-600" : mobileReviewRate >= 40 ? "text-amber-600" : "text-red-500";
                     return (
                       <div key={c.college} className="p-4 space-y-3">
                         {/* Header */}
@@ -809,10 +810,13 @@ export default function Dashboard() {
                             <span className="font-semibold text-sm">{c.college}</span>
                             {c.code && <div className="text-xs text-muted-foreground mt-0.5">{c.code}</div>}
                           </div>
-                          <span className={`text-lg font-bold shrink-0 ${completionColor}`}>{c.completionPct}%</span>
+                          <div className="text-right shrink-0">
+                            <span className={`text-lg font-bold ${reviewRateColorMobile}`}>{mobileReviewRate}%</span>
+                            <div className="text-[10px] text-muted-foreground">Review Rate</div>
+                          </div>
                         </div>
-                        {/* Completion bar */}
-                        <Progress value={Math.min(c.completionPct, 100)} className="h-1.5" />
+                        {/* Review Rate bar */}
+                        <Progress value={Math.min(mobileReviewRate, 100)} className="h-1.5" />
                         {/* Stats grid */}
                         <div className="grid grid-cols-3 gap-2">
                           {[
