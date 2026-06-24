@@ -383,6 +383,7 @@ export const updateFaculty = async (req, res) => {
       staffStatus,
       statusNote,
       subjectsHandled,
+      externalExperience,
       overallExperience,
     } = req.body;
 
@@ -456,6 +457,7 @@ export const updateFaculty = async (req, res) => {
     if (staffStatus !== undefined) updateData.staffStatus = String(staffStatus);
     if (statusNote !== undefined) updateData.statusNote = staffStatus === "other" ? String(statusNote) : "";
     if (subjectsHandled !== undefined) updateData.subjectsHandled = Array.isArray(subjectsHandled) ? subjectsHandled.map(String).filter(Boolean) : [];
+    if (externalExperience !== undefined && externalExperience !== null && externalExperience !== "") updateData.externalExperience = Number(externalExperience);
     if (overallExperience !== undefined && overallExperience !== null && overallExperience !== "") updateData.overallExperience = Number(overallExperience);
 
     const resolvedPassword = String(password ?? pass ?? "");
@@ -947,6 +949,7 @@ export const getFacultyPdfData = async (req, res) => {
           college: userData.college || "",
           department: userData.department || "",
           experience: userData.experience != null ? Number(userData.experience) : null,
+          externalExperience: userData.externalExperience != null ? Number(userData.externalExperience) : null,
           overallExperience: userData.overallExperience != null ? Number(userData.overallExperience) : null,
           subjectsHandled: Array.isArray(userData.subjectsHandled) ? userData.subjectsHandled : [],
           targetScore,

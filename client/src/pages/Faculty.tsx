@@ -73,6 +73,7 @@ interface FacultyMember {
   college: string;
   designation: string;
   experience: number;
+  externalExperience?: number;
   overallExperience?: number;
   dateOfJoining?: string;
   hasPhd: boolean;
@@ -159,6 +160,7 @@ export default function Faculty() {
     hasPhd: false,
     subjectsHandled: [] as string[],
     subjectInput: "",
+    externalExperience: "",
     overallExperience: "",
   });
 
@@ -344,7 +346,8 @@ export default function Faculty() {
       hasPhd: resolvedHasPhd,
       subjectsHandled: member.subjectsHandled || [],
       subjectInput: "",
-      overallExperience: member.overallExperience != null ? String(member.overallExperience) : "",
+      externalExperience: member.externalExperience != null ? String(member.externalExperience) : "",
+      overallExperience: "",
     });
     setEditingId(member.id);
     setIsAddingFaculty(true);
@@ -408,7 +411,12 @@ export default function Faculty() {
         statusNote: formData.status === "other" ? formData.statusNote : undefined,
         hasPhd: formData.hasPhd,
         subjectsHandled: formData.subjectsHandled,
-        overallExperience: formData.overallExperience !== "" ? Number(formData.overallExperience) : undefined,
+        externalExperience: formData.externalExperience !== "" ? Number(formData.externalExperience) : undefined,
+        overallExperience: (() => {
+          const internal = Number(formData.experience || 0);
+          const external = formData.externalExperience !== "" ? Number(formData.externalExperience) : 0;
+          return internal + external;
+        })(),
       };
 
       if (editingId) {
@@ -1195,13 +1203,25 @@ export default function Faculty() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Overall Experience (Years)</Label>
+                  <Label>External Experience (Years)</Label>
                   <Input
                     type="number"
                     min={0}
-                    placeholder="Total years including prior institutions"
-                    value={formData.overallExperience}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, overallExperience: e.target.value }))}
+                    placeholder="Years at previous institutions"
+                    value={formData.externalExperience}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, externalExperience: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Overall Experience (Years)</Label>
+                  <Input
+                    type="number"
+                    value={
+                      Number(formData.experience || 0) +
+                      (formData.externalExperience !== "" ? Number(formData.externalExperience) : 0)
+                    }
+                    disabled
+                    className="bg-muted"
                   />
                 </div>
 
