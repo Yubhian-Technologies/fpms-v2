@@ -1788,8 +1788,8 @@ export default function Dashboard() {
       const ML = 14; const MR = 14;
       const usableW = pw - ML - MR; // 269
 
-      // S.No(10) + Name(64) + Desig(36) + Role(26) + Target(16) + Claimed(18) + Reviewer(18) + Final(18) + Status(63) = 269
-      const COL_WIDTHS = [10, 64, 36, 26, 16, 18, 18, 18, 63];
+      // S.No(12) + Name(62) + Desig(36) + Role(26) + Target(16) + Claimed(18) + Reviewer(18) + Final(18) + Status(63) = 269
+      const COL_WIDTHS = [12, 62, 36, 26, 16, 18, 18, 18, 63];
 
       const academicYear = "2025 – 2026";
 
@@ -1913,7 +1913,7 @@ export default function Dashboard() {
           margin: { left: ML, right: MR },
           tableWidth: usableW,
           styles: { fontSize: 8.5, cellPadding: 2.5, overflow: "linebreak" },
-          headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center" },
+          headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", overflow: "visible" },
           alternateRowStyles: { fillColor: [245, 247, 250] },
           columnStyles: {
             0: { cellWidth: COL_WIDTHS[0], halign: "center" },
