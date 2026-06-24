@@ -728,8 +728,8 @@ export default function Faculty() {
       const res = await api.get(`/api/hod/faculty-pdf-data/${facultyId}`);
       const { faculty, hodName, principalName, submissions } = res.data.data;
 
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const PW = doc.internal.pageSize.getWidth();   // 210
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const PW = doc.internal.pageSize.getWidth();   // 297
       const ML = 14; const MR = 14;
       const usableW = PW - ML - MR;
       const academicYear = "2025 – 2026";
@@ -787,10 +787,10 @@ export default function Faculty() {
         tableWidth: usableW,
         styles: { fontSize: 8.5, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.2 },
         columnStyles: {
-          0: { fontStyle: "bold", fillColor: [240, 245, 255], cellWidth: 46 },
-          1: { cellWidth: 52 },
-          2: { fontStyle: "bold", fillColor: [240, 245, 255], cellWidth: 36 },
-          3: { cellWidth: usableW - 46 - 52 - 36 },
+          0: { fontStyle: "bold", fillColor: [240, 245, 255], cellWidth: 55 },
+          1: { cellWidth: 80 },
+          2: { fontStyle: "bold", fillColor: [240, 245, 255], cellWidth: 40 },
+          3: { cellWidth: usableW - 55 - 80 - 40 },
         },
         theme: "grid",
       });
@@ -873,16 +873,16 @@ export default function Faculty() {
         styles: { fontSize: 7.5, cellPadding: 1.8, overflow: "linebreak", lineColor: BORDER_COLOR, lineWidth: BW },
         headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", fontSize: 7.5, halign: "center" },
         columnStyles: {
-          0: { cellWidth: 10, halign: "center" },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 28 },
-          3: { cellWidth: 28 },
-          4: { cellWidth: 14, halign: "center" },
-          5: { cellWidth: 14, halign: "center" },
-          6: { cellWidth: 14, halign: "center" },
-          7: { cellWidth: 14, halign: "center" },
-          8: { cellWidth: 14, halign: "center" },
-          9: { cellWidth: usableW - 10 - 35 - 28 - 28 - 14 * 5, halign: "center" },
+          0: { cellWidth: 12, halign: "center" },
+          1: { cellWidth: 52 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 60 },
+          4: { cellWidth: 18, halign: "center" },
+          5: { cellWidth: 18, halign: "center" },
+          6: { cellWidth: 18, halign: "center" },
+          7: { cellWidth: 18, halign: "center" },
+          8: { cellWidth: 18, halign: "center" },
+          9: { cellWidth: usableW - 12 - 52 - 45 - 60 - 18 * 5, halign: "center" },
         },
         theme: "grid",
         didParseCell: (data) => {
@@ -923,7 +923,7 @@ export default function Faculty() {
 
       // ── SIGNATURES ──
       const sigY = afterTable + 20;
-      const sigBoxW = 52;
+      const sigBoxW = 70;
       const sigBoxH = 28;
       const positions = [
         { x: ML, label: "Submitted and Accepted By", role: "Faculty", name: faculty.name || "" },

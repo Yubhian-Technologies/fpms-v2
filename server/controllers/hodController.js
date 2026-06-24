@@ -902,8 +902,12 @@ export const getFacultyPdfData = async (req, res) => {
     const phdKey = `${desigKey}__${userData.hasPhd ? "phd" : "nophd"}`;
     const targetScore = desigMap[phdKey] || desigMap[desigKey] || 0;
 
-    // HOD name from authenticated hod
-    const hodName = req.hod.name || req.hod.email || "HOD";
+    // HOD name from Firestore (req.hod has no name field)
+    let hodName = req.hod.email || "HOD";
+    try {
+      const hodDoc = await db.collection(USERS_COLLECTION).doc(req.hod.uid).get();
+      if (hodDoc.exists) hodName = hodDoc.data().name || hodName;
+    } catch { /* fallback to email */ }
 
     // Principal name: fetch from users collection (role = principal, same college)
     let principalName = "";
