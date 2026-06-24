@@ -74,14 +74,19 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const uid = req.faculty.uid;
-    const { name, designation, hasPhd, staffStatus, statusNote } = req.body;
+    const { dateOfJoining, externalExperience, phone, subjectsHandled, overallExperience } = req.body;
 
     const updateData = {};
-    if (name !== undefined) updateData.name = String(name).trim();
-    if (designation !== undefined) updateData.designation = String(designation).trim();
-    if (hasPhd !== undefined) updateData.hasPhd = Boolean(hasPhd);
-    if (staffStatus !== undefined) updateData.staffStatus = String(staffStatus).trim();
-    if (statusNote !== undefined) updateData.statusNote = staffStatus === "other" ? String(statusNote).trim() : "";
+    if (dateOfJoining !== undefined) updateData.dateOfJoining = String(dateOfJoining).trim();
+    if (externalExperience !== undefined && externalExperience !== null && externalExperience !== "")
+      updateData.externalExperience = Number(externalExperience);
+    if (overallExperience !== undefined && overallExperience !== null && overallExperience !== "")
+      updateData.overallExperience = Number(overallExperience);
+    if (phone !== undefined) updateData.phone = String(phone).trim();
+    if (subjectsHandled !== undefined)
+      updateData.subjectsHandled = Array.isArray(subjectsHandled)
+        ? subjectsHandled.map(String).filter(Boolean)
+        : [];
 
     if (Object.keys(updateData).length === 0)
       return res.status(400).json({ success: false, message: "No fields to update" });

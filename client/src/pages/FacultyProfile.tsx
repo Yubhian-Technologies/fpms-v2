@@ -1,40 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Save, User } from "lucide-react";
+import { Loader2, Save, User, X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
-
-type StaffStatus =
-  | "active"
-  | "inactive"
-  | "long-leave"
-  | "maternity-leave"
-  | "recently-joined"
-  | "retainership"
-  | "other";
-
-const STAFF_STATUS_LABELS: Record<StaffStatus, string> = {
-  active: "Active",
-  inactive: "Inactive",
-  "long-leave": "Long Leave",
-  "maternity-leave": "Maternity Leave",
-  "recently-joined": "Recently Joined",
-  retainership: "Retainership",
-  other: "Other",
-};
 
 function calculateExperience(dateOfJoining: string): number {
   if (!dateOfJoining) return 0;
@@ -55,7 +28,7 @@ interface ProfileData {
   department: string;
   designation: string;
   hasPhd: boolean;
-  staffStatus: StaffStatus;
+  staffStatus: string;
   statusNote: string;
   dateOfJoining: string;
   phone: string;
@@ -68,14 +41,15 @@ interface ProfileData {
 export default function FacultyProfile() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [form, setForm] = useState({
-    name: "",
-    designation: "",
-    hasPhd: false,
-    staffStatus: "active" as StaffStatus,
-    statusNote: "",
+    dateOfJoining: "",
+    externalExperience: "",
+    phone: "",
+    subjectsHandled: [] as string[],
+    subjectInput: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -84,11 +58,11 @@ export default function FacultyProfile() {
         const d: ProfileData = res.data.data;
         setProfile(d);
         setForm({
-          name: d.name,
-          designation: d.designation,
-          hasPhd: d.hasPhd,
-          staffStatus: (d.staffStatus as StaffStatus) || "active",
-          statusNote: d.statusNote || "",
+          dateOfJoining: d.dateOfJoining || "",
+          externalExperience: d.externalExperience != null ? String(d.externalExperience) : "",
+          phone: d.phone || "",
+          subjectsHandled: d.subjectsHandled || [],
+          subjectInput: "",
         });
       } catch {
         toast({ title: "Failed to load profile", variant: "destructive" });
@@ -98,15 +72,51 @@ export default function FacultyProfile() {
     })();
   }, []);
 
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast({ title: "Name is required", variant: "destructive" });
-      return;
+  const addSubject = () => {
+    const val = form.subjectInput.trim();
+    if (val && !form.subjectsHandled.includes(val)) {
+      setForm((p) => ({ ...p, subjectsHandled: [...p.subjectsHandled, val], subjectInput: "" }));
+    } else {
+      setForm((p) => ({ ...p, subjectInput: "" }));
     }
+    subjectInputRef.current?.focus();
+  };
+
+  const handleSubjectKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addSubject(); }
+  };
+
+  const removeSubject = (s: string) =>
+    setForm((p) => ({ ...p, subjectsHandled: p.subjectsHandled.filter((x) => x !== s) }));
+
+  const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put("/api/faculty/profile", form);
-      setProfile((prev) => prev ? { ...prev, ...form } : prev);
+      const payload: Record<string, any> = {
+        phone: form.phone,
+        subjectsHandled: form.subjectsHandled,
+        dateOfJoining: form.dateOfJoining || undefined,
+        externalExperience: form.externalExperience !== "" ? Number(form.externalExperience) : undefined,
+      };
+      // compute overallExperience
+      const internal = form.dateOfJoining ? calculateExperience(form.dateOfJoining) : (profile?.experience ?? 0);
+      const external = form.externalExperience !== "" ? Number(form.externalExperience) : 0;
+      payload.overallExperience = internal + external;
+
+      await api.put("/api/faculty/profile", payload);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              phone: form.phone,
+              subjectsHandled: form.subjectsHandled,
+              dateOfJoining: form.dateOfJoining,
+              externalExperience: form.externalExperience !== "" ? Number(form.externalExperience) : null,
+              overallExperience: payload.overallExperience,
+              experience: internal,
+            }
+          : prev,
+      );
       toast({ title: "Profile updated successfully" });
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
@@ -127,18 +137,8 @@ export default function FacultyProfile() {
 
   if (!profile) return null;
 
-  const internalExp = profile.dateOfJoining
-    ? calculateExperience(profile.dateOfJoining)
-    : profile.experience ?? 0;
-  const overallExp = internalExp + (profile.externalExperience ?? 0);
-
-  const dojDisplay = profile.dateOfJoining
-    ? new Date(profile.dateOfJoining).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      })
-    : "—";
+  const internalExp = form.dateOfJoining ? calculateExperience(form.dateOfJoining) : (profile.experience ?? 0);
+  const overallExp = internalExp + (form.externalExperience !== "" ? Number(form.externalExperience) : 0);
 
   return (
     <DashboardLayout>
@@ -154,62 +154,30 @@ export default function FacultyProfile() {
           </div>
         </div>
 
-        {/* Read-only info */}
+        {/* Read-only details */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Institution Details
+              Profile Details
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">College</Label>
-              <p className="text-sm font-medium">{profile.college || "—"}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Department</Label>
-              <p className="text-sm font-medium">{profile.department || "—"}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Date of Joining</Label>
-              <p className="text-sm font-medium">{dojDisplay}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Phone</Label>
-              <p className="text-sm font-medium">{profile.phone || "—"}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Internal Experience</Label>
-              <p className="text-sm font-medium">{internalExp} yrs</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">External Experience</Label>
-              <p className="text-sm font-medium">
-                {profile.externalExperience != null ? `${profile.externalExperience} yrs` : "—"}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Overall Experience</Label>
-              <p className="text-sm font-medium">{overallExp} yrs</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Email</Label>
-              <p className="text-sm font-medium">{profile.email || "—"}</p>
-            </div>
-            {profile.subjectsHandled.length > 0 && (
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Subjects Handled incl. Labs (2025–2026)
-                </Label>
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {profile.subjectsHandled.map((s) => (
-                    <Badge key={s} variant="secondary" className="text-xs">
-                      {s}
-                    </Badge>
-                  ))}
-                </div>
+            {[
+              { label: "Name", value: profile.name },
+              { label: "Email", value: profile.email },
+              { label: "College", value: profile.college },
+              { label: "Department", value: profile.department },
+              { label: "Designation", value: profile.designation },
+              { label: "Has Ph.D.", value: profile.hasPhd ? "Yes" : "No" },
+              { label: "Staff Status", value: profile.staffStatus || "—" },
+              { label: "Internal Experience", value: `${internalExp} yrs` },
+              { label: "Overall Experience", value: `${overallExp} yrs` },
+            ].map(({ label, value }) => (
+              <div key={label} className="space-y-1">
+                <Label className="text-xs text-muted-foreground">{label}</Label>
+                <p className="text-sm font-medium">{value || "—"}</p>
               </div>
-            )}
+            ))}
           </CardContent>
         </Card>
 
@@ -217,66 +185,67 @@ export default function FacultyProfile() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Edit Profile
+              Edit Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Name</Label>
+              <Label>Date of Joining</Label>
               <Input
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                placeholder="Your full name"
+                type="date"
+                value={form.dateOfJoining}
+                onChange={(e) => setForm((p) => ({ ...p, dateOfJoining: e.target.value }))}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Designation</Label>
+              <Label>External Experience (Years)</Label>
               <Input
-                value={form.designation}
-                onChange={(e) => setForm((p) => ({ ...p, designation: e.target.value }))}
-                placeholder="e.g. Assistant Professor"
+                type="number"
+                min={0}
+                placeholder="Years at previous institutions"
+                value={form.externalExperience}
+                onChange={(e) => setForm((p) => ({ ...p, externalExperience: e.target.value }))}
               />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="hasPhd"
-                checked={form.hasPhd}
-                onCheckedChange={(v) => setForm((p) => ({ ...p, hasPhd: Boolean(v) }))}
-              />
-              <Label htmlFor="hasPhd">Has Ph.D.</Label>
             </div>
 
             <div className="space-y-2">
-              <Label>Staff Status</Label>
-              <Select
-                value={form.staffStatus}
-                onValueChange={(v) => setForm((p) => ({ ...p, staffStatus: v as StaffStatus }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(STAFF_STATUS_LABELS) as StaffStatus[]).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {STAFF_STATUS_LABELS[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Mobile Number</Label>
+              <Input
+                type="tel"
+                placeholder="10-digit mobile number"
+                value={form.phone}
+                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+              />
             </div>
 
-            {form.staffStatus === "other" && (
-              <div className="space-y-2">
-                <Label>Status Note</Label>
+            <div className="space-y-2">
+              <Label>Subjects Handled incl. Labs (2025–2026)</Label>
+              <div className="flex gap-2">
                 <Input
-                  value={form.statusNote}
-                  onChange={(e) => setForm((p) => ({ ...p, statusNote: e.target.value }))}
-                  placeholder="Describe your status"
+                  ref={subjectInputRef}
+                  placeholder="Type subject and press Enter"
+                  value={form.subjectInput}
+                  onChange={(e) => setForm((p) => ({ ...p, subjectInput: e.target.value }))}
+                  onKeyDown={handleSubjectKeyDown}
                 />
+                <Button type="button" variant="outline" size="icon" onClick={addSubject}>
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+              {form.subjectsHandled.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {form.subjectsHandled.map((s) => (
+                    <Badge key={s} variant="secondary" className="gap-1 pr-1 text-xs">
+                      {s}
+                      <button onClick={() => removeSubject(s)} className="ml-0.5 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-end pt-2">
               <Button onClick={handleSave} disabled={saving}>
