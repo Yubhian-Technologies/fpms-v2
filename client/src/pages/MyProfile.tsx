@@ -47,7 +47,7 @@ interface ProfileData {
 function profileEndpoint(role: string) {
   const r = String(role || "").trim().toLowerCase();
   if (r === "hod" || r.startsWith("hod")) return "/api/hod/profile";
-  if (r.includes("dean")) return "/api/dean/profile";
+  if (r.includes("dean") || r.includes("training")) return "/api/dean/profile";
   return "/api/faculty/profile";
 }
 
