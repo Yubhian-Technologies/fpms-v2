@@ -137,10 +137,27 @@ export default function Faculty() {
 
   const calculateExperience = (dateStr: string): number => {
     if (!dateStr) return 0;
-    const joining = new Date(dateStr);
-    const today = new Date();
-    const diffMs = today.getTime() - joining.getTime();
-    return Math.max(0, Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000)));
+    const doj = new Date(dateStr);
+    if (isNaN(doj.getTime())) return 0;
+    const now = new Date();
+    let years = now.getFullYear() - doj.getFullYear();
+    let months = now.getMonth() - doj.getMonth();
+    if (now.getDate() < doj.getDate()) months -= 1;
+    if (months < 0) { years -= 1; months += 12; }
+    return Math.max(0, years);
+  };
+
+  const formatExperience = (dateStr: string): string => {
+    if (!dateStr) return "0 yrs";
+    const doj = new Date(dateStr);
+    if (isNaN(doj.getTime())) return "0 yrs";
+    const now = new Date();
+    let years = now.getFullYear() - doj.getFullYear();
+    let months = now.getMonth() - doj.getMonth();
+    if (now.getDate() < doj.getDate()) months -= 1;
+    if (months < 0) { years -= 1; months += 12; }
+    years = Math.max(0, years);
+    return months > 0 ? `${years} yrs ${months} months` : `${years} yrs`;
   };
 
   const [formData, setFormData] = useState({
@@ -768,7 +785,22 @@ export default function Faculty() {
       const doj = faculty.dateOfJoining
         ? new Date(faculty.dateOfJoining).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
         : "—";
-      const expStr = faculty.experience != null ? `${faculty.experience} yrs (Internal)` : "—";
+      const expStr = (() => {
+        if (!faculty.dateOfJoining && faculty.experience == null) return "—";
+        if (faculty.dateOfJoining) {
+          const doj = new Date(faculty.dateOfJoining);
+          if (!isNaN(doj.getTime())) {
+            const now = new Date();
+            let y = now.getFullYear() - doj.getFullYear();
+            let m = now.getMonth() - doj.getMonth();
+            if (now.getDate() < doj.getDate()) m -= 1;
+            if (m < 0) { y -= 1; m += 12; }
+            y = Math.max(0, y);
+            return m > 0 ? `${y} yrs ${m} months (Internal)` : `${y} yrs (Internal)`;
+          }
+        }
+        return `${faculty.experience} yrs (Internal)`;
+      })();
       const overallExpStr = faculty.overallExperience != null ? ` / ${faculty.overallExperience} yrs (Overall)` : "";
       const subjectsStr = faculty.subjectsHandled?.length ? faculty.subjectsHandled.join(", ") : "—";
 
@@ -1219,10 +1251,9 @@ export default function Faculty() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Internal Experience (Years)</Label>
+                  <Label>Internal Experience</Label>
                   <Input
-                    type="number"
-                    value={formData.experience}
+                    value={formData.dateOfJoining ? formatExperience(formData.dateOfJoining) : `${formData.experience} yrs`}
                     disabled
                     className="bg-muted"
                   />

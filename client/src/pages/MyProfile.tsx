@@ -10,16 +10,21 @@ import { toast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
 
-function calculateExperience(dateOfJoining: string): number {
-  if (!dateOfJoining) return 0;
+function calculateExperience(dateOfJoining: string): { years: number; months: number; total: number } {
+  if (!dateOfJoining) return { years: 0, months: 0, total: 0 };
   const doj = new Date(dateOfJoining);
-  if (isNaN(doj.getTime())) return 0;
+  if (isNaN(doj.getTime())) return { years: 0, months: 0, total: 0 };
   const now = new Date();
-  const years = now.getFullYear() - doj.getFullYear();
-  const monthDiff = now.getMonth() - doj.getMonth();
-  return monthDiff < 0 || (monthDiff === 0 && now.getDate() < doj.getDate())
-    ? years - 1
-    : years;
+  let years = now.getFullYear() - doj.getFullYear();
+  let months = now.getMonth() - doj.getMonth();
+  if (now.getDate() < doj.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  return { years, months, total: years };
+}
+
+function formatExp(exp: { years: number; months: number }): string {
+  if (exp.months === 0) return `${exp.years} yrs`;
+  return `${exp.years} yrs ${exp.months} months`;
 }
 
 interface ProfileData {
@@ -110,7 +115,7 @@ export default function MyProfile() {
         externalExperience: form.externalExperience !== "" ? Number(form.externalExperience) : undefined,
       };
       // compute overallExperience
-      const internal = form.dateOfJoining ? calculateExperience(form.dateOfJoining) : (profile?.experience ?? 0);
+      const internal = form.dateOfJoining ? calculateExperience(form.dateOfJoining).total : (profile?.experience ?? 0);
       const external = form.externalExperience !== "" ? Number(form.externalExperience) : 0;
       payload.overallExperience = internal + external;
 
@@ -148,8 +153,9 @@ export default function MyProfile() {
 
   if (!profile) return null;
 
-  const internalExp = form.dateOfJoining ? calculateExperience(form.dateOfJoining) : (profile.experience ?? 0);
-  const overallExp = internalExp + (form.externalExperience !== "" ? Number(form.externalExperience) : 0);
+  const internalExpObj = form.dateOfJoining ? calculateExperience(form.dateOfJoining) : null;
+  const internalYears = internalExpObj ? internalExpObj.total : (profile.experience ?? 0);
+  const overallExp = internalYears + (form.externalExperience !== "" ? Number(form.externalExperience) : 0);
 
   return (
     <DashboardLayout>
@@ -181,7 +187,7 @@ export default function MyProfile() {
               { label: "Designation", value: profile.designation },
               { label: "Has Ph.D.", value: profile.hasPhd ? "Yes" : "No" },
               { label: "Staff Status", value: profile.staffStatus || "—" },
-              { label: "Internal Experience", value: `${internalExp} yrs` },
+              { label: "Internal Experience", value: internalExpObj ? formatExp(internalExpObj) : `${internalYears} yrs` },
               { label: "Overall Experience", value: `${overallExp} yrs` },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-1">
