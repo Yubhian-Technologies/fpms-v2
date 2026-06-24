@@ -783,10 +783,8 @@ export default function Faculty() {
         ["Name of the Faculty:", faculty.name || "—", "Date of Joining:", doj],
         ["Designation:", faculty.designation || "—", "Phone:", faculty.phone || "—"],
         ["Email:", faculty.email || "—", "Target Score:", faculty.targetScore ? String(faculty.targetScore) : "—"],
-        ["", "", "Claimed Score:", String(totalClaimed)],
-        ["", "", "Final Score:", String(totalFinalInfo)],
-        ["Subjects Handled (incl. labs):", { content: subjectsStr, colSpan: 3 } as any, "", ""],
-        ["Experience:", { content: expStr + overallExpStr, colSpan: 3 } as any, "", ""],
+        ["Subjects Handled (incl. labs):", subjectsStr, "Claimed Score:", String(totalClaimed)],
+        ["Experience:", expStr + overallExpStr, "Final Score:", String(totalFinalInfo)],
       ];
 
       autoTable(doc, {
