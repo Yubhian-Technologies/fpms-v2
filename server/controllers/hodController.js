@@ -383,6 +383,7 @@ export const updateFaculty = async (req, res) => {
       staffStatus,
       statusNote,
       subjectsHandled,
+      overallExperience,
     } = req.body;
 
     const facultyRef = db.collection(USERS_COLLECTION).doc(id);
@@ -455,6 +456,7 @@ export const updateFaculty = async (req, res) => {
     if (staffStatus !== undefined) updateData.staffStatus = String(staffStatus);
     if (statusNote !== undefined) updateData.statusNote = staffStatus === "other" ? String(statusNote) : "";
     if (subjectsHandled !== undefined) updateData.subjectsHandled = Array.isArray(subjectsHandled) ? subjectsHandled.map(String).filter(Boolean) : [];
+    if (overallExperience !== undefined && overallExperience !== null && overallExperience !== "") updateData.overallExperience = Number(overallExperience);
 
     const resolvedPassword = String(password ?? pass ?? "");
     const resolvedConfirmPassword = String(
