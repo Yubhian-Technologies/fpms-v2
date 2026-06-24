@@ -747,7 +747,7 @@ export default function Faculty() {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(60, 60, 60);
-      doc.text(faculty.department || "Department", PW / 2, 18, { align: "center" });
+      doc.text(`Department of ${faculty.department || "Department"}`, PW / 2, 18, { align: "center" });
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -772,10 +772,19 @@ export default function Faculty() {
       const overallExpStr = faculty.overallExperience != null ? ` / ${faculty.overallExperience} yrs (Overall)` : "";
       const subjectsStr = faculty.subjectsHandled?.length ? faculty.subjectsHandled.join(", ") : "—";
 
+      const FINALIZED_INFO = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+      const totalClaimed = submissions.reduce((s: number, sub: any) => s + (sub.claimedScore ?? 0), 0);
+      const totalFinalInfo = submissions.reduce(
+        (s: number, sub: any) => s + (FINALIZED_INFO.has(sub.status) && sub.finalScore != null ? sub.finalScore : 0),
+        0,
+      );
+
       const infoRows = [
         ["Name of the Faculty:", faculty.name || "—", "Date of Joining:", doj],
         ["Designation:", faculty.designation || "—", "Phone:", faculty.phone || "—"],
         ["Email:", faculty.email || "—", "Target Score:", faculty.targetScore ? String(faculty.targetScore) : "—"],
+        ["", "", "Claimed Score:", String(totalClaimed)],
+        ["", "", "Final Score:", String(totalFinalInfo)],
         ["Subjects Handled (incl. labs):", { content: subjectsStr, colSpan: 3 } as any, "", ""],
         ["Experience:", { content: expStr + overallExpStr, colSpan: 3 } as any, "", ""],
       ];
