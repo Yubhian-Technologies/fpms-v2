@@ -12,6 +12,7 @@ import {
   getFacultyPdfData,
   getHodProfile,
   updateHodProfile,
+  getPrincipalName,
 } from "../controllers/hodController.js";
 import { hodAuth } from "../middleware/hodAuth.js";
 
@@ -32,6 +33,7 @@ hodRouter.get('/export-report', hodAuth, exportHodReport);
 hodRouter.get("/faculty-pdf-data/:userId", hodAuth, getFacultyPdfData);
 hodRouter.get("/profile", hodAuth, getHodProfile);
 hodRouter.put("/profile", hodAuth, updateHodProfile);
+hodRouter.get("/principal-name", hodAuth, getPrincipalName);
 hodRouter.delete("/delete-faculty/:id", hodAuth, deleteFaculty);
 
 export default hodRouter;

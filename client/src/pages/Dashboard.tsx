@@ -2012,11 +2012,16 @@ export default function Dashboard() {
     };
 
     // ── HOD PDF EXPORT ──
-    const exportHodPDF = () => {
+    const exportHodPDF = async () => {
       const dept = user.department || "Department";
+      let principalName = "";
+      try {
+        const res = await api.get("/api/hod/principal-name");
+        principalName = res.data?.data?.name || "";
+      } catch { /* fallback to empty */ }
       buildFacultyPDF(
         [{ name: dept, staff: staffList }],
-        "Principal",
+        principalName,
         user.name || user.email || "HOD",
       );
     };

@@ -1015,3 +1015,20 @@ export const updateHodProfile = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export const getPrincipalName = async (req, res) => {
+  try {
+    const hodDoc = await db.collection(USERS_COLLECTION).doc(req.hod.uid).get();
+    const college = hodDoc.exists ? (hodDoc.data().college || req.hod.college) : req.hod.college;
+    if (!college) return res.json({ success: true, data: { name: "" } });
+    const snap = await db.collection(USERS_COLLECTION)
+      .where("college", "==", college)
+      .where("role", "in", ["principal", "principle"])
+      .limit(1).get();
+    const name = snap.empty ? "" : (snap.docs[0].data().name || "");
+    return res.json({ success: true, data: { name } });
+  } catch (err) {
+    console.error("[getPrincipalName]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
