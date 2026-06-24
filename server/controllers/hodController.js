@@ -869,3 +869,95 @@ export const exportHodReport = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const getFacultyPdfData = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { college } = req.hod;
+
+    const [userDoc, subsSnap, saData] = await Promise.all([
+      db.collection(USERS_COLLECTION).doc(userId).get(),
+      db.collection("submissions").where("userId", "==", userId).get(),
+      getSuperadminConfig(),
+    ]);
+
+    if (!userDoc.exists) return res.status(404).json({ success: false, message: "Faculty not found" });
+    const userData = userDoc.data();
+
+    // Target score from superadmin config
+    const collegeDef = (saData.colleges || []).find(
+      (c) => String(c?.name || "").trim().toLowerCase() === String(userData.college || "").trim().toLowerCase(),
+    );
+    const desigMap = {};
+    (collegeDef?.designations || []).forEach((d) => {
+      if (!d?.name) return;
+      const key = normDesig(d.name);
+      const phdKey = `${key}__${d.phd ? "phd" : "nophd"}`;
+      desigMap[phdKey] = Number(d.target) || 0;
+      if (!desigMap[key]) desigMap[key] = Number(d.target) || 0;
+    });
+    const desigKey = normDesig(userData.designation);
+    const phdKey = `${desigKey}__${userData.hasPhd ? "phd" : "nophd"}`;
+    const targetScore = desigMap[phdKey] || desigMap[desigKey] || 0;
+
+    // HOD name from authenticated hod
+    const hodName = req.hod.name || req.hod.email || "HOD";
+
+    // Principal name: fetch from users collection (role = principal, same college)
+    let principalName = "";
+    try {
+      const principalSnap = await db.collection(USERS_COLLECTION)
+        .where("college", "==", userData.college)
+        .where("role", "in", ["principal", "principle"])
+        .limit(1).get();
+      if (!principalSnap.empty) principalName = principalSnap.docs[0].data().name || "";
+    } catch { /* ignore */ }
+
+    const submissions = subsSnap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        criteriaName: d.criteriaName || "",
+        moduleName: d.moduleName || "",
+        taskName: d.taskName || "",
+        maxMarks: d.maxMarks != null ? Number(d.maxMarks) : null,
+        claimedScore: d.claimedScore != null ? Number(d.claimedScore) : null,
+        reviewerScore: d.reviewerScore != null ? Number(d.reviewerScore) : null,
+        appealerScore: d.appealerScore != null ? Number(d.appealerScore) : (d.appealRequestedScore != null ? Number(d.appealRequestedScore) : null),
+        finalScore: d.finalScore != null ? Number(d.finalScore) : null,
+        status: d.status || "",
+      };
+    }).sort((a, b) => {
+      const cn = a.criteriaName.localeCompare(b.criteriaName);
+      if (cn !== 0) return cn;
+      const mn = a.moduleName.localeCompare(b.moduleName);
+      if (mn !== 0) return mn;
+      return a.taskName.localeCompare(b.taskName);
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        faculty: {
+          name: userData.name || "",
+          email: userData.email || "",
+          designation: userData.designation || "",
+          phone: userData.phone || userData.phoneNumber || "",
+          dateOfJoining: userData.dateOfJoining || "",
+          college: userData.college || "",
+          department: userData.department || "",
+          experience: userData.experience != null ? Number(userData.experience) : null,
+          overallExperience: userData.overallExperience != null ? Number(userData.overallExperience) : null,
+          subjectsHandled: Array.isArray(userData.subjectsHandled) ? userData.subjectsHandled : [],
+          targetScore,
+        },
+        hodName,
+        principalName,
+        submissions,
+      },
+    });
+  } catch (err) {
+    console.error("[getFacultyPdfData]", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};

@@ -47,6 +47,9 @@ import { api } from "@/api/api";
 import { downloadDemoExcel, excelHeaders } from "@/lib/excelUtils";
 import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import LOGO from "@/assets/LOGO.png";
 
 type StaffStatus = "active" | "inactive" | "long-leave" | "maternity-leave" | "recently-joined" | "retainership" | "other";
 
@@ -712,6 +715,208 @@ export default function Faculty() {
     }
   };
 
+  const generateFacultyPDF = async (facultyId: string) => {
+    try {
+      const res = await api.get(`/api/hod/faculty-pdf-data/${facultyId}`);
+      const { faculty, hodName, principalName, submissions } = res.data.data;
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const PW = doc.internal.pageSize.getWidth();   // 210
+      const ML = 14; const MR = 14;
+      const usableW = PW - ML - MR;
+      const academicYear = "2025 – 2026";
+
+      // ── HEADER ──
+      // Logo
+      try { doc.addImage(LOGO, "PNG", ML, 6, 18, 18); } catch { /* skip if load fails */ }
+
+      // Title block (centered)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(0, 82, 165);
+      doc.text(String(faculty.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase(), PW / 2, 12, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      doc.text(faculty.department || "Department", PW / 2, 18, { align: "center" });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text("FACULTY PERFORMANCE MANAGEMENT SYSTEM", PW / 2, 24, { align: "center" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Academic Year: ${academicYear}`, PW / 2, 30, { align: "center" });
+
+      // Divider
+      doc.setDrawColor(0, 82, 165);
+      doc.setLineWidth(0.5);
+      doc.line(ML, 33, PW - MR, 33);
+
+      // ── FACULTY INFO TABLE ──
+      const doj = faculty.dateOfJoining
+        ? new Date(faculty.dateOfJoining).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        : "—";
+      const expStr = faculty.experience != null ? `${faculty.experience} yrs (Internal)` : "—";
+      const overallExpStr = faculty.overallExperience != null ? ` / ${faculty.overallExperience} yrs (Overall)` : "";
+      const subjectsStr = faculty.subjectsHandled?.length ? faculty.subjectsHandled.join(", ") : "—";
+
+      const infoRows = [
+        ["Name of the Faculty:", faculty.name || "—", "Date of Joining:", doj],
+        ["Designation:", faculty.designation || "—", "Phone:", faculty.phone || "—"],
+        ["Email:", faculty.email || "—", "Target Score:", faculty.targetScore ? String(faculty.targetScore) : "—"],
+        ["Subjects Handled (incl. labs):", { content: subjectsStr, colSpan: 3 } as any, "", ""],
+        ["Experience:", { content: expStr + overallExpStr, colSpan: 3 } as any, "", ""],
+      ];
+
+      autoTable(doc, {
+        body: infoRows.map((row) => row.filter((_, i) => i < 4)),
+        startY: 36,
+        margin: { left: ML, right: MR },
+        tableWidth: usableW,
+        styles: { fontSize: 8.5, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.2 },
+        columnStyles: {
+          0: { fontStyle: "bold", fillColor: [240, 245, 255], cellWidth: 46 },
+          1: { cellWidth: 52 },
+          2: { fontStyle: "bold", fillColor: [240, 245, 255], cellWidth: 36 },
+          3: { cellWidth: usableW - 46 - 52 - 36 },
+        },
+        theme: "grid",
+      });
+
+      // ── SUBMISSIONS TABLE ──
+      const startY = (doc as any).lastAutoTable.finalY + 5;
+
+      const FINALIZED_SET = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+      const tableRows: any[] = [];
+      let sno = 1;
+      let totalFinal = 0;
+
+      // Group by criteriaName to compute per-criteria totals
+      const criteriaGroups: Record<string, typeof submissions> = {};
+      for (const sub of submissions) {
+        const key = sub.criteriaName || "Uncategorized";
+        if (!criteriaGroups[key]) criteriaGroups[key] = [];
+        criteriaGroups[key].push(sub);
+      }
+
+      for (const [criteriaName, subs] of Object.entries(criteriaGroups)) {
+        const criteriaTotal = subs.reduce((s, sub) => s + (sub.finalScore != null ? sub.finalScore : 0), 0);
+        totalFinal += criteriaTotal;
+        subs.forEach((sub, idx) => {
+          const isLast = idx === subs.length - 1;
+          tableRows.push([
+            sno++,
+            criteriaName,
+            sub.moduleName || "—",
+            sub.taskName || "—",
+            sub.maxMarks != null ? sub.maxMarks : "—",
+            sub.claimedScore != null ? sub.claimedScore : "—",
+            sub.reviewerScore != null ? sub.reviewerScore : "—",
+            sub.appealerScore != null ? sub.appealerScore : "—",
+            sub.finalScore != null ? sub.finalScore : "—",
+            isLast ? criteriaTotal : "",
+          ]);
+        });
+      }
+
+      if (tableRows.length === 0) {
+        tableRows.push(["—", "No submissions found", "", "", "", "", "", "", "", ""]);
+      }
+
+      autoTable(doc, {
+        head: [[
+          "S.No", "Criteria\nName", "Modules", "Sub\nModules",
+          "Actual\nScore", "Claimed\nScore", "Reviewer\nScore",
+          "Appeal\nScore", "Final\nScore", "Total Score\nper Criteria",
+        ]],
+        body: tableRows,
+        startY,
+        margin: { left: ML, right: MR },
+        tableWidth: usableW,
+        styles: { fontSize: 7.5, cellPadding: 1.8, overflow: "linebreak", lineColor: [180, 180, 180], lineWidth: 0.2 },
+        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", fontSize: 7.5, halign: "center" },
+        columnStyles: {
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 14, halign: "center" },
+          5: { cellWidth: 14, halign: "center" },
+          6: { cellWidth: 14, halign: "center" },
+          7: { cellWidth: 14, halign: "center" },
+          8: { cellWidth: 14, halign: "center" },
+          9: { cellWidth: usableW - 10 - 35 - 28 - 28 - 14 * 5, halign: "center" },
+        },
+        theme: "grid",
+        // Merge criteriaName cells within each group
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 9 && data.cell.raw === "") {
+            data.cell.styles.fillColor = [248, 248, 248];
+          }
+        },
+      });
+
+      // ── TOTAL SCORE ──
+      const afterTable = (doc as any).lastAutoTable.finalY + 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const targetScore = faculty.targetScore || 0;
+      const totalPct = targetScore > 0 ? ` (${Math.round((totalFinal / targetScore) * 100)}% of target)` : "";
+      doc.text(`Total Score: ${totalFinal} / ${targetScore}${totalPct}`, PW - MR, afterTable, { align: "right" });
+
+      // ── SIGNATURES ──
+      const sigY = afterTable + 20;
+      const sigBoxW = 52;
+      const sigBoxH = 28;
+      const positions = [
+        { x: ML, label: "Submitted and Accepted By", role: "Faculty", name: faculty.name || "" },
+        { x: PW / 2 - sigBoxW / 2, label: "Verified and Forwarded By", role: "HoD", name: hodName },
+        { x: PW - MR - sigBoxW, label: "Approved By", role: "Principal", name: principalName || "Principal" },
+      ];
+
+      doc.setFontSize(8);
+      positions.forEach(({ x, label, role, name }) => {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(label, x + sigBoxW / 2, sigY - 3, { align: "center" });
+
+        doc.setDrawColor(180, 180, 180);
+        doc.setFillColor(250, 250, 252);
+        doc.roundedRect(x, sigY, sigBoxW, sigBoxH, 1, 1, "FD");
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Signature:", x + 3, sigY + 9);
+        doc.setDrawColor(160, 160, 160);
+        doc.line(x + 22, sigY + 9, x + sigBoxW - 3, sigY + 9);
+
+        doc.text("Name:", x + 3, sigY + 17);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        const nameLines = doc.splitTextToSize(name, sigBoxW - 22);
+        doc.text(nameLines[0] || "—", x + 22, sigY + 17);
+
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Role:", x + 3, sigY + 24);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 31, 63);
+        doc.text(role, x + 22, sigY + 24);
+      });
+
+      doc.setTextColor(0, 0, 0);
+      const safeName = (faculty.name || "faculty").replace(/[/\\?*[\]:]/g, "-");
+      doc.save(`${safeName}-FPMS-Report.pdf`);
+    } catch {
+      toast({ title: "PDF generation failed", variant: "destructive" });
+    }
+  };
+
   const collegeDeptFaculty = faculty.filter((member) => {
     const memberCollege = String(member.college || "")
       .trim()
@@ -1256,6 +1461,14 @@ export default function Faculty() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Download PDF Report"
+                              onClick={() => generateFacultyPDF(member.id)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
