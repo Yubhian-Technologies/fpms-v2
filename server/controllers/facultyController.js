@@ -40,6 +40,60 @@ const getDesignationTarget = async (college, designation, hasPhd) => {
   }
 };
 
+export const getProfile = async (req, res) => {
+  try {
+    const uid = req.faculty.uid;
+    const doc = await db.collection("users").doc(uid).get();
+    if (!doc.exists) return res.status(404).json({ success: false, message: "User not found" });
+    const d = doc.data();
+    return res.json({
+      success: true,
+      data: {
+        name: d.name || "",
+        email: d.email || "",
+        college: d.college || "",
+        department: d.department || "",
+        designation: d.designation || "",
+        hasPhd: Boolean(d.hasPhd),
+        staffStatus: d.staffStatus || "active",
+        statusNote: d.statusNote || "",
+        dateOfJoining: d.dateOfJoining || "",
+        phone: d.phone || d.phoneNumber || "",
+        subjectsHandled: Array.isArray(d.subjectsHandled) ? d.subjectsHandled : [],
+        experience: d.experience != null ? Number(d.experience) : null,
+        externalExperience: d.externalExperience != null ? Number(d.externalExperience) : null,
+        overallExperience: d.overallExperience != null ? Number(d.overallExperience) : null,
+      },
+    });
+  } catch (err) {
+    console.error("[getProfile]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const uid = req.faculty.uid;
+    const { name, designation, hasPhd, staffStatus, statusNote } = req.body;
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = String(name).trim();
+    if (designation !== undefined) updateData.designation = String(designation).trim();
+    if (hasPhd !== undefined) updateData.hasPhd = Boolean(hasPhd);
+    if (staffStatus !== undefined) updateData.staffStatus = String(staffStatus).trim();
+    if (statusNote !== undefined) updateData.statusNote = staffStatus === "other" ? String(statusNote).trim() : "";
+
+    if (Object.keys(updateData).length === 0)
+      return res.status(400).json({ success: false, message: "No fields to update" });
+
+    await db.collection("users").doc(uid).update(updateData);
+    return res.json({ success: true, message: "Profile updated" });
+  } catch (err) {
+    console.error("[updateProfile]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 export const facultyLogin = async (req, res) => {
   try {
     const { email, password } = req.body;

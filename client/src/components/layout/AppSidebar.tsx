@@ -22,6 +22,7 @@ import {
   CalendarClock,
   Menu,
   X,
+  UserCircle,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -251,6 +252,12 @@ const getNavItems = (
       label: "My Appeals",
       href: "/my-appeals",
       roles: ["faculty", "internal committee", "dean", "hod"],
+    },
+    {
+      icon: UserCircle,
+      label: "My Profile",
+      href: "/faculty-profile",
+      roles: ["faculty"],
     },
     {
       icon: KeyRound,

@@ -64,6 +64,7 @@ import AddViewer from "./pages/AddViewer";
 import ChangePassword from "./pages/ChangePassword";
 import CommitteeMember from "./pages/CommitteeMember";
 import CollegeDeadlines from "./pages/CollegeDeadlines";
+import FacultyProfile from "./pages/FacultyProfile";
 
 const queryClient = new QueryClient();
 
@@ -241,6 +242,7 @@ function AppRoutes() {
       <Route path="/dean-appeals" element={<DeanAppeals></DeanAppeals>}></Route>
       <Route path="*" element={<NotFound />} />
       <Route path="/submissions" element={<Submissions></Submissions>}></Route>
+      <Route path="/faculty-profile" element={<FacultyProfile />}></Route>
       <Route path="/college" element={<College></College>}></Route>
       <Route path="/add" element={<AddAdmin></AddAdmin>}></Route>
       <Route
