@@ -47,6 +47,7 @@ import { formatRoleLabel } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import LOGO from "@/assets/LOGO.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -1790,25 +1791,30 @@ export default function Dashboard() {
       // S.No(10) + Name(72) + Desig(38) + Role(28) + Target(18) + Claimed(22) + Reviewer(22) + %(16) + Status(43) = 269
       const COL_WIDTHS = [10, 72, 38, 28, 18, 22, 22, 16, 43];
 
+      const academicYear = "2025 – 2026";
+
       const addPageHeader = (deptName?: string) => {
         doc.setFillColor(0, 31, 63);
-        doc.rect(0, 0, pw, 18, "F");
+        doc.rect(0, 0, pw, 22, "F");
+        // Logo
+        try { doc.addImage(LOGO, "PNG", ML, 3, 16, 16); } catch { /* skip */ }
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
-        doc.text(collegeName, pw / 2, 8, { align: "center" });
+        doc.text(collegeName, pw / 2, 9, { align: "center" });
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text("Faculty Performance Report", pw / 2, 14, { align: "center" });
+        doc.text("Faculty Performance Report", pw / 2, 15, { align: "center" });
+        doc.text(`Academic Year: ${academicYear}`, pw / 2, 20, { align: "center" });
         doc.setTextColor(0, 0, 0);
         if (deptName) {
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
-          doc.text(`Department: ${deptName}`, ML, 24);
+          doc.text(`Department: ${deptName}`, ML, 29);
         }
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`Date: ${dateStr}`, pw - MR, 24, { align: "right" });
+        doc.text(`Date: ${dateStr}`, pw - MR, 29, { align: "right" });
       };
 
       const drawSignatures = (topY: number, resolvedHodName: string) => {
@@ -1898,7 +1904,7 @@ export default function Dashboard() {
         autoTable(doc, {
           head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "%", "Status"]],
           body: rows,
-          startY: 30,
+          startY: 34,
           margin: { left: ML, right: MR },
           tableWidth: usableW,
           styles: { fontSize: 8.5, cellPadding: 2.5, overflow: "linebreak" },
