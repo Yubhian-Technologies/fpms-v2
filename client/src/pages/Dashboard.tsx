@@ -1788,8 +1788,8 @@ export default function Dashboard() {
       const ML = 14; const MR = 14;
       const usableW = pw - ML - MR; // 269
 
-      // S.No(10) + Name(64) + Desig(36) + Role(26) + Target(16) + Claimed(18) + Reviewer(18) + Final(18) + %(14) + Status(49) = 269
-      const COL_WIDTHS = [10, 64, 36, 26, 16, 18, 18, 18, 14, 49];
+      // S.No(10) + Name(64) + Desig(36) + Role(26) + Target(16) + Claimed(18) + Reviewer(18) + Final(18) + Status(63) = 269
+      const COL_WIDTHS = [10, 64, 36, 26, 16, 18, 18, 18, 63];
 
       const academicYear = "2025 – 2026";
 
@@ -1893,8 +1893,6 @@ export default function Dashboard() {
             ? subs.reduce((sum: number, sub: any) => sum + Number(sub.finalScore ?? sub.reviewerScore ?? 0), 0)
             : null;
           const target = Number(s.designationTarget || 0);
-          const scoreForPct = finalScore ?? reviewer;
-          const pct = target > 0 && subs.length > 0 ? `${Math.round((scoreForPct / target) * 100)}%` : "—";
           return [
             idx + 1,
             s.name || s.email || "—",
@@ -1904,13 +1902,12 @@ export default function Dashboard() {
             subs.length > 0 ? claimed : "—",
             subs.length > 0 ? reviewer : "—",
             finalScore != null ? finalScore : "—",
-            subs.length > 0 ? pct : "—",
             getPDFStatus(subs),
           ];
         });
 
         autoTable(doc, {
-          head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Final", "%", "Status"]],
+          head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Final", "Status"]],
           body: rows,
           startY: 34,
           margin: { left: ML, right: MR },
@@ -1928,10 +1925,9 @@ export default function Dashboard() {
             6: { cellWidth: COL_WIDTHS[6], halign: "center" },
             7: { cellWidth: COL_WIDTHS[7], halign: "center" },
             8: { cellWidth: COL_WIDTHS[8], halign: "center" },
-            9: { cellWidth: COL_WIDTHS[9], halign: "center" },
           },
           didDrawCell: (data: any) => {
-            if (data.section === "body" && data.column.index === 9) {
+            if (data.section === "body" && data.column.index === 8) {
               const val = String(data.cell.text?.[0] || "");
               if (val === "Completed") doc.setTextColor(22, 163, 74);
               else if (val === "Appealed") doc.setTextColor(220, 38, 38);
