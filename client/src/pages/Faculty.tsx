@@ -75,6 +75,7 @@ interface FacultyMember {
   isActive: boolean;
   staffStatus?: StaffStatus;
   statusNote?: string;
+  subjectsHandled?: string[];
 }
 
 interface DesignationOption {
@@ -152,6 +153,8 @@ export default function Faculty() {
     status: "active" as StaffStatus,
     statusNote: "",
     hasPhd: false,
+    subjectsHandled: [] as string[],
+    subjectInput: "",
   });
 
   const lockedCollegeName = collegeDetails?.name || "";
@@ -334,6 +337,8 @@ export default function Faculty() {
       status: member.staffStatus || (member.isActive ? "active" : "inactive"),
       statusNote: member.statusNote || "",
       hasPhd: resolvedHasPhd,
+      subjectsHandled: member.subjectsHandled || [],
+      subjectInput: "",
     });
     setEditingId(member.id);
     setIsAddingFaculty(true);
@@ -396,6 +401,7 @@ export default function Faculty() {
         staffStatus: formData.status,
         statusNote: formData.status === "other" ? formData.statusNote : undefined,
         hasPhd: formData.hasPhd,
+        subjectsHandled: formData.subjectsHandled,
       };
 
       if (editingId) {
@@ -974,6 +980,54 @@ export default function Faculty() {
                     />
                   )}
                 </div>
+                <div className="space-y-2">
+                  <Label>Subjects Handled</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Type a subject and press Enter"
+                      value={formData.subjectInput}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, subjectInput: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          const val = formData.subjectInput.trim().replace(/,$/, "");
+                          if (val && !formData.subjectsHandled.includes(val)) {
+                            setFormData((prev) => ({ ...prev, subjectsHandled: [...prev.subjectsHandled, val], subjectInput: "" }));
+                          } else {
+                            setFormData((prev) => ({ ...prev, subjectInput: "" }));
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const val = formData.subjectInput.trim();
+                        if (val && !formData.subjectsHandled.includes(val)) {
+                          setFormData((prev) => ({ ...prev, subjectsHandled: [...prev.subjectsHandled, val], subjectInput: "" }));
+                        } else {
+                          setFormData((prev) => ({ ...prev, subjectInput: "" }));
+                        }
+                      }}
+                    >Add</Button>
+                  </div>
+                  {formData.subjectsHandled.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {formData.subjectsHandled.map((subject) => (
+                        <span key={subject} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-medium">
+                          {subject}
+                          <button
+                            type="button"
+                            className="ml-0.5 hover:text-destructive"
+                            onClick={() => setFormData((prev) => ({ ...prev, subjectsHandled: prev.subjectsHandled.filter((s) => s !== subject) }))}
+                          >×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Target Score</Label>
                   <div className="flex items-center gap-3">
