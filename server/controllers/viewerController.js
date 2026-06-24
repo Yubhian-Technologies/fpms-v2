@@ -176,7 +176,7 @@ export const getViewerStats = async (req, res) => {
         const target = desigMap[phdKey] || desigMap[nameKey] || 0;
         const userSubs = subsMap.get(data.uid) || [];
         const score = userSubs.reduce((sum, s) => sum + getConfirmedScore(s), 0);
-        const INACTIVE_STATUSES = new Set(["long-leave", "maternity-leave", "retainership"]);
+        const INACTIVE_STATUSES = new Set(["long-leave", "maternity-leave", "retainership", "other"]);
         const isActive = !INACTIVE_STATUSES.has(normStr(data.staffStatus || ""));
         return {
           uid: data.uid || doc.id,
