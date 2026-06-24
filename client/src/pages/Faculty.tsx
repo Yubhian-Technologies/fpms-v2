@@ -790,12 +790,13 @@ export default function Faculty() {
       // ── SUBMISSIONS TABLE ──
       const startY = (doc as any).lastAutoTable.finalY + 5;
 
-      const FINALIZED_SET = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
       const tableRows: any[] = [];
+      // parallel merge-flag array: tracks which cols should visually merge with row above
+      const mergeFlags: Array<{ criteria: boolean; module: boolean }> = [];
       let sno = 1;
       let totalFinal = 0;
 
-      // Group by criteriaName to compute per-criteria totals
+      // Group by criteriaName
       const criteriaGroups: Record<string, typeof submissions> = {};
       for (const sub of submissions) {
         const key = sub.criteriaName || "Uncategorized";
@@ -806,26 +807,50 @@ export default function Faculty() {
       for (const [criteriaName, subs] of Object.entries(criteriaGroups)) {
         const criteriaTotal = subs.reduce((s, sub) => s + (sub.finalScore != null ? sub.finalScore : 0), 0);
         totalFinal += criteriaTotal;
-        subs.forEach((sub, idx) => {
-          const isLast = idx === subs.length - 1;
-          tableRows.push([
-            sno++,
-            criteriaName,
-            sub.moduleName || "—",
-            sub.taskName || "—",
-            sub.maxMarks != null ? sub.maxMarks : "—",
-            sub.claimedScore != null ? sub.claimedScore : "—",
-            sub.reviewerScore != null ? sub.reviewerScore : "—",
-            sub.appealerScore != null ? sub.appealerScore : "—",
-            sub.finalScore != null ? sub.finalScore : "—",
-            isLast ? criteriaTotal : "",
-          ]);
-        });
+
+        // group by moduleName within criteria
+        const moduleGroups: Record<string, typeof subs> = {};
+        for (const sub of subs) {
+          const mk = sub.moduleName || "—";
+          if (!moduleGroups[mk]) moduleGroups[mk] = [];
+          moduleGroups[mk].push(sub);
+        }
+
+        let criteriaFirstRow = true;
+        for (const [moduleName, msubs] of Object.entries(moduleGroups)) {
+          let moduleFirstRow = true;
+          for (const sub of msubs) {
+            const isLastOfCriteria = !criteriaFirstRow && subs.indexOf(sub) === subs.length - 1;
+            const isLastCriteria = sub === subs[subs.length - 1];
+            tableRows.push([
+              sno++,
+              criteriaName,
+              moduleName,
+              sub.taskName || "—",
+              sub.maxMarks != null ? sub.maxMarks : "—",
+              sub.claimedScore != null ? sub.claimedScore : "—",
+              sub.reviewerScore != null ? sub.reviewerScore : "—",
+              sub.appealerScore != null ? sub.appealerScore : "—",
+              sub.finalScore != null ? sub.finalScore : "—",
+              isLastCriteria ? criteriaTotal : "",
+            ]);
+            mergeFlags.push({
+              criteria: !criteriaFirstRow,
+              module: !moduleFirstRow,
+            });
+            criteriaFirstRow = false;
+            moduleFirstRow = false;
+          }
+        }
       }
 
       if (tableRows.length === 0) {
         tableRows.push(["—", "No submissions found", "", "", "", "", "", "", "", ""]);
+        mergeFlags.push({ criteria: false, module: false });
       }
+
+      const BORDER_COLOR: [number, number, number] = [180, 180, 180];
+      const BW = 0.2;
 
       autoTable(doc, {
         head: [[
@@ -837,7 +862,7 @@ export default function Faculty() {
         startY,
         margin: { left: ML, right: MR },
         tableWidth: usableW,
-        styles: { fontSize: 7.5, cellPadding: 1.8, overflow: "linebreak", lineColor: [180, 180, 180], lineWidth: 0.2 },
+        styles: { fontSize: 7.5, cellPadding: 1.8, overflow: "linebreak", lineColor: BORDER_COLOR, lineWidth: BW },
         headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", fontSize: 7.5, halign: "center" },
         columnStyles: {
           0: { cellWidth: 10, halign: "center" },
@@ -852,10 +877,29 @@ export default function Faculty() {
           9: { cellWidth: usableW - 10 - 35 - 28 - 28 - 14 * 5, halign: "center" },
         },
         theme: "grid",
-        // Merge criteriaName cells within each group
         didParseCell: (data) => {
-          if (data.section === "body" && data.column.index === 9 && data.cell.raw === "") {
-            data.cell.styles.fillColor = [248, 248, 248];
+          if (data.section !== "body") return;
+          const ri = data.row.index;
+          const ci = data.column.index;
+          const flags = mergeFlags[ri];
+          if (!flags) return;
+          // Blank out repeated criteria/module cells
+          if (flags.criteria && ci === 1) data.cell.text = [];
+          if (flags.module && ci === 2) data.cell.text = [];
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body") return;
+          const ri = data.row.index;
+          const ci = data.column.index;
+          const flags = mergeFlags[ri];
+          if (!flags) return;
+          // Erase top border to make cell appear merged with row above
+          if ((flags.criteria && ci === 1) || (flags.module && ci === 2)) {
+            doc.setDrawColor(255, 255, 255);
+            doc.setLineWidth(BW + 0.1);
+            doc.line(data.cell.x + BW, data.cell.y, data.cell.x + data.cell.width - BW, data.cell.y);
+            doc.setDrawColor(...BORDER_COLOR);
+            doc.setLineWidth(BW);
           }
         },
       });
