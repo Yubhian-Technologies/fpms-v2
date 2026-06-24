@@ -867,29 +867,34 @@ export default function Faculty() {
       const BORDER_COLOR: [number, number, number] = [180, 180, 180];
       const BW = 0.2;
 
+      // Column widths (landscape usableW = 269mm):
+      // 10 + 44 + 40 + 54 + 16×5 + 41 = 269
+      const CW = { sno: 10, crit: 44, mod: 40, sub: 54, score: 16 };
+      const lastColW = usableW - CW.sno - CW.crit - CW.mod - CW.sub - CW.score * 5;
+
       autoTable(doc, {
         head: [[
-          "S.No", "Criteria\nName", "Modules", "Sub\nModules",
+          "S.No", "Criteria Name", "Modules", "Sub Modules",
           "Actual\nScore", "Claimed\nScore", "Reviewer\nScore",
-          "Appeal\nScore", "Final\nScore", "Total Score\nper Criteria",
+          "Appeal\nScore", "Final\nScore", "Total\nper Criteria",
         ]],
         body: tableRows,
         startY,
         margin: { left: ML, right: MR },
         tableWidth: usableW,
-        styles: { fontSize: 7.5, cellPadding: 1.8, overflow: "linebreak", lineColor: BORDER_COLOR, lineWidth: BW },
-        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", fontSize: 7.5, halign: "center" },
+        styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", lineColor: BORDER_COLOR, lineWidth: BW },
+        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", fontSize: 7.5, halign: "center", minCellHeight: 10, valign: "middle" },
         columnStyles: {
-          0: { cellWidth: 12, halign: "center" },
-          1: { cellWidth: 52 },
-          2: { cellWidth: 45 },
-          3: { cellWidth: 60 },
-          4: { cellWidth: 18, halign: "center" },
-          5: { cellWidth: 18, halign: "center" },
-          6: { cellWidth: 18, halign: "center" },
-          7: { cellWidth: 18, halign: "center" },
-          8: { cellWidth: 18, halign: "center" },
-          9: { cellWidth: usableW - 12 - 52 - 45 - 60 - 18 * 5, halign: "center" },
+          0: { cellWidth: CW.sno, halign: "center" },
+          1: { cellWidth: CW.crit },
+          2: { cellWidth: CW.mod },
+          3: { cellWidth: CW.sub },
+          4: { cellWidth: CW.score, halign: "center" },
+          5: { cellWidth: CW.score, halign: "center" },
+          6: { cellWidth: CW.score, halign: "center" },
+          7: { cellWidth: CW.score, halign: "center" },
+          8: { cellWidth: CW.score, halign: "center" },
+          9: { cellWidth: lastColW, halign: "center" },
         },
         theme: "grid",
         didParseCell: (data) => {
@@ -920,16 +925,25 @@ export default function Faculty() {
       });
 
       // ── TOTAL SCORE ──
+      const PH = doc.internal.pageSize.getHeight(); // 210 landscape
+      const SIG_BLOCK_H = 44; // label(6) + box(28) + padding(10)
+      const TOTAL_H = 8;
       const afterTable = (doc as any).lastAutoTable.finalY + 4;
+
+      // If not enough room for total + signatures, add a new page
+      const needsNewPage = afterTable + TOTAL_H + SIG_BLOCK_H > PH - 10;
+      if (needsNewPage) doc.addPage();
+      const totalY = needsNewPage ? 20 : afterTable;
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
       const targetScore = faculty.targetScore || 0;
       const totalPct = targetScore > 0 ? ` (${Math.round((totalFinal / targetScore) * 100)}% of target)` : "";
-      doc.text(`Total Score: ${totalFinal} / ${targetScore}${totalPct}`, PW - MR, afterTable, { align: "right" });
+      doc.text(`Total Score: ${totalFinal} / ${targetScore}${totalPct}`, PW - MR, totalY, { align: "right" });
 
       // ── SIGNATURES ──
-      const sigY = afterTable + 20;
+      const sigY = totalY + 16;
       const sigBoxW = 70;
       const sigBoxH = 28;
       const positions = [
