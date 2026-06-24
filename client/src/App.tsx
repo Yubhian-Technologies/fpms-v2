@@ -240,9 +240,9 @@ function AppRoutes() {
         element={<DeanBTeachingLearning></DeanBTeachingLearning>}
       ></Route>
       <Route path="/dean-appeals" element={<DeanAppeals></DeanAppeals>}></Route>
-      <Route path="*" element={<NotFound />} />
       <Route path="/submissions" element={<Submissions></Submissions>}></Route>
       <Route path="/faculty-profile" element={<FacultyProfile />}></Route>
+      <Route path="*" element={<NotFound />} />
       <Route path="/college" element={<College></College>}></Route>
       <Route path="/add" element={<AddAdmin></AddAdmin>}></Route>
       <Route
