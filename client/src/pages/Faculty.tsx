@@ -806,8 +806,8 @@ export default function Faculty() {
       const startY = (doc as any).lastAutoTable.finalY + 5;
 
       const tableRows: any[] = [];
-      // parallel merge-flag array: tracks which cols should visually merge with row above
-      const mergeFlags: Array<{ criteria: boolean; module: boolean }> = [];
+      // tracks which cols should visually merge with row above
+      const mergeFlags: Array<{ criteria: boolean; module: boolean; total: boolean }> = [];
       let sno = 1;
       let totalFinal = 0;
 
@@ -835,8 +835,8 @@ export default function Faculty() {
         for (const [moduleName, msubs] of Object.entries(moduleGroups)) {
           let moduleFirstRow = true;
           for (const sub of msubs) {
-            const isLastOfCriteria = !criteriaFirstRow && subs.indexOf(sub) === subs.length - 1;
-            const isLastCriteria = sub === subs[subs.length - 1];
+            // total shown on first row of criteria group; blanked on subsequent rows (merged)
+            const isFirstOfCriteria = criteriaFirstRow;
             tableRows.push([
               sno++,
               criteriaName,
@@ -847,11 +847,12 @@ export default function Faculty() {
               sub.reviewerScore != null ? sub.reviewerScore : "—",
               sub.appealerScore != null ? sub.appealerScore : "—",
               sub.finalScore != null ? sub.finalScore : "—",
-              isLastCriteria ? criteriaTotal : "",
+              isFirstOfCriteria ? criteriaTotal : "",
             ]);
             mergeFlags.push({
               criteria: !criteriaFirstRow,
               module: !moduleFirstRow,
+              total: !criteriaFirstRow,
             });
             criteriaFirstRow = false;
             moduleFirstRow = false;
@@ -861,7 +862,7 @@ export default function Faculty() {
 
       if (tableRows.length === 0) {
         tableRows.push(["—", "No submissions found", "", "", "", "", "", "", "", ""]);
-        mergeFlags.push({ criteria: false, module: false });
+        mergeFlags.push({ criteria: false, module: false, total: false });
       }
 
       const BORDER_COLOR: [number, number, number] = [180, 180, 180];
@@ -903,9 +904,9 @@ export default function Faculty() {
           const ci = data.column.index;
           const flags = mergeFlags[ri];
           if (!flags) return;
-          // Blank out repeated criteria/module cells
           if (flags.criteria && ci === 1) data.cell.text = [];
           if (flags.module && ci === 2) data.cell.text = [];
+          if (flags.total && ci === 9) data.cell.text = [];
         },
         didDrawCell: (data) => {
           if (data.section !== "body") return;
@@ -913,8 +914,11 @@ export default function Faculty() {
           const ci = data.column.index;
           const flags = mergeFlags[ri];
           if (!flags) return;
-          // Erase top border to make cell appear merged with row above
-          if ((flags.criteria && ci === 1) || (flags.module && ci === 2)) {
+          const shouldErase =
+            (flags.criteria && ci === 1) ||
+            (flags.module && ci === 2) ||
+            (flags.total && ci === 9);
+          if (shouldErase) {
             doc.setDrawColor(255, 255, 255);
             doc.setLineWidth(BW + 0.1);
             doc.line(data.cell.x + BW, data.cell.y, data.cell.x + data.cell.width - BW, data.cell.y);
