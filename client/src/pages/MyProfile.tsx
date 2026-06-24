@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Save, User, X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 function calculateExperience(dateOfJoining: string): number {
   if (!dateOfJoining) return 0;
@@ -38,7 +39,17 @@ interface ProfileData {
   overallExperience: number | null;
 }
 
-export default function FacultyProfile() {
+function profileEndpoint(role: string) {
+  const r = String(role || "").trim().toLowerCase();
+  if (r === "hod" || r.startsWith("hod")) return "/api/hod/profile";
+  if (r.includes("dean")) return "/api/dean/profile";
+  return "/api/faculty/profile";
+}
+
+export default function MyProfile() {
+  const { user } = useAuth();
+  const endpoint = profileEndpoint(user?.role || "faculty");
+
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [form, setForm] = useState({
     dateOfJoining: "",
@@ -54,7 +65,7 @@ export default function FacultyProfile() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/api/faculty/profile");
+        const res = await api.get(endpoint);
         const d: ProfileData = res.data.data;
         setProfile(d);
         setForm({
@@ -103,7 +114,7 @@ export default function FacultyProfile() {
       const external = form.externalExperience !== "" ? Number(form.externalExperience) : 0;
       payload.overallExperience = internal + external;
 
-      await api.put("/api/faculty/profile", payload);
+      await api.put(endpoint, payload);
       setProfile((prev) =>
         prev
           ? {

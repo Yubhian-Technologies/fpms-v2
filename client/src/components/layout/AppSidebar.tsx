@@ -256,8 +256,8 @@ const getNavItems = (
     {
       icon: UserCircle,
       label: "My Profile",
-      href: "/faculty-profile",
-      roles: ["faculty"],
+      href: "/my-profile",
+      roles: ["faculty", "hod", "dean"],
     },
     {
       icon: KeyRound,

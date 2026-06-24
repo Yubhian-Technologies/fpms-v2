@@ -968,3 +968,50 @@ export const getFacultyPdfData = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const getHodProfile = async (req, res) => {
+  try {
+    const doc = await db.collection(USERS_COLLECTION).doc(req.hod.uid).get();
+    if (!doc.exists) return res.status(404).json({ success: false, message: "User not found" });
+    const d = doc.data();
+    return res.json({
+      success: true,
+      data: {
+        name: d.name || "", email: d.email || "", college: d.college || "",
+        department: d.department || "", designation: d.designation || "",
+        hasPhd: Boolean(d.hasPhd), staffStatus: d.staffStatus || "active",
+        statusNote: d.statusNote || "", dateOfJoining: d.dateOfJoining || "",
+        phone: d.phone || d.phoneNumber || "",
+        subjectsHandled: Array.isArray(d.subjectsHandled) ? d.subjectsHandled : [],
+        experience: d.experience != null ? Number(d.experience) : null,
+        externalExperience: d.externalExperience != null ? Number(d.externalExperience) : null,
+        overallExperience: d.overallExperience != null ? Number(d.overallExperience) : null,
+      },
+    });
+  } catch (err) {
+    console.error("[getHodProfile]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const updateHodProfile = async (req, res) => {
+  try {
+    const { dateOfJoining, externalExperience, phone, subjectsHandled, overallExperience } = req.body;
+    const updateData = {};
+    if (dateOfJoining !== undefined) updateData.dateOfJoining = String(dateOfJoining).trim();
+    if (externalExperience !== undefined && externalExperience !== null && externalExperience !== "")
+      updateData.externalExperience = Number(externalExperience);
+    if (overallExperience !== undefined && overallExperience !== null && overallExperience !== "")
+      updateData.overallExperience = Number(overallExperience);
+    if (phone !== undefined) updateData.phone = String(phone).trim();
+    if (subjectsHandled !== undefined)
+      updateData.subjectsHandled = Array.isArray(subjectsHandled) ? subjectsHandled.map(String).filter(Boolean) : [];
+    if (Object.keys(updateData).length === 0)
+      return res.status(400).json({ success: false, message: "No fields to update" });
+    await db.collection(USERS_COLLECTION).doc(req.hod.uid).update(updateData);
+    return res.json({ success: true, message: "Profile updated" });
+  } catch (err) {
+    console.error("[updateHodProfile]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

@@ -1,7 +1,8 @@
 import express from "express";
 
 import { adminAuth } from "../middleware/adminAuth.js";
-import { deanLogin } from "../controllers/deanController.js";
+import { deanAuth } from "../middleware/deanAuth.js";
+import { deanLogin, getDeanProfile, updateDeanProfile } from "../controllers/deanController.js";
 import {
   addDean,
   deleteDean,
@@ -15,6 +16,8 @@ import {
 const deanRouter = express.Router();
 
 deanRouter.post("/login", deanLogin);
+deanRouter.get("/profile", deanAuth, getDeanProfile);
+deanRouter.put("/profile", deanAuth, updateDeanProfile);
 
 deanRouter.post("/add-dean", adminAuth, addDean);
 
