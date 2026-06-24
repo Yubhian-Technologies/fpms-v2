@@ -914,7 +914,7 @@ export const getFacultyPdfData = async (req, res) => {
     try {
       const principalSnap = await db.collection(USERS_COLLECTION)
         .where("college", "==", userData.college)
-        .where("role", "in", ["principal", "principle"])
+        .where("role", "in", ["principal", "principle", "admin", "director"])
         .limit(1).get();
       if (!principalSnap.empty) principalName = principalSnap.docs[0].data().name || "";
     } catch { /* ignore */ }
@@ -1023,7 +1023,7 @@ export const getPrincipalName = async (req, res) => {
     if (!college) return res.json({ success: true, data: { name: "" } });
     const snap = await db.collection(USERS_COLLECTION)
       .where("college", "==", college)
-      .where("role", "in", ["principal", "principle"])
+      .where("role", "in", ["principal", "principle", "admin", "director"])
       .limit(1).get();
     const name = snap.empty ? "" : (snap.docs[0].data().name || "");
     return res.json({ success: true, data: { name } });
