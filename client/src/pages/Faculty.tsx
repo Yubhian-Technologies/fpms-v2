@@ -995,7 +995,7 @@ export default function Faculty() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Subjects Handled</Label>
+                  <Label>Subjects Handled including labs (During 2025–2026)</Label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="Type a subject and press Enter"
