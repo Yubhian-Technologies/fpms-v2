@@ -88,14 +88,9 @@ export const hodAuth = async (req, res, next) => {
       uid: decodedFirebase.uid,
       email: decodedFirebase.email,
       role: resolvedRole,
-      college:
-        decodedFirebase.college ||
-        decodedFirebase.claims?.college ||
-        userDocData?.college,
-      department:
-        decodedFirebase.department ||
-        decodedFirebase.claims?.department ||
-        userDocData?.department,
+      // Prefer Firestore data — token claims may hold stale college after a rename
+      college: userDocData?.college || decodedFirebase.college || decodedFirebase.claims?.college,
+      department: userDocData?.department || decodedFirebase.department || decodedFirebase.claims?.department,
       token: decodedFirebase,
     };
 

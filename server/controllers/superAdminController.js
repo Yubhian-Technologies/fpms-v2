@@ -708,17 +708,34 @@ export const updateCollege = async (req, res) => {
     // When name changes, migrate all users and submissions to the new name
     if (nameChanged) {
       const CHUNK = 400;
-      const migrate = async (collection) => {
-        const snap = await db.collection(collection)
-          .where("college", "==", oldName)
-          .get();
+      const migrateCollection = async (collection) => {
+        const snap = await db.collection(collection).where("college", "==", oldName).get();
         for (let i = 0; i < snap.docs.length; i += CHUNK) {
           const batch = db.batch();
           snap.docs.slice(i, i + CHUNK).forEach((doc) => batch.update(doc.ref, { college: newName }));
           await batch.commit();
         }
       };
-      await Promise.all([migrate("users"), migrate("submissions")]);
+
+      // Migrate Firestore documents
+      const usersSnap = await db.collection("users").where("college", "==", oldName).get();
+      for (let i = 0; i < usersSnap.docs.length; i += CHUNK) {
+        const batch = db.batch();
+        usersSnap.docs.slice(i, i + CHUNK).forEach((doc) => batch.update(doc.ref, { college: newName }));
+        await batch.commit();
+      }
+      await migrateCollection("submissions");
+
+      // Update Firebase Auth custom claims so tokens don't carry the stale college
+      const claimUpdates = usersSnap.docs.map(async (doc) => {
+        try {
+          const existing = (await auth.getUser(doc.id)).customClaims || {};
+          if (existing.college === oldName) {
+            await auth.setCustomUserClaims(doc.id, { ...existing, college: newName });
+          }
+        } catch { /* user may not exist in Auth — skip */ }
+      });
+      await Promise.allSettled(claimUpdates);
     }
 
     invalidateSuperadminCache();
