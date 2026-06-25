@@ -717,17 +717,19 @@ export const updateCollege = async (req, res) => {
         }
       };
 
-      // Migrate Firestore documents
+      // Migrate Firestore documents (users, admins, submissions)
       const usersSnap = await db.collection("users").where("college", "==", oldName).get();
       for (let i = 0; i < usersSnap.docs.length; i += CHUNK) {
         const batch = db.batch();
         usersSnap.docs.slice(i, i + CHUNK).forEach((doc) => batch.update(doc.ref, { college: newName }));
         await batch.commit();
       }
-      await migrateCollection("submissions");
+      await Promise.all([migrateCollection("admins"), migrateCollection("submissions")]);
 
-      // Update Firebase Auth custom claims so tokens don't carry the stale college
-      const claimUpdates = usersSnap.docs.map(async (doc) => {
+      // Update Firebase Auth custom claims for users + admins
+      const adminsSnap = await db.collection("admins").where("college", "==", oldName).get();
+      const allDocs = [...usersSnap.docs, ...adminsSnap.docs];
+      const claimUpdates = allDocs.map(async (doc) => {
         try {
           const existing = (await auth.getUser(doc.id)).customClaims || {};
           if (existing.college === oldName) {

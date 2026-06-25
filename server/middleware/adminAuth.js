@@ -48,32 +48,22 @@ export const adminAuth = async (req, res, next) => {
     const userDepartment = req.headers["x-department"];
 
     if (userId && userEmail && userRole) {
-      // If college is empty for a principle, look it up from the admins collection
-      if (!userCollege && isPrincipalOrVicePrincipalRole(userRole)) {
-        try {
+      // Always prefer Firestore college — header may be stale after a rename
+      try {
+        const userDoc = await db.collection("users").doc(userId).get();
+        if (userDoc.exists && userDoc.data()?.college) {
+          userCollege = userDoc.data().college;
+        } else if (!userCollege) {
           const normalizedEmail = String(userEmail).trim().toLowerCase();
-
-          const adminSnap = await db
-            .collection("admins")
-            .where("email", "==", normalizedEmail)
-            .limit(1)
-            .get();
-          if (!adminSnap.empty) {
-            userCollege = adminSnap.docs[0].data()?.college || "";
-          }
-
+          const adminSnap = await db.collection("admins").where("email", "==", normalizedEmail).limit(1).get();
+          if (!adminSnap.empty) userCollege = adminSnap.docs[0].data()?.college || "";
           if (!userCollege) {
-            const userSnap = await db
-              .collection("users")
-              .where("email", "==", normalizedEmail)
-              .limit(1)
-              .get();
-            if (!userSnap.empty)
-              userCollege = userSnap.docs[0].data()?.college || "";
+            const userSnap = await db.collection("users").where("email", "==", normalizedEmail).limit(1).get();
+            if (!userSnap.empty) userCollege = userSnap.docs[0].data()?.college || "";
           }
-        } catch (e) {
-          console.error("[adminAuth] DEV college lookup failed:", e.message);
         }
+      } catch (e) {
+        console.error("[adminAuth] DEV college lookup failed:", e.message);
       }
 
       console.log("[adminAuth] DEV MODE - Using headers. Role:", userRole);
@@ -137,11 +127,11 @@ export const adminAuth = async (req, res, next) => {
       });
     }
 
-    // College lives in "admins" collection, not "users"
+    // Prefer Firestore data — token claims may hold stale college after a rename
     let adminCollege =
+      userDocData?.college ||
       decodedFirebase.college ||
       decodedFirebase.claims?.college ||
-      userDocData?.college ||
       "";
 
     if (!adminCollege) {
