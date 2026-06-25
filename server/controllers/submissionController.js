@@ -1259,18 +1259,32 @@ export const getAppealQueue = async (req, res) => {
       await autoFinalizeAllColleges();
     }
 
-    let query = db.collection("submissions").where("status", "==", "appealed");
+    // When dates are extended after a freeze, also surface re-opened appeal-expired submissions
+    const saDataForQueue = await getSuperadminConfig();
+    const collegeDefForQueue = college
+      ? (saDataForQueue.colleges || []).find((c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase())
+      : null;
+    const currentPhase = getCollegePhase(collegeDefForQueue);
+    const includeExpired = currentPhase === "appeal-review";
 
-    if (isPrincipalRole(userRole) && college) {
-      query = query.where("college", "==", college);
-    } else if ((isInternalCommitteeRole(userRole) || internalCommittee) && college) {
-      query = query.where("college", "==", college);
-    } else if (!isCommitteeRole(userRole)) {
-      if (college) query = query.where("college", "==", college);
-      if (department && !internalCommittee) query = query.where("department", "==", department);
-    }
+    const buildQuery = (status) => {
+      let q = db.collection("submissions").where("status", "==", status);
+      if (isPrincipalRole(userRole) && college) {
+        q = q.where("college", "==", college);
+      } else if ((isInternalCommitteeRole(userRole) || internalCommittee) && college) {
+        q = q.where("college", "==", college);
+      } else if (!isCommitteeRole(userRole)) {
+        if (college) q = q.where("college", "==", college);
+        if (department && !internalCommittee) q = q.where("department", "==", department);
+      }
+      return q;
+    };
 
-    const snapshot = await query.get();
+    const [appealedSnap, expiredSnap] = await Promise.all([
+      buildQuery("appealed").get(),
+      includeExpired ? buildQuery("appeal-expired").get() : Promise.resolve({ docs: [] }),
+    ]);
+    const snapshot = { docs: [...appealedSnap.docs, ...expiredSnap.docs] };
     const workflowRules = await loadWorkflowRules(college);
 
     const mappedAppeals = snapshot.docs.map((doc) => {
@@ -1437,27 +1451,31 @@ export const reviewAppeal = async (req, res) => {
       }
     }
 
+    const prevFinalScore = Number(submissionData.finalScore ?? submissionData.reviewerScore ?? 0);
+    const newFinalScore = Number(appealerScore);
+
     await docRef.update({
       status: "appeal-resolved",
-      appealerScore: Number(appealerScore),
+      appealerScore: newFinalScore,
       appealerReason: appealerReason || "",
       appealerId: appealerId || null,
       appealerRole: normalizedAppealerRole || null,
-      finalScore: Number(appealerScore),
+      finalScore: newFinalScore,
+      // Clear freeze markers if this was re-opened from appeal-expired
+      ...(submissionData.status === "appeal-expired" ? { appealExpiredReason: admin.firestore.FieldValue.delete() } : {}),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Update user's total score in users collection
+    // Update user's total score — only increment the delta to avoid double-counting
     const facultyUserId = submissionData.userId;
-    if (
-      facultyUserId &&
-      appealerScore !== null &&
-      appealerScore !== undefined
-    ) {
-      const userRef = db.collection("users").doc(facultyUserId);
-      await userRef.update({
-        totalScore: admin.firestore.FieldValue.increment(Number(appealerScore)),
-      });
+    if (facultyUserId) {
+      const scoreDelta = newFinalScore - prevFinalScore;
+      if (scoreDelta !== 0) {
+        const userRef = db.collection("users").doc(facultyUserId);
+        await userRef.update({
+          totalScore: admin.firestore.FieldValue.increment(scoreDelta),
+        });
+      }
     }
 
     return res.status(200).json({

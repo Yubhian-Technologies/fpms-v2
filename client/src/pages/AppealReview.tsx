@@ -431,11 +431,13 @@ export default function AppealReview() {
                     ? "destructive"
                     : status === "appeal-resolved"
                       ? "default"
-                      : "secondary"
+                      : status === "appeal-expired"
+                        ? "destructive"
+                        : "secondary"
                 }
-                className="text-xs"
+                className={`text-xs ${status === "appeal-expired" ? "bg-orange-100 text-orange-700 border-orange-300" : ""}`}
               >
-                {status}
+                {status === "appeal-expired" ? "Re-opened" : status}
               </Badge>
               {!!item.appealToRoleIds?.length && (
                 <Badge variant="outline" className="text-xs">
