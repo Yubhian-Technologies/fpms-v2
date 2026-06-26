@@ -1233,7 +1233,7 @@ export const acceptReview = async (req, res) => {
 // Get appeal queue
 export const getAppealQueue = async (req, res) => {
   try {
-    const { userRole, college, department, internalCommittee } = await resolveReviewerScope(req);
+    const { userId, userRole, college, department, internalCommittee } = await resolveReviewerScope(req);
 
     if (!userRole) {
       return res
