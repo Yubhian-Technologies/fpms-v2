@@ -1259,6 +1259,8 @@ export const getAppealQueue = async (req, res) => {
       await autoFinalizeAllColleges();
     }
 
+    console.log("[getAppealQueue] auto-fns done. role:", userRole, "college:", college, "dept:", department, "ic:", internalCommittee);
+
     // Base query builder
     const buildCollegeQuery = (status) => {
       let q = db.collection("submissions").where("status", "==", status);
@@ -1281,6 +1283,7 @@ export const getAppealQueue = async (req, res) => {
         ? (saDataForQueue?.colleges || []).find((c) => String(c?.name || "").trim().toLowerCase() === String(college).trim().toLowerCase())
         : null;
       const currentPhase = getCollegePhase(collegeDefForQueue);
+      console.log("[getAppealQueue] phase:", currentPhase);
       if (currentPhase === "appeal-review") {
         const expiredSnap = await buildCollegeQuery("appeal-expired").get();
         expiredDocs = expiredSnap.docs;
@@ -1289,9 +1292,12 @@ export const getAppealQueue = async (req, res) => {
       console.error("getAppealQueue: appeal-expired fetch failed (non-fatal):", expiredErr?.message);
     }
 
+    console.log("[getAppealQueue] fetching appealed docs...");
     const appealedSnap = await buildCollegeQuery("appealed").get();
+    console.log("[getAppealQueue] appealed docs:", appealedSnap.size, "expired:", expiredDocs.length);
     const snapshot = { docs: [...appealedSnap.docs, ...expiredDocs] };
     const workflowRules = await loadWorkflowRules(college);
+    console.log("[getAppealQueue] workflowRules loaded, mapping", snapshot.docs.length, "docs");
 
     const mappedAppeals = snapshot.docs.map((doc) => {
       const data = doc.data() || {};
