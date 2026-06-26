@@ -1259,15 +1259,8 @@ export const getAppealQueue = async (req, res) => {
       await autoFinalizeAllColleges();
     }
 
-    // When dates are extended after a freeze, also surface re-opened appeal-expired submissions
-    const saDataForQueue = await getSuperadminConfig();
-    const collegeDefForQueue = college
-      ? (saDataForQueue.colleges || []).find((c) => String(c?.name || "").trim().toLowerCase() === college.trim().toLowerCase())
-      : null;
-    const currentPhase = getCollegePhase(collegeDefForQueue);
-    const includeExpired = currentPhase === "appeal-review";
-
-    const buildQuery = (status) => {
+    // Base query builder
+    const buildCollegeQuery = (status) => {
       let q = db.collection("submissions").where("status", "==", status);
       if (isPrincipalRole(userRole) && college) {
         q = q.where("college", "==", college);
@@ -1280,11 +1273,24 @@ export const getAppealQueue = async (req, res) => {
       return q;
     };
 
-    const [appealedSnap, expiredSnap] = await Promise.all([
-      buildQuery("appealed").get(),
-      includeExpired ? buildQuery("appeal-expired").get() : Promise.resolve({ docs: [] }),
-    ]);
-    const snapshot = { docs: [...appealedSnap.docs, ...expiredSnap.docs] };
+    // When dates are extended after a freeze, also surface re-opened appeal-expired submissions
+    let expiredDocs = [];
+    try {
+      const saDataForQueue = await getSuperadminConfig();
+      const collegeDefForQueue = college
+        ? (saDataForQueue?.colleges || []).find((c) => String(c?.name || "").trim().toLowerCase() === String(college).trim().toLowerCase())
+        : null;
+      const currentPhase = getCollegePhase(collegeDefForQueue);
+      if (currentPhase === "appeal-review") {
+        const expiredSnap = await buildCollegeQuery("appeal-expired").get();
+        expiredDocs = expiredSnap.docs;
+      }
+    } catch (expiredErr) {
+      console.error("getAppealQueue: appeal-expired fetch failed (non-fatal):", expiredErr?.message);
+    }
+
+    const appealedSnap = await buildCollegeQuery("appealed").get();
+    const snapshot = { docs: [...appealedSnap.docs, ...expiredDocs] };
     const workflowRules = await loadWorkflowRules(college);
 
     const mappedAppeals = snapshot.docs.map((doc) => {
