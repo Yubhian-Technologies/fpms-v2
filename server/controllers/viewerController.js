@@ -68,13 +68,13 @@ export const getCollegeFaculty = async (req, res) => {
         const claimedScore = subs.reduce((sum, s) => sum + (Number(s.claimedScore) || 0), 0);
         const reviewerScore = subs.reduce((sum, s) => sum + (s.reviewerScore != null ? Number(s.reviewerScore) : 0), 0);
         const finalScore = subs.reduce((sum, s) => FINALIZED.has(s.status) ? sum + Number(s.finalScore ?? s.score ?? 0) : sum, 0);
-        const isAppealed = subs.some((s) => s.status === "appealed" || s.isAppealed);
+        const isAppealed = subs.some((s) => s.status === "appealed");
         const appealScore = subs.filter((s) => s.status === "appeal-resolved" && s.appealerScore != null)
           .reduce((sum, s) => sum + Number(s.appealerScore), 0);
         const percentage = targetScore > 0 ? Math.round((reviewerScore / targetScore) * 100) : null;
 
         const FINALIZED_SET = ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"];
-        const hasAppealed  = subs.some((s) => s.status === "appealed");
+        const hasAppealed = subs.some((s) => s.status === "appealed");
         const hasPending   = subs.some((s) => s.status === "submitted");
         const hasReviewed  = subs.some((s) => s.status === "reviewed");
         const hasCompleted = subs.some((s) => FINALIZED_SET.includes(s.status));
