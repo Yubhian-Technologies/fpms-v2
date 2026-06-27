@@ -1121,7 +1121,7 @@ export default function Dashboard() {
                                               {f.isAppealed
                                                 ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">Appealed</span>
                                                 : f.appealScore != null
-                                                  ? <span className="font-semibold tabular-nums text-violet-600">{f.appealScore}</span>
+                                                  ? <span className="font-semibold tabular-nums text-violet-600">{f.finalScore ?? f.appealScore}</span>
                                                   : <span className="text-muted-foreground">—</span>}
                                             </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
