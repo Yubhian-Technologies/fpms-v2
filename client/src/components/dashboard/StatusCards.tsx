@@ -193,12 +193,15 @@ export function StatusCards({
   let completedCount = 0;
   let appealedCount = 0;
 
+  let claimedTotal = 0;
+
   submissions.forEach((sub: any) => {
     const claimed = Number(sub.claimedScore ?? 0);
     const reviewer = sub.reviewerScore != null ? Number(sub.reviewerScore) : null;
     const final = sub.finalScore != null ? Number(sub.finalScore) : null;
     const appeal = sub.appealScore != null ? Number(sub.appealScore) : null;
     overallScore += appeal ?? final ?? reviewer ?? claimed;
+    claimedTotal += claimed;
     if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "appeal-expired") completedCount++;
     if (sub.status === "appealed" || sub.status === "appeal-resolved") appealedCount++;
   });
@@ -211,8 +214,8 @@ export function StatusCards({
       <StatusCard title="Completed" value={completedCount} icon={CheckCircle} />
       <StatusCard title="Completion Rate" value={`${completionRate.toFixed(1)}%`} icon={BarChart2} />
       <StatusCard
-        title="Overall Score"
-        value={`${overallScore} / 300`}
+        title="Claimed Score"
+        value={`${claimedTotal} / 300`}
         subtitle={`${completionRate.toFixed(1)}% achieved`}
         icon={AlertCircle}
       />
