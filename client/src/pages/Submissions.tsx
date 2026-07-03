@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  FileText,
   Clock,
   CheckCircle2,
   Eye,
@@ -40,7 +39,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatRoleLabel } from "@/lib/utils";
 import { api } from "@/api/api";
 import { resolveEvidenceLink } from "@/lib/utils";
-import jsPDF from "jspdf";
 
 interface Submission {
   id: string;
@@ -326,11 +324,11 @@ export default function Submissions() {
 
       acc[crit].modules[mod].tasks.push(sub);
       acc[crit].modules[mod].totalClaimed += sub.claimedScore;
-      acc[crit].modules[mod].totalFinal += getEffectiveScore(sub) ?? 0;
+      acc[crit].modules[mod].totalFinal += sub.finalScore != null ? Number(sub.finalScore) : 0;
       acc[crit].modules[mod].totalMax += sub.maxMarks;
 
       acc[crit].totalClaimed += sub.claimedScore;
-      acc[crit].totalFinal += getEffectiveScore(sub) ?? 0;
+      acc[crit].totalFinal += sub.finalScore != null ? Number(sub.finalScore) : 0;
       acc[crit].totalMax += sub.maxMarks;
       if (sub.status === "reviewed") acc[crit].hasReviewed = true;
       if (sub.status === "appealed") acc[crit].hasAppealed = true;
@@ -444,118 +442,6 @@ export default function Submissions() {
     }
   };
 
-  const downloadReport = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("FPMS Submissions Report", 105, 20, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.text(`Generated: ${new Date().toLocaleString("en-IN")}`, 20, 35);
-
-    doc.setFontSize(14);
-    doc.text("User Details", 20, 50);
-    doc.setLineWidth(0.3);
-    doc.line(20, 53, 190, 53);
-    doc.setFontSize(11);
-    doc.text(`Name: ${user.name || "Unknown"}`, 25, 62);
-    doc.text(`Email: ${user.email}`, 25, 70);
-    doc.text(`Role: ${formatRoleLabel(user.role) || "Faculty"}`, 25, 78);
-
-    let y = 110;
-    doc.setFontSize(14);
-    doc.text("Overall Scores", 20, y);
-    doc.line(20, y + 3, 190, y + 3);
-    y += 12;
-    doc.setFontSize(11);
-    doc.text(`Total Claimed: ${totalClaimed} / 300`, 25, y);
-    y += 8;
-    doc.text(`Total Final: ${totalAwarded} / 300`, 25, y);
-    y += 8;
-    doc.text(`Achievement: ${Math.round((totalAwarded / 300) * 100)}%`, 25, y);
-    y += 15;
-
-    doc.setFontSize(14);
-    doc.text("All Submissions", 20, y);
-    doc.line(20, y + 3, 190, y + 3);
-    y += 12;
-
-    submissions.forEach((sub, idx) => {
-      if (y > 260) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.setFontSize(12);
-      doc.text(`${idx + 1}. ${sub.taskName}`, 20, y);
-      y += 8;
-      doc.setFontSize(10);
-      doc.text(`Criteria: ${sub.criteriaName}`, 25, y);
-      y += 7;
-      doc.text(`Module: ${sub.moduleName}`, 25, y);
-      y += 7;
-      doc.text(
-        `Status: ${statusConfig[sub.status]?.label || sub.status}`,
-        25,
-        y,
-      );
-      y += 7;
-      doc.text(`Claimed: ${sub.claimedScore} / ${sub.maxMarks}`, 25, y);
-      y += 7;
-      doc.text(`Final: ${getEffectiveScore(sub) ?? "Pending"}`, 25, y);
-      y += 7;
-
-      if (sub.reviewerScore !== undefined) {
-        doc.text(
-          `Reviewer: ${sub.reviewerScore} (${sub.reviewerRole?.toUpperCase() || "N/A"})`,
-          25,
-          y,
-        );
-        y += 7;
-      }
-      if (sub.appealerScore !== undefined) {
-        doc.text(
-          `Appeal: ${sub.appealerScore} (${sub.appealerRole?.toUpperCase() || "N/A"})`,
-          25,
-          y,
-        );
-        y += 7;
-      }
-      if (sub.description) {
-        doc.text(`Description: ${sub.description.substring(0, 120)}...`, 25, y);
-        y += 7;
-      }
-      if (sub.evidence) {
-        doc.text(`Evidence: ${sub.evidence.substring(0, 80)}...`, 25, y);
-        y += 7;
-      }
-      if (sub.reviewerReason) {
-        doc.text(
-          `Reviewer Remark: ${sub.reviewerReason.substring(0, 120)}...`,
-          25,
-          y,
-        );
-        y += 7;
-      }
-      if (sub.appealReason) {
-        doc.text(
-          `Appeal Reason: ${sub.appealReason.substring(0, 120)}...`,
-          25,
-          y,
-        );
-        y += 7;
-      }
-      if (sub.appealerReason) {
-        doc.text(
-          `Appeal Resolution: ${sub.appealerReason.substring(0, 120)}...`,
-          25,
-          y,
-        );
-        y += 7;
-      }
-      y += 10;
-    });
-
-    doc.save("fpms-submissions-report.pdf");
-  };
 
   if (authLoading || loading) {
     return (
@@ -602,16 +488,6 @@ export default function Submissions() {
                 Total scores from all your submitted tasks (out of 300)
               </CardDescription>
             </CardHeader>
-            <div className="p-7">
-              <Button
-                className="h-10 flex gap-2"
-                variant="outline"
-                onClick={downloadReport}
-              >
-                <FileText className="h-5 w-5" />
-                <span>Download Report</span>
-              </Button>
-            </div>
           </div>
 
           <CardContent className="space-y-6">
@@ -702,7 +578,7 @@ export default function Submissions() {
                             </h3>
                             <p className="text-sm text-muted-foreground flex items-center gap-3 mt-1">
                               {Object.keys(critData.modules).length} modules
-                              {showPerTaskFinal && (
+                              {critData.totalFinal > 0 && (
                                 <> • {critData.totalFinal} / {critData.totalMax}</>
                               )}
                               <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
@@ -724,7 +600,7 @@ export default function Submissions() {
                             </span>
                           )}
                           <Badge className="font-bold text-sm">
-                            {showPerTaskFinal
+                            {critData.totalFinal > 0
                               ? `${critData.totalFinal} / ${critData.criteriaTotalMarks}`
                               : `— / ${critData.criteriaTotalMarks}`}
                           </Badge>
@@ -753,7 +629,7 @@ export default function Submissions() {
                                     </Badge>
                                   </div>
                                   <Badge className="font-medium">
-                                    {showPerTaskFinal
+                                    {modData.totalFinal > 0
                                       ? modData.totalFinal
                                       : "—"}{" "}
                                     / {modData.moduleTotalMarks}
