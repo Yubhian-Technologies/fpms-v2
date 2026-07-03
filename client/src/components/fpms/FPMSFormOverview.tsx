@@ -9,11 +9,12 @@ interface Submission {
   formTitle?: string;
   finalScore?: number | null;
   claimedScore?: number | null;
+  reviewerScore?: number | null;
+  appealerScore?: number | null;
   maxMarks: number;
   status: string;
   moduleName?: string;
   taskName?: string;
-  // ... other fields
 }
 
 interface FPMSFormOverviewProps {
@@ -21,6 +22,14 @@ interface FPMSFormOverviewProps {
 }
 
 export function FPMSFormOverview({ submissions }: FPMSFormOverviewProps) {
+  // Build formId → order map from first occurrence of each formId in submission order
+  const formIdOrder: Record<string, number> = {};
+  submissions.forEach((sub) => {
+    if (sub.formId && !(sub.formId in formIdOrder)) {
+      formIdOrder[sub.formId] = Object.keys(formIdOrder).length;
+    }
+  });
+
   const grouped = submissions.reduce<Record<string, Submission[]>>((acc, sub) => {
     const crit = sub.criteriaName?.trim();
     if (crit) {
@@ -75,7 +84,7 @@ export function FPMSFormOverview({ submissions }: FPMSFormOverviewProps) {
       };
     })
     .filter((cat) => cat.totalItems > 0 && cat.maxScore > 0)
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => (formIdOrder[a.submissions[0]?.formId ?? ""] ?? 999) - (formIdOrder[b.submissions[0]?.formId ?? ""] ?? 999));
 
   if (displayCategories.length === 0) {
     return (

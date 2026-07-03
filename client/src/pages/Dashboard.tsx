@@ -4294,8 +4294,6 @@ export default function Dashboard() {
           <QuickActions />
         </div>
 
-        <RecentActivity submissions={submissions}></RecentActivity>
-
         <div className="space-y-4">
           <div>
             <h2 className="text-xl font-semibold text-foreground">
@@ -4307,6 +4305,8 @@ export default function Dashboard() {
           </div>
           <FPMSFormOverview submissions={submissions}></FPMSFormOverview>
         </div>
+
+        <RecentActivity submissions={submissions}></RecentActivity>
       </div>
     </DashboardLayout>
   );
