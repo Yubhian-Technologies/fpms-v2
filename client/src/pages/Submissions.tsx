@@ -802,17 +802,7 @@ export default function Submissions() {
                                             {sub.claimedScore}/{sub.maxMarks}
                                           </p>
                                         </div>
-                                        {showPerTaskFinal && (
-                                          <div>
-                                            <p className="text-xs text-muted-foreground">
-                                              Final
-                                            </p>
-                                            <p className="font-medium">
-                                              {getEffectiveScore(sub) ?? "—"}
-                                            </p>
-                                          </div>
-                                        )}
-                                        {sub.reviewerScore != null && phase !== "evaluation" && (
+                                        {sub.reviewerScore != null && (
                                           <div>
                                             <p className="text-xs text-muted-foreground">
                                               Reviewer
@@ -827,8 +817,18 @@ export default function Submissions() {
                                             <p className="text-xs text-muted-foreground">
                                               Appeal
                                             </p>
-                                            <p className="font-medium">
+                                            <p className="font-medium text-violet-600">
                                               {sub.appealerScore}/{sub.maxMarks}
+                                            </p>
+                                          </div>
+                                        )}
+                                        {getEffectiveScore(sub) != null && (
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">
+                                              Final
+                                            </p>
+                                            <p className="font-semibold text-emerald-600">
+                                              {getEffectiveScore(sub)}/{sub.maxMarks}
                                             </p>
                                           </div>
                                         )}
