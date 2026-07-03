@@ -1381,9 +1381,10 @@ export default function DynamicCriteriaForm() {
                           </div>
                         </div>
 
-                        {/* Reviewer Section */}
+                        {/* Reviewer Section — only visible after evaluation ends */}
                         {taskStatus !== "pending" &&
-                          taskReviewData[task.id] && (
+                          taskReviewData[task.id] &&
+                          (currentPhase === "appeal" || currentPhase === "appeal-review" || currentPhase === "locked") && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                               <div>
                                 <label className="text-sm font-medium block mb-1.5">
@@ -1440,7 +1441,7 @@ export default function DynamicCriteriaForm() {
 
                         <div className="flex justify-end pt-1">
                           <div className="flex items-center gap-2">
-                            {taskStatus === "reviewed" && (currentPhase === "evaluation" || currentPhase === "appeal") ? (
+                            {taskStatus === "reviewed" && currentPhase === "appeal" ? (
                               <>
                                 <Button
                                   onClick={() => acceptReview(task)}
