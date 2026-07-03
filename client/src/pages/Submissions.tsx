@@ -227,6 +227,8 @@ export default function Submissions() {
   const showAchievement =
     phase === "appeal" || phase === "appeal-review" || phase === "locked";
   const showPerTaskFinal = phase === "appeal-review" || phase === "locked";
+  // Reviewer scores and remarks only visible to faculty after evaluation period ends
+  const showReviewerInfo = showAchievement;
 
   const totalClaimed = submissions.reduce(
     (sum, sub) => sum + sub.claimedScore,
@@ -678,7 +680,7 @@ export default function Submissions() {
                                             {sub.claimedScore}/{sub.maxMarks}
                                           </p>
                                         </div>
-                                        {sub.reviewerScore != null && (
+                                        {showReviewerInfo && sub.reviewerScore != null && (
                                           <div>
                                             <p className="text-xs text-muted-foreground">
                                               Reviewer
@@ -737,7 +739,7 @@ export default function Submissions() {
                                         </div>
                                       )}
 
-                                      {(sub.reviewerReason ||
+                                      {showReviewerInfo && (sub.reviewerReason ||
                                         sub.reviewerScore != null) && (
                                         <div className="border-t pt-4">
                                           <p className="font-medium mb-3 flex items-center gap-2">
@@ -1006,7 +1008,7 @@ export default function Submissions() {
                             </div>
                           )}
 
-                          {sub.reviewerReason && (
+                          {showReviewerInfo && sub.reviewerReason && (
                             <div>
                               <p className="text-muted-foreground font-medium mb-1.5">
                                 Reviewer Remarks
