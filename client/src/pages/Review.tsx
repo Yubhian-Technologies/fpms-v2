@@ -931,13 +931,11 @@ export default function Review() {
         reviewerReason: input.remarks,
       });
 
-      setReviewedItems((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, reviewerScore: score, reviewerReason: input.remarks, finalScore: score }
-            : r,
-        ),
-      );
+      const applyUpdate = (r: SubmissionItem) =>
+        r.id === id ? { ...r, reviewerScore: score, reviewerReason: input.remarks, finalScore: score } : r;
+
+      setReviewedItems((prev) => prev.map(applyUpdate));
+      setAcceptedItems((prev) => prev.map(applyUpdate));
       setEditMode((prev) => ({ ...prev, [id]: false }));
 
       toast({ title: "Review updated successfully." });
