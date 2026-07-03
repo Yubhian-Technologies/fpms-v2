@@ -134,6 +134,7 @@ const toEndOfDay = (s: string | null) => {
 export default function Submissions() {
   const { user, isLoading: authLoading } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [formOrder, setFormOrder] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("submission");
@@ -160,6 +161,14 @@ export default function Submissions() {
       try {
         setLoading(true);
         setError(null);
+
+        // Fetch form order to sort criteria groups (non-fatal)
+        api.get("/api/submissions/form-order").then((orderRes) => {
+          const forms: { id: string; formTitle: string; order: number }[] = orderRes.data?.data?.forms || [];
+          const map: Record<string, number> = {};
+          forms.forEach((f) => { map[f.formTitle] = f.order; });
+          setFormOrder(map);
+        }).catch(() => {});
 
         const [subResponse, deadlineResponse] = await Promise.all([
           api.get("/api/submissions/my-submissions", {
@@ -280,11 +289,14 @@ export default function Submissions() {
 
       if (!acc[crit]) {
         acc[crit] = {
+          formId: sub.formId || "",
           modules: {},
           totalClaimed: 0,
           totalFinal: 0,
           totalMax: 0,
           criteriaTotalMarks: sub.criteriaTotalMarks || 0,
+          hasReviewed: false,
+          hasAppealed: false,
         };
       }
 
@@ -320,12 +332,15 @@ export default function Submissions() {
       acc[crit].totalClaimed += sub.claimedScore;
       acc[crit].totalFinal += getEffectiveScore(sub) ?? 0;
       acc[crit].totalMax += sub.maxMarks;
+      if (sub.status === "reviewed") acc[crit].hasReviewed = true;
+      if (sub.status === "appealed") acc[crit].hasAppealed = true;
 
       return acc;
     },
     {} as Record<
       string,
       {
+        formId: string;
         modules: Record<
           string,
           {
@@ -340,6 +355,8 @@ export default function Submissions() {
         totalFinal: number;
         totalMax: number;
         criteriaTotalMarks: number;
+        hasReviewed: boolean;
+        hasAppealed: boolean;
       }
     >,
   );
@@ -667,8 +684,9 @@ export default function Submissions() {
               collapsible
               defaultValue={Object.keys(groupedDetailed)[0] || ""}
             >
-              {Object.entries(groupedDetailed).map(
-                ([criteriaName, critData]) => (
+              {Object.entries(groupedDetailed)
+                .sort(([nameA], [nameB]) => (formOrder[nameA] ?? 999) - (formOrder[nameB] ?? 999))
+                .map(([criteriaName, critData]) => (
                   <AccordionItem
                     key={criteriaName}
                     value={criteriaName}
@@ -694,11 +712,23 @@ export default function Submissions() {
                             </p>
                           </div>
                         </div>
-                        <Badge className="font-bold text-sm">
-                          {showPerTaskFinal
-                            ? `${critData.totalFinal} / ${critData.criteriaTotalMarks}`
-                            : `— / ${critData.criteriaTotalMarks}`}
-                        </Badge>
+                        <div className="flex items-center gap-2 mr-2">
+                          {critData.hasReviewed && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              Needs Acceptance
+                            </span>
+                          )}
+                          {critData.hasAppealed && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                              Appealed
+                            </span>
+                          )}
+                          <Badge className="font-bold text-sm">
+                            {showPerTaskFinal
+                              ? `${critData.totalFinal} / ${critData.criteriaTotalMarks}`
+                              : `— / ${critData.criteriaTotalMarks}`}
+                          </Badge>
+                        </div>
                       </div>
                     </AccordionTrigger>
 
