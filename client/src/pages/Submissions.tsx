@@ -822,13 +822,13 @@ export default function Submissions() {
                                             </p>
                                           </div>
                                         )}
-                                        {getEffectiveScore(sub) != null && (
+                                        {sub.finalScore != null && (
                                           <div>
                                             <p className="text-xs text-muted-foreground">
                                               Final
                                             </p>
                                             <p className="font-semibold text-emerald-600">
-                                              {getEffectiveScore(sub)}/{sub.maxMarks}
+                                              {sub.finalScore}/{sub.maxMarks}
                                             </p>
                                           </div>
                                         )}
