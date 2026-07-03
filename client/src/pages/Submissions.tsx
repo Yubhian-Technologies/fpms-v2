@@ -861,15 +861,7 @@ export default function Submissions() {
                                         </div>
                                       )}
 
-                                      {phase === "evaluation" && sub.status === "reviewed" && (
-                                        <div className="border-t pt-4">
-                                          <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                            <Clock className="h-4 w-4" />
-                                            Your score has been reviewed. It will be visible when the appeal period starts.
-                                          </p>
-                                        </div>
-                                      )}
-                                      {phase !== "evaluation" && (sub.reviewerReason ||
+                                      {(sub.reviewerReason ||
                                         sub.reviewerScore != null) && (
                                         <div className="border-t pt-4">
                                           <p className="font-medium mb-3 flex items-center gap-2">
