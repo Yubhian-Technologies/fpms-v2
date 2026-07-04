@@ -985,6 +985,36 @@ export const getReviewedSubmissions = async (req, res) => {
       });
     }
 
+    // Principal fast-path: return ALL non-submitted submissions from roles that
+    // route to this principal (not just where reviewerId === principalId).
+    // This ensures HOD/Dean submissions reviewed by IC are still visible here.
+    if (isPrincipalRole(userRole) && college) {
+      const norm = (v) => normalizeRoleForWorkflow(v || "");
+      const workflowRules = await loadWorkflowRules(college);
+      const principalSubmitterRoles = workflowRules
+        .filter((rule) =>
+          (rule.submitToRoles || []).some((r) => norm(r) === userRole)
+        )
+        .map((rule) => norm(rule.role));
+
+      const snap = await db
+        .collection("submissions")
+        .where("college", "==", college)
+        .get();
+
+      const submissions = snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((s) => s.status !== "submitted") // pending queue handles "submitted"
+        .filter(
+          (s) =>
+            principalSubmitterRoles.includes(norm(s.userRole || "")) ||
+            (s.submitToRoleIds || []).some((r) => norm(r) === userRole)
+        )
+        .filter((s) => s.userId !== userId);
+
+      return res.status(200).json({ success: true, data: submissions });
+    }
+
     // Fetch all submissions reviewed by this user (regardless of current status)
     let query = db.collection("submissions").where("reviewerId", "==", userId);
 
