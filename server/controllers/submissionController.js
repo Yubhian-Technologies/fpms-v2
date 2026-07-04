@@ -871,7 +871,11 @@ export const getReviewQueue = async (req, res) => {
 
       const submissions = principalSnap.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((s) => principalSubmitterRoles.includes(norm(s.userRole || "")))
+        .filter((s) =>
+          // Match via workflow rules (role-based) OR via explicit submitToRoleIds on the submission
+          principalSubmitterRoles.includes(norm(s.userRole || "")) ||
+          (s.submitToRoleIds || []).some((r) => norm(r) === effectiveRole)
+        )
         .filter((s) => s.userId !== userId);
 
       return res.status(200).json({ success: true, data: submissions });

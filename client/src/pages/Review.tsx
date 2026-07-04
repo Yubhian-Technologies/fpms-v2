@@ -219,7 +219,8 @@ export default function Review() {
 
   const isHOD = (user?.role || "").toLowerCase() === "hod";
   const isCommittee = user?.role === "committee";
-  const isprincipal = user?.role === "principal";
+  const isprincipal = ["principal", "principle", "vice principal", "vice principle", "director"]
+    .includes((user?.role || "").toLowerCase().trim());
   const { canReview, isLoading: accessLoading } = useReviewAccess();
 
   const fetchQueue = async () => {
