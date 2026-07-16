@@ -1824,10 +1824,14 @@ export default function Dashboard() {
                                   <thead>
                                     <tr className="border-b bg-muted/30">
                                       <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                                      <th className="text-left px-4 py-2.5 font-medium">Role</th>
                                       <th className="text-left px-4 py-2.5 font-medium">Designation</th>
-                                      <th className="text-center px-4 py-2.5 font-medium">Subs</th>
-                                      <th className="text-center px-4 py-2.5 font-medium">Score / Target</th>
+                                      <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Target</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Claimed</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Reviewer</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Final</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">%</th>
                                       <th className="text-center px-4 py-2.5 font-medium">Status</th>
                                       <th className="text-center px-4 py-2.5 font-medium">Report</th>
                                     </tr>
@@ -1835,26 +1839,56 @@ export default function Dashboard() {
                                   <tbody>
                                     {deansV.map((s: any) => {
                                       const subs = s.submissions || [];
-                                      const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScoreV(sub), 0);
-                                      const t = s.designationTarget ? Number(s.designationTarget) : null;
-                                      const accepted = subs.filter((sub: any) => FINALIZED_V.has(sub.status)).length;
-                                      const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
-                                      const pending = subs.filter((sub: any) => sub.status === "submitted").length;
+                                      const target = s.designationTarget ? Number(s.designationTarget) : null;
+                                      const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+                                      const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+                                      const appealSubV = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
+                                      const appealScoreV = appealSubV ? (appealSubV.appealerScore ?? appealSubV.appealScore ?? null) : null;
+                                      const finalScoreV = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
+                                        if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
+                                          return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
+                                        return sum + Number(sub.reviewerScore ?? 0);
+                                      }, 0) : null;
+                                      const pctV = target && target > 0 && finalScoreV != null ? Math.round((finalScoreV / target) * 100) : null;
+                                      const hasAppealedV = subs.some((sub: any) => sub.status === "appealed");
+                                      const hasPendingV = subs.some((sub: any) => sub.status === "submitted");
+                                      const hasReviewedV = subs.some((sub: any) => sub.status === "reviewed");
+                                      const hasCompletedV = subs.some((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status));
+                                      let overallStatusV = "Not Submitted";
+                                      if (subs.length > 0) {
+                                        if (hasAppealedV) overallStatusV = "Appealed";
+                                        else if (hasPendingV) overallStatusV = "Pending Review";
+                                        else if (hasReviewedV) overallStatusV = "Pending Acceptance";
+                                        else if (hasCompletedV) overallStatusV = "Completed";
+                                        else overallStatusV = "Pending Acceptance";
+                                      }
                                       return (
                                         <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
-                                          <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
-                                          <td className="px-4 py-3 text-xs text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
-                                          <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
-                                          <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
-                                          <td className="px-4 py-3 text-center">
-                                            {t !== null ? (achieved >= t ? <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs"><CircleCheck className="h-3.5 w-3.5" />{achieved}/{t}</span> : <span className="text-xs text-muted-foreground">{achieved} / {t}</span>) : <span className="font-semibold text-primary">{achieved}</span>}
+                                          <td className="px-4 py-3 font-medium min-w-[160px]">
+                                            <div>{s.name || "—"}</div>
+                                            {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
+                                          </td>
+                                          <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                                            {s.designation || "—"}
+                                            {s.hasPhd && <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>}
+                                          </td>
+                                          <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
+                                          <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
+                                          <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
+                                          <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
+                                          <td className="px-4 py-3 text-center text-sm font-medium">
+                                            {appealScoreV != null ? <span className="text-violet-600">{appealScoreV}</span> : "—"}
+                                          </td>
+                                          <td className="px-4 py-3 text-center text-sm font-semibold">{finalScoreV != null ? finalScoreV : "—"}</td>
+                                          <td className="px-4 py-3 text-center text-sm font-semibold">
+                                            {pctV != null ? <span className={pctV >= 100 ? "text-green-600" : pctV >= 75 ? "text-amber-600" : "text-muted-foreground"}>{pctV}%</span> : "—"}
                                           </td>
                                           <td className="px-4 py-3 text-center">
-                                            {subs.length === 0 ? <Badge variant="outline">Not Submitted</Badge>
-                                              : appealed > 0 ? <Badge variant="warning">{appealed} Appeal{appealed > 1 ? "s" : ""}</Badge>
-                                              : pending > 0 ? <Badge variant="secondary">{pending} Pending</Badge>
-                                              : accepted > 0 ? <Badge variant="success">{accepted} Accepted</Badge>
-                                              : <Badge variant="default">Pending Acceptance</Badge>}
+                                            {overallStatusV === "Not Submitted" && <Badge variant="outline" className="text-xs">Not Submitted</Badge>}
+                                            {overallStatusV === "Pending Review" && <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">Pending Review</Badge>}
+                                            {overallStatusV === "Pending Acceptance" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Pending Acceptance</Badge>}
+                                            {overallStatusV === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
+                                            {overallStatusV === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
                                           </td>
                                           <td className="px-4 py-3 text-center">
                                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download faculty report"
@@ -4312,49 +4346,76 @@ export default function Dashboard() {
                         <thead>
                           <tr className="border-b bg-muted/30">
                             <th className="text-left px-4 py-2.5 font-medium">Name</th>
-                            <th className="text-left px-4 py-2.5 font-medium">Role</th>
                             <th className="text-left px-4 py-2.5 font-medium">Designation</th>
-                            <th className="text-center px-4 py-2.5 font-medium">Subs</th>
-                            <th className="text-center px-4 py-2.5 font-medium">Score / Target</th>
+                            <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Target</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Claimed</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Reviewer</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Final</th>
+                            <th className="text-center px-4 py-2.5 font-medium">%</th>
                             <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                            <th className="text-center px-4 py-2.5 font-medium">Report</th>
                           </tr>
                         </thead>
                         <tbody>
                           {deans.map((s: any) => {
                             const subs = s.submissions || [];
-                            const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
                             const target = s.designationTarget ? Number(s.designationTarget) : null;
-                            const targetReached = target !== null && achieved >= target;
-                            const accepted = subs.filter((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status)).length;
-                            const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
-                            const pending = subs.filter((sub: any) => sub.status === "submitted").length;
+                            const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+                            const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+                            const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
+                            const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
+                            const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
+                              if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
+                                return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
+                              return sum + Number(sub.reviewerScore ?? 0);
+                            }, 0) : null;
+                            const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
+                            const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+                            const hasPending = subs.some((sub: any) => sub.status === "submitted");
+                            const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
+                            const hasCompleted = subs.some((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status));
+                            let overallStatus = "Not Submitted";
+                            if (subs.length > 0) {
+                              if (hasAppealed) overallStatus = "Appealed";
+                              else if (hasPending) overallStatus = "Pending Review";
+                              else if (hasReviewed) overallStatus = "Pending Acceptance";
+                              else if (hasCompleted) overallStatus = "Completed";
+                              else overallStatus = "Pending Acceptance";
+                            }
                             return (
                               <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
-                                <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
-                                <td className="px-4 py-3 text-xs text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
-                                <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
-                                <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
-                                <td className="px-4 py-3 text-center">
-                                  {target !== null ? (
-                                    targetReached
-                                      ? <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs"><CircleCheck className="h-3.5 w-3.5" />{achieved}/{target}</span>
-                                      : <span className="text-xs text-muted-foreground">{achieved} / {target}</span>
-                                  ) : (
-                                    <span className="font-semibold text-primary">{achieved}</span>
-                                  )}
+                                <td className="px-4 py-3 font-medium min-w-[160px]">
+                                  <div>{s.name || "—"}</div>
+                                  {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                                  {s.designation || "—"}
+                                  {s.hasPhd && <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
+                                <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
+                                <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
+                                <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
+                                <td className="px-4 py-3 text-center text-sm font-medium">
+                                  {appealScore != null ? <span className="text-violet-600">{appealScore}</span> : "—"}
+                                </td>
+                                <td className="px-4 py-3 text-center text-sm font-semibold">{finalScore != null ? finalScore : "—"}</td>
+                                <td className="px-4 py-3 text-center text-sm font-semibold">
+                                  {pct != null ? <span className={pct >= 100 ? "text-green-600" : pct >= 75 ? "text-amber-600" : "text-muted-foreground"}>{pct}%</span> : "—"}
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  {subs.length === 0 ? (
-                                    <Badge variant="outline">Not Submitted</Badge>
-                                  ) : appealed > 0 ? (
-                                    <Badge variant="warning">{appealed} Appeal{appealed > 1 ? "s" : ""}</Badge>
-                                  ) : pending > 0 ? (
-                                    <Badge variant="secondary">{pending} Pending</Badge>
-                                  ) : accepted > 0 ? (
-                                    <Badge variant="success">{accepted} Accepted</Badge>
-                                  ) : (
-                                    <Badge variant="default">Pending Acceptance</Badge>
-                                  )}
+                                  {overallStatus === "Not Submitted" && <Badge variant="outline" className="text-xs">Not Submitted</Badge>}
+                                  {overallStatus === "Pending Review" && <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">Pending Review</Badge>}
+                                  {overallStatus === "Pending Acceptance" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Pending Acceptance</Badge>}
+                                  {overallStatus === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
+                                  {overallStatus === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download faculty report" onClick={() => downloadFacultyPDF(s)}>
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
                                 </td>
                               </tr>
                             );
