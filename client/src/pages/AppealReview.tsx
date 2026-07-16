@@ -69,7 +69,6 @@ export default function AppealReview() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState<Record<string, boolean>>({});
-  const [editMode, setEditMode] = useState<Record<string, boolean>>({});
   const [reviewInputs, setReviewInputs] = useState<
     Record<string, { appealerScore: string; appealerReason: string }>
   >({});
@@ -372,7 +371,7 @@ export default function AppealReview() {
         appealerReason: input.appealerReason.trim(),
       });
 
-      const updatedItem: SubmissionItem = {
+      const resolvedItem: SubmissionItem = {
         ...item,
         appealerScore: numericScore,
         appealerReason: input.appealerReason.trim(),
@@ -380,15 +379,8 @@ export default function AppealReview() {
         finalScore: numericScore,
       };
 
-      if (queue.some((r) => r.id === submissionId)) {
-        setQueue((prev) => prev.filter((row) => row.id !== submissionId));
-        setResolvedItems((prev) => [updatedItem, ...prev]);
-      } else {
-        setResolvedItems((prev) =>
-          prev.map((r) => (r.id === submissionId ? updatedItem : r)),
-        );
-      }
-      setEditMode((prev) => ({ ...prev, [submissionId]: false }));
+      setQueue((prev) => prev.filter((row) => row.id !== submissionId));
+      setResolvedItems((prev) => [resolvedItem, ...prev]);
 
       toast({
         title: "Success",
@@ -411,7 +403,6 @@ export default function AppealReview() {
     type: "pending" | "resolved",
   ) => {
     const id = String(item.id || "").trim();
-    const isEditing = type === "resolved" && !!editMode[id];
     const input = reviewInputs[id] || { appealerScore: "", appealerReason: "" };
     const isReviewing = !!reviewing[id];
     const max = Number(item.maxMarks || 0);
@@ -531,15 +522,15 @@ export default function AppealReview() {
                 min={0}
                 {...(item.marksType !== "range" ? { max } : {})}
                 value={
-                  type === "pending" || isEditing
+                  type === "pending"
                     ? input.appealerScore
                     : (item.appealerScore ?? "")
                 }
                 onChange={(e) =>
                   updateAppealInput(id, "appealerScore", e.target.value, max, item.marksType ?? undefined)
                 }
-                disabled={type === "resolved" && !isEditing}
-                className={type === "resolved" && !isEditing ? "bg-muted" : ""}
+                disabled={type === "resolved"}
+                className={type === "resolved" ? "bg-muted" : ""}
               />
             </div>
             <div>
@@ -548,7 +539,7 @@ export default function AppealReview() {
               </label>
               <Textarea
                 value={
-                  type === "pending" || isEditing
+                  type === "pending"
                     ? input.appealerReason
                     : (item.appealerReason ?? "")
                 }
@@ -557,63 +548,29 @@ export default function AppealReview() {
                 }
                 placeholder="Enter remarks..."
                 rows={2}
-                disabled={type === "resolved" && !isEditing}
-                className={`min-h-[72px] ${type === "resolved" && !isEditing ? "bg-muted" : ""}`}
+                disabled={type === "resolved"}
+                className={`min-h-[72px] ${type === "resolved" ? "bg-muted" : ""}`}
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            {type === "resolved" && !isEditing ? (
-              <>
-                <Badge variant="secondary" className="bg-green-50 text-green-700 border border-green-200">
-                  Resolved
-                </Badge>
-                {phase === "appeal-review" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setReviewInputs((prev) => ({
-                        ...prev,
-                        [id]: {
-                          appealerScore: String(item.appealerScore ?? ""),
-                          appealerReason: item.appealerReason ?? "",
-                        },
-                      }));
-                      setEditMode((prev) => ({ ...prev, [id]: true }));
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </>
-            ) : type === "resolved" && isEditing ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditMode((prev) => ({ ...prev, [id]: false }))}
-                  disabled={isReviewing}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => handleAppealReview(item)}
-                  disabled={isReviewing}
-                >
-                  {isReviewing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                  {isReviewing ? "Saving..." : "Save Changes"}
-                </Button>
-              </>
+          <div className="flex justify-end">
+            {type === "resolved" ? (
+              <Badge
+                variant="secondary"
+                className="bg-green-50 text-green-700 border border-green-200"
+              >
+                Resolved
+              </Badge>
             ) : (
               <Button
                 size="sm"
                 onClick={() => handleAppealReview(item)}
                 disabled={isReviewing || phase !== "appeal-review"}
               >
-                {isReviewing && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                {isReviewing && (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                )}
                 {isReviewing ? "Saving..." : "Submit Review"}
               </Button>
             )}
