@@ -1991,19 +1991,227 @@ export default function Dashboard() {
       doc.save(`${collegeName.replace(/[/\\?*[\]:]/g, "-")}-faculty-report.pdf`);
     };
 
-    // ── INDIVIDUAL FACULTY PDF EXPORT ──
+    // ── INDIVIDUAL FACULTY DETAILED PDF ──
     const downloadFacultyPDF = async (staff: any) => {
       let principalName = displayName;
       try {
         const res = await api.get("/api/hod/principal-name");
         principalName = res.data?.data?.name || displayName;
       } catch { /* fallback */ }
+
       const dept = staff.department || "Department";
       const hodName =
         staffList.find((s: any) =>
           String(s.role || "").toLowerCase() === "hod" && s.department === dept
-        )?.name || "Head of Department";
-      buildFacultyPDF([{ name: dept, staff: [staff] }], principalName, hodName);
+        )?.name || "";
+
+      const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+      const academicYear = "2025 – 2026";
+      const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pw = doc.internal.pageSize.getWidth();   // 210
+      const ph = doc.internal.pageSize.getHeight();  // 297
+      const ML = 12; const MR = 12;
+
+      const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+      const subs: any[] = staff.submissions || [];
+      const claimedTotal = subs.reduce((s: number, sub: any) => s + Number(sub.claimedScore ?? 0), 0);
+      const finalTotal = subs.reduce((s: number, sub: any) => {
+        if (FINALIZED.has(sub.status)) return s + Number(sub.finalScore ?? sub.reviewerScore ?? 0);
+        return s + Number(sub.reviewerScore ?? 0);
+      }, 0);
+      const target = Number(staff.designationTarget || 0);
+      const pctStr = target > 0 ? `${Math.round((finalTotal / target) * 100)}% of target` : "";
+
+      // ── Header ──
+      const drawHeader = () => {
+        try { doc.addImage(LOGO, "PNG", ML, 6, 14, 14); } catch { /* skip */ }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(0, 31, 63);
+        doc.text(collegeName, pw / 2, 11, { align: "center" });
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Department of ${dept}`, pw / 2, 17, { align: "center" });
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 31, 63);
+        doc.text("FACULTY PERFORMANCE MANAGEMENT SYSTEM", pw / 2, 23, { align: "center" });
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Academic Year: ${academicYear}`, pw / 2, 29, { align: "center" });
+        doc.setDrawColor(0, 31, 63);
+        doc.setLineWidth(0.4);
+        doc.line(ML, 32, pw - MR, 32);
+      };
+      drawHeader();
+
+      // ── Faculty info grid ──
+      const infoStartY = 36;
+      const leftW = (pw - ML - MR) * 0.55;
+      const rightW = (pw - ML - MR) * 0.45;
+      const infoRows = [
+        ["Name of the Faculty:", staff.name || "—", "Date of Joining:", staff.dateOfJoining || staff.joiningDate || "—"],
+        ["Designation:", staff.designation || "—", "Phone:", staff.phone || staff.phoneNumber || "—"],
+        ["Email:", staff.email || "—", "Target Score:", target > 0 ? String(target) : "—"],
+        ["Subjects Handled (incl. labs):", staff.subjects || staff.subjectsHandled || "—", "Claimed Score:", String(claimedTotal)],
+        ["Experience:", staff.experience || "—", "Final Score:", String(finalTotal)],
+      ];
+
+      autoTable(doc, {
+        body: infoRows.map(([lk, lv, rk, rv]) => [
+          { content: lk, styles: { fontStyle: "bold", fillColor: [240, 243, 250] } },
+          { content: lv },
+          { content: rk, styles: { fontStyle: "bold", fillColor: [240, 243, 250] } },
+          { content: rv },
+        ]),
+        startY: infoStartY,
+        margin: { left: ML, right: MR },
+        tableWidth: pw - ML - MR,
+        styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [200, 200, 210], lineWidth: 0.2 },
+        columnStyles: {
+          0: { cellWidth: leftW * 0.38 },
+          1: { cellWidth: leftW * 0.62 },
+          2: { cellWidth: rightW * 0.42 },
+          3: { cellWidth: rightW * 0.58 },
+        },
+      });
+
+      const tableStartY = (doc as any).lastAutoTable?.finalY + 4;
+
+      // ── Group submissions by criteria ──
+      const criteriaOrder: string[] = [];
+      const criteriaGroups: Record<string, any[]> = {};
+      subs.forEach((sub: any) => {
+        const c = sub.criteriaName?.trim() || "Other";
+        if (!criteriaGroups[c]) { criteriaGroups[c] = []; criteriaOrder.push(c); }
+        criteriaGroups[c].push(sub);
+      });
+
+      let rowNum = 1;
+      const tableRows: any[] = [];
+      criteriaOrder.forEach((crit) => {
+        const group = criteriaGroups[crit];
+        const critTotal = group.reduce((s: number, sub: any) => {
+          if (FINALIZED.has(sub.status)) return s + Number(sub.finalScore ?? sub.reviewerScore ?? 0);
+          return s + Number(sub.reviewerScore ?? 0);
+        }, 0);
+        group.forEach((sub: any, idx: number) => {
+          const finalVal = FINALIZED.has(sub.status)
+            ? Number(sub.finalScore ?? sub.reviewerScore ?? 0)
+            : Number(sub.reviewerScore ?? 0);
+          tableRows.push([
+            rowNum++,
+            idx === 0 ? crit : "",
+            sub.moduleName || "—",
+            sub.taskName || "—",
+            sub.maxMarks ?? "—",
+            sub.claimedScore ?? "—",
+            sub.reviewerScore ?? "—",
+            sub.appealerScore != null ? sub.appealerScore : "—",
+            finalVal,
+            idx === 0 ? critTotal : "",
+          ]);
+        });
+      });
+
+      autoTable(doc, {
+        head: [["S.No", "Criteria Name", "Modules", "Sub Modules", "Actual\nScore", "Claimed\nScore", "Reviewer\nScore", "Appeal\nScore", "Final\nScore", "Total\nper Criteria"]],
+        body: tableRows,
+        startY: tableStartY,
+        margin: { left: ML, right: MR },
+        tableWidth: pw - ML - MR,
+        styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", lineColor: [200, 200, 210], lineWidth: 0.2 },
+        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7.5 },
+        alternateRowStyles: { fillColor: [248, 249, 252] },
+        columnStyles: {
+          0: { cellWidth: 9, halign: "center" },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 45 },
+          4: { cellWidth: 12, halign: "center" },
+          5: { cellWidth: 12, halign: "center" },
+          6: { cellWidth: 12, halign: "center" },
+          7: { cellWidth: 12, halign: "center" },
+          8: { cellWidth: 12, halign: "center" },
+          9: { cellWidth: 16, halign: "center", fontStyle: "bold" },
+        },
+        didDrawPage: (_data: any) => {
+          // Re-draw header on continuation pages
+          drawHeader();
+        },
+      });
+
+      // ── Total score line ──
+      const afterTableY = (doc as any).lastAutoTable?.finalY + 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(0, 31, 63);
+      doc.text(
+        `Total Score: ${finalTotal} / ${target} (${pctStr})`,
+        pw - MR, afterTableY, { align: "right" },
+      );
+
+      // ── Signature boxes ──
+      const SIG_H = 36;
+      const sigTop = afterTableY + 8;
+      let sigY = sigTop;
+      if (sigTop + SIG_H + 6 > ph - 10) {
+        doc.addPage();
+        drawHeader();
+        sigY = 40;
+      }
+
+      const boxes = [
+        { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
+        { label: "Verified and Forwarded By", name: hodName || "—", role: "HoD" },
+        { label: "Approved By", name: principalName || "—", role: "Principal" },
+      ];
+      const boxW = (pw - ML - MR - 8) / 3;
+      boxes.forEach((b, i) => {
+        const bx = ML + i * (boxW + 4);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(80, 80, 80);
+        doc.text(b.label, bx + boxW / 2, sigY, { align: "center" });
+        doc.setDrawColor(190, 190, 200);
+        doc.setFillColor(252, 252, 255);
+        doc.roundedRect(bx, sigY + 3, boxW, SIG_H, 1, 1, "FD");
+        doc.setFontSize(7.5);
+        doc.setTextColor(120, 120, 120);
+        doc.text("Signature:", bx + 4, sigY + 12);
+        doc.setDrawColor(160, 160, 160);
+        doc.line(bx + 24, sigY + 12, bx + boxW - 4, sigY + 12);
+        doc.text("Name:", bx + 4, sigY + 21);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(b.name, bx + 18, sigY + 21);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(120, 120, 120);
+        doc.text("Role:", bx + 4, sigY + 30);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 31, 63);
+        doc.text(b.role, bx + 18, sigY + 30);
+      });
+
+      // ── Page numbers ──
+      const total = doc.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`,
+          pw / 2, ph - 5, { align: "center" },
+        );
+      }
+
+      const safeName = (staff.name || "faculty").replace(/[^a-zA-Z0-9]/g, "-");
+      doc.save(`${safeName}-FPMS-Report.pdf`);
     };
 
     // ── PRINCIPAL PDF EXPORT ──
