@@ -1991,7 +1991,7 @@ export default function Dashboard() {
     };
 
     // ── PRINCIPAL PDF EXPORT ──
-    const exportPrincipalPDF = () => {
+    const exportPrincipalPDF = async () => {
       const adminRoles = new Set([
         "committee", "internal committee",
         "principle", "principal",
@@ -2015,11 +2015,11 @@ export default function Dashboard() {
         .map(([name, staff]) => ({ name, staff }));
       if (deans.length) depts.push({ name: "Deans", staff: deans });
 
-      const principalRecord = staffList.find((s: any) => {
-        const r = String(s.role || "").trim().toLowerCase();
-        return r === "principal" || r === "principle";
-      });
-      const principalName = principalRecord?.name || displayName;
+      let principalName = displayName;
+      try {
+        const res = await api.get("/api/hod/principal-name");
+        principalName = res.data?.data?.name || displayName;
+      } catch { /* fallback to current user name */ }
       buildFacultyPDF(depts, principalName, "Head of Department");
     };
 
