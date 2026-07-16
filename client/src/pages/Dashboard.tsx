@@ -2247,9 +2247,9 @@ export default function Dashboard() {
     const exportPrincipalReport = () => {
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
-      const NCOLS = 9;
-      const SUMMARY_HEADERS = ["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "%", "Status"];
-      const SUMMARY_WIDTHS = [{ wch: 6 }, { wch: 34 }, { wch: 20 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 20 }];
+      const NCOLS = 11;
+      const SUMMARY_HEADERS = ["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Appeal", "Final", "%", "Status"];
+      const SUMMARY_WIDTHS = [{ wch: 6 }, { wch: 34 }, { wch: 20 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 20 }];
 
       const FINALIZED_S = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
       const getStatus = (subs: any[]) => {
@@ -2281,8 +2281,15 @@ export default function Dashboard() {
           const subs = s.submissions || [];
           const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
           const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+          const finalScore = subs.reduce((sum: number, sub: any) => {
+            if (FINALIZED_S.has(sub.status))
+              return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
+            return sum + Number(sub.reviewerScore ?? 0);
+          }, 0);
+          const hasAppealResolved = subs.some((sub: any) => sub.status === "appeal-resolved");
+          const appealScore = hasAppealResolved ? finalScore : null;
           const target = Number(s.designationTarget || 0);
-          const pct = target > 0 ? `${Math.round((reviewer / target) * 100)}%` : "—";
+          const pct = target > 0 ? `${Math.round((finalScore / target) * 100)}%` : "—";
           rows.push([
             sno++,
             s.name || s.email || "—",
@@ -2291,6 +2298,8 @@ export default function Dashboard() {
             target || "—",
             subs.length > 0 ? claimed : "—",
             subs.length > 0 ? reviewer : "—",
+            subs.length > 0 && appealScore != null ? appealScore : "—",
+            subs.length > 0 ? finalScore : "—",
             subs.length > 0 ? pct : "—",
             getStatus(subs),
           ]);
