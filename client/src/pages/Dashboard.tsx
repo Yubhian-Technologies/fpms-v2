@@ -2171,13 +2171,21 @@ export default function Dashboard() {
         sigY = 40;
       }
 
-      const boxes = [
-        { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
-        { label: "Approved By", name: principalName || "—", role: "Principal" },
-      ];
-      const boxW = (pw - ML - MR - 4) / 2;
+      const isHodStaff = String(staff.role || "").toLowerCase() === "hod";
+      const boxes = isHodStaff
+        ? [
+            { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
+            { label: "Approved By", name: principalName || "—", role: "Principal" },
+          ]
+        : [
+            { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
+            { label: "Verified and Forwarded By", name: hodName || "—", role: "HoD" },
+            { label: "Approved By", name: principalName || "—", role: "Principal" },
+          ];
+      const boxGap = 4;
+      const boxW = (pw - ML - MR - boxGap * (boxes.length - 1)) / boxes.length;
       boxes.forEach((b, i) => {
-        const bx = ML + i * (boxW + 4);
+        const bx = ML + i * (boxW + boxGap);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         doc.setTextColor(80, 80, 80);
