@@ -1885,7 +1885,7 @@ export default function Dashboard() {
                                     const collegeName = college.toUpperCase();
                                     const academicYear = "2025 – 2026";
                                     const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
-                                    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                                    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
                                     const pw = doc.internal.pageSize.getWidth(); const ph = doc.internal.pageSize.getHeight();
                                     const ML = 14; const MR = 14;
                                     const drawH = () => {
@@ -1923,10 +1923,10 @@ export default function Dashboard() {
                                     autoTable(doc, {
                                       head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Final", "%", "Status"]],
                                       body: rows, startY: 35, margin: { left: ML, right: MR, top: 35 }, tableWidth: pw - ML - MR,
-                                      styles: { fontSize: 8, cellPadding: 2.2, overflow: "linebreak" },
-                                      headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 8 },
+                                      styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak" },
+                                      headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 9 },
                                       alternateRowStyles: { fillColor: [245, 248, 252] },
-                                      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 42 }, 2: { cellWidth: 26 }, 3: { cellWidth: 20 }, 4: { cellWidth: 12, halign: "center" }, 5: { cellWidth: 13, halign: "center" }, 6: { cellWidth: 13, halign: "center" }, 7: { cellWidth: 13, halign: "center" }, 8: { cellWidth: 11, halign: "center" }, 9: { cellWidth: 24, halign: "center" } },
+                                      columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: 65 }, 2: { cellWidth: 38 }, 3: { cellWidth: 28 }, 4: { cellWidth: 14, halign: "center" }, 5: { cellWidth: 17, halign: "center" }, 6: { cellWidth: 17, halign: "center" }, 7: { cellWidth: 17, halign: "center" }, 8: { cellWidth: 14, halign: "center" }, 9: { cellWidth: 30, halign: "center" } },
                                       didDrawPage: () => { drawH(); },
                                       didDrawCell: (data: any) => { if (data.section === "body" && data.column.index === 9) { const v = String(data.cell.text?.[0] || ""); if (v === "Completed") doc.setTextColor(22, 163, 74); else if (v === "Appealed") doc.setTextColor(220, 38, 38); else doc.setTextColor(0, 0, 0); } },
                                     });
@@ -2857,9 +2857,9 @@ export default function Dashboard() {
       const academicYear = "2025 – 2026";
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pw = doc.internal.pageSize.getWidth();   // 210
-      const ph = doc.internal.pageSize.getHeight();  // 297
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pw = doc.internal.pageSize.getWidth();   // 297
+      const ph = doc.internal.pageSize.getHeight();  // 210
       const ML = 14; const MR = 14;
 
       const drawPageHeader = () => {
@@ -2927,27 +2927,27 @@ export default function Dashboard() {
         ];
       });
 
-      // S.No(8)+Name(42)+Desig(26)+Role(20)+Target(12)+Claimed(13)+Reviewer(13)+Final(13)+%(11)+Status(24) = 182
+      // S.No(10)+Name(65)+Desig(38)+Role(28)+Target(14)+Claimed(17)+Reviewer(17)+Final(17)+%(14)+Status(30) = 250 (fits 269)
       autoTable(doc, {
         head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Final", "%", "Status"]],
         body: rows,
         startY: 35,
         margin: { left: ML, right: MR, top: 35 },
         tableWidth: pw - ML - MR,
-        styles: { fontSize: 8, cellPadding: 2.2, overflow: "linebreak" },
-        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 8 },
+        styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak" },
+        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 9 },
         alternateRowStyles: { fillColor: [245, 248, 252] },
         columnStyles: {
-          0: { cellWidth: 8, halign: "center" },
-          1: { cellWidth: 42 },
-          2: { cellWidth: 26 },
-          3: { cellWidth: 20 },
-          4: { cellWidth: 12, halign: "center" },
-          5: { cellWidth: 13, halign: "center" },
-          6: { cellWidth: 13, halign: "center" },
-          7: { cellWidth: 13, halign: "center" },
-          8: { cellWidth: 11, halign: "center" },
-          9: { cellWidth: 24, halign: "center" },
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 65 },
+          2: { cellWidth: 38 },
+          3: { cellWidth: 28 },
+          4: { cellWidth: 14, halign: "center" },
+          5: { cellWidth: 17, halign: "center" },
+          6: { cellWidth: 17, halign: "center" },
+          7: { cellWidth: 17, halign: "center" },
+          8: { cellWidth: 14, halign: "center" },
+          9: { cellWidth: 30, halign: "center" },
         },
         didDrawPage: () => { drawPageHeader(); },
         didDrawCell: (data: any) => {
