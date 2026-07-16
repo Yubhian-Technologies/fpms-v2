@@ -2122,7 +2122,7 @@ export default function Dashboard() {
         head: [["S.No", "Criteria Name", "Modules", "Sub Modules", "Actual\nScore", "Claimed\nScore", "Reviewer\nScore", "Appeal\nScore", "Final\nScore", "Total\nper Criteria"]],
         body: tableRows,
         startY: tableStartY,
-        margin: { left: ML, right: MR },
+        margin: { left: ML, right: MR, top: 36 },
         tableWidth: pw - ML - MR,
         styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak", lineColor: [200, 200, 210], lineWidth: 0.2 },
         headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7.5 },
