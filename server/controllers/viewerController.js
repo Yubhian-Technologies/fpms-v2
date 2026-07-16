@@ -345,3 +345,82 @@ export const getViewerStats = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const getViewerCollegeDashboard = async (req, res) => {
+  try {
+    const college = String(req.query.college || "").trim();
+    if (!college) return res.status(400).json({ success: false, message: "College required" });
+
+    const EXCLUDED_ROLES = new Set([
+      "principal", "principle", "vice principal", "vice principle", "viceprincipal",
+      "internal committee", "internal commitee", "committee", "commitee",
+      "superadmin", "viewer",
+    ]);
+    const normStr = (s) => String(s || "").trim().toLowerCase();
+
+    const [usersSnap, subsSnap, saData] = await Promise.all([
+      db.collection("users").where("college", "==", college).get(),
+      db.collection("submissions").where("college", "==", college).get(),
+      getSuperadminConfig(),
+    ]);
+
+    const collegeConfig = (saData.colleges || []).find((c) => normStr(c?.name) === normStr(college));
+    const desigMap = {};
+    (collegeConfig?.designations || []).forEach((d) => {
+      if (!d?.name) return;
+      const key = normStr(d.name);
+      const phdKey = `${key}__${d.phd ? "phd" : "nophd"}`;
+      desigMap[phdKey] = d.target || "";
+      if (!desigMap[key]) desigMap[key] = d.target || "";
+    });
+
+    const subsMap = new Map();
+    subsSnap.docs.forEach((doc) => {
+      const s = { id: doc.id, ...doc.data() };
+      if (!subsMap.has(s.userId)) subsMap.set(s.userId, []);
+      subsMap.get(s.userId).push(s);
+    });
+
+    const staff = usersSnap.docs
+      .map((doc) => {
+        const d = doc.data();
+        if (EXCLUDED_ROLES.has(normStr(d.role))) return null;
+        const phdKey = `${normStr(d.designation)}__${d.hasPhd ? "phd" : "nophd"}`;
+        return {
+          id: doc.id,
+          uid: d.uid || doc.id,
+          name: d.name || "",
+          email: d.email || "",
+          department: d.department || "",
+          designation: d.designation || "",
+          role: d.role || "",
+          hasPhd: Boolean(d.hasPhd),
+          college: d.college || "",
+          designationTarget: desigMap[phdKey] || desigMap[normStr(d.designation)] || "",
+          submissions: subsMap.get(d.uid || doc.id) || [],
+        };
+      })
+      .filter(Boolean);
+
+    return res.json({ success: true, data: { staff } });
+  } catch (err) {
+    console.error("[getViewerCollegeDashboard]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getViewerPrincipalName = async (req, res) => {
+  try {
+    const college = String(req.query.college || "").trim();
+    if (!college) return res.json({ success: true, data: { name: "" } });
+    const snap = await db.collection("users")
+      .where("college", "==", college)
+      .where("role", "in", ["principal", "principle"])
+      .limit(1).get();
+    const name = snap.empty ? "" : (snap.docs[0].data().name || "");
+    return res.json({ success: true, data: { name } });
+  } catch (err) {
+    console.error("[getViewerPrincipalName]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

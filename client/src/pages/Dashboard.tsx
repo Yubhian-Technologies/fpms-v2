@@ -122,6 +122,10 @@ export default function Dashboard() {
   const [viewerStats, setViewerStats] = useState<any>(null);
   const [expandedCollegeDetail, setExpandedCollegeDetail] = useState<string | null>(null);
   const [collegeFacultyCache, setCollegeFacultyCache] = useState<Record<string, any[]>>({});
+  const [viewerCollegeFullData, setViewerCollegeFullData] = useState<Record<string, any[]>>({});
+  const [viewerSelectedCollege, setViewerSelectedCollege] = useState<string | null>(null);
+  const [viewerSelectedDept, setViewerSelectedDept] = useState<string | null>(null);
+  const [viewerDeptLoading, setViewerDeptLoading] = useState(false);
   const [isLoadingCollegeFaculty, setIsLoadingCollegeFaculty] = useState(false);
   const [deptCardSearch, setDeptCardSearch] = useState<string>("");
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
@@ -1356,6 +1360,552 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* ── Department Reports (per-college dept view) ── */}
+          {(() => {
+            const colleges = (viewerStats?.collegeStats || []).map((c: any) => c.college).sort();
+            if (colleges.length === 0) return null;
+
+            const loadCollegeData = async (college: string) => {
+              if (viewerCollegeFullData[college]) return;
+              setViewerDeptLoading(true);
+              try {
+                const res = await api.get(`/api/viewer/college-dashboard?college=${encodeURIComponent(college)}`);
+                if (res.data.success) {
+                  setViewerCollegeFullData((prev) => ({ ...prev, [college]: res.data.data.staff || [] }));
+                }
+              } catch { /* ignore */ } finally {
+                setViewerDeptLoading(false);
+              }
+            };
+
+            const handleCollegeTab = (college: string) => {
+              if (viewerSelectedCollege === college) return;
+              setViewerSelectedCollege(college);
+              setViewerSelectedDept(null);
+              loadCollegeData(college);
+            };
+
+            const downloadViewerFacultyPDF = async (staff: any, college: string) => {
+              let principalName = "";
+              try {
+                const res = await api.get(`/api/viewer/principal-name?college=${encodeURIComponent(college)}`);
+                principalName = res.data?.data?.name || "";
+              } catch { /* ignore */ }
+
+              const staffData = viewerCollegeFullData[college] || [];
+              const hodName = staffData.find((s: any) =>
+                String(s.role || "").toLowerCase() === "hod" && s.department === staff.department
+              )?.name || "";
+
+              const collegeName = String(college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+              const academicYear = "2025 – 2026";
+              const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+              const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+              const pw = doc.internal.pageSize.getWidth();
+              const ph = doc.internal.pageSize.getHeight();
+              const ML = 12; const MR = 12;
+              const SIG_H = 36;
+
+              const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+              const subs: any[] = staff.submissions || [];
+              const claimedTotal = subs.reduce((s: number, sub: any) => s + Number(sub.claimedScore ?? 0), 0);
+              const finalTotal = subs.reduce((s: number, sub: any) => {
+                if (FINALIZED.has(sub.status)) return s + Number(sub.finalScore ?? sub.reviewerScore ?? 0);
+                return s + Number(sub.reviewerScore ?? 0);
+              }, 0);
+              const target = Number(staff.designationTarget || 0);
+
+              const drawHeader = () => {
+                try { doc.addImage(LOGO, "PNG", ML, 4, 18, 18); } catch { /* skip */ }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(14);
+                doc.setTextColor(0, 31, 63);
+                doc.text(collegeName, pw / 2, 10, { align: "center" });
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(80, 80, 80);
+                doc.text(`Department of ${staff.department || ""}`, pw / 2, 16, { align: "center" });
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(0, 31, 63);
+                doc.text("FACULTY PERFORMANCE MANAGEMENT SYSTEM", pw / 2, 22, { align: "center" });
+                doc.setFontSize(8.5);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Academic Year: ${academicYear}`, pw / 2, 28, { align: "center" });
+                doc.setDrawColor(0, 31, 63);
+                doc.setLineWidth(0.4);
+                doc.line(ML, 31, pw - MR, 31);
+              };
+
+              drawHeader();
+
+              autoTable(doc, {
+                startY: 34,
+                body: [
+                  ["Name", staff.name || "—", "Date of Joining", "—"],
+                  ["Designation", staff.designation || "—", "Phone", "—"],
+                  ["Email", staff.email || "—", "Target Score", target || "—"],
+                  ["Department", staff.department || "—", "Claimed Score", claimedTotal],
+                  ["Experience", "—", "Final Score", finalTotal],
+                ],
+                theme: "plain",
+                styles: { fontSize: 8.5, cellPadding: 2 },
+                columnStyles: {
+                  0: { fontStyle: "bold", cellWidth: 38, textColor: [80, 80, 80] },
+                  1: { cellWidth: 80 },
+                  2: { fontStyle: "bold", cellWidth: 38, textColor: [80, 80, 80] },
+                  3: { cellWidth: 80 },
+                },
+                margin: { left: ML, right: MR },
+                tableWidth: pw - ML - MR,
+                didDrawCell: (data: any) => {
+                  if (data.section === "body") {
+                    doc.setDrawColor(220, 220, 230);
+                    doc.setLineWidth(0.2);
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height);
+                  }
+                },
+              });
+
+              const criteriaGroups: Record<string, Record<string, any[]>> = {};
+              subs.forEach((sub: any) => {
+                const c = sub.criteriaName || "Uncategorised";
+                const m = sub.moduleName || "—";
+                if (!criteriaGroups[c]) criteriaGroups[c] = {};
+                if (!criteriaGroups[c][m]) criteriaGroups[c][m] = [];
+                criteriaGroups[c][m].push(sub);
+              });
+
+              const tableRows: any[] = [];
+              let rowIdx = 1;
+              let criteriaRowStart = 0;
+              const criteriaMerges: { row: number; rowspan: number }[] = [];
+              const moduleMerges: { row: number; rowspan: number }[] = [];
+
+              Object.entries(criteriaGroups).forEach(([criteriaName, modules]) => {
+                const criteriaStartRow = tableRows.length;
+                let criteriaSubTotal = 0;
+                Object.entries(modules).forEach(([moduleName, tasks]) => {
+                  const moduleStartRow = tableRows.length;
+                  tasks.forEach((sub: any) => {
+                    const fs = FINALIZED.has(sub.status) ? Number(sub.finalScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0);
+                    criteriaSubTotal += fs;
+                    tableRows.push([
+                      rowIdx++,
+                      criteriaStartRow === tableRows.length ? criteriaName : "",
+                      moduleStartRow === tableRows.length ? moduleName : "",
+                      sub.taskName || sub.criteriaName || "—",
+                      sub.maxMarks ?? "—",
+                      sub.claimedScore ?? "—",
+                      sub.reviewerScore ?? "—",
+                      sub.appealerScore ?? "—",
+                      FINALIZED.has(sub.status) ? (sub.finalScore ?? sub.reviewerScore ?? "—") : "—",
+                      "",
+                    ]);
+                  });
+                  if (tasks.length > 1) moduleMerges.push({ row: moduleStartRow, rowspan: tasks.length });
+                });
+                const criteriaRowCount = tableRows.length - criteriaStartRow;
+                if (criteriaRowCount > 1) criteriaMerges.push({ row: criteriaStartRow, rowspan: criteriaRowCount });
+                if (tableRows.length > 0) tableRows[tableRows.length - criteriaRowCount][9] = criteriaSubTotal || "";
+              });
+
+              const infoTableY = (doc as any).lastAutoTable?.finalY ?? 34;
+
+              autoTable(doc, {
+                startY: infoTableY + 4,
+                head: [["S.No", "Criteria Name", "Modules", "Sub Modules", "Actual Score", "Claimed Score", "Reviewer Score", "Appeal Score", "Final Score", "Total per Criteria"]],
+                body: tableRows,
+                theme: "striped",
+                styles: { fontSize: 7.5, cellPadding: 2, overflow: "linebreak" },
+                headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7.5 },
+                alternateRowStyles: { fillColor: [247, 249, 252] },
+                columnStyles: {
+                  0: { cellWidth: 10, halign: "center" },
+                  1: { cellWidth: 38 },
+                  2: { cellWidth: 42 },
+                  3: { cellWidth: 72 },
+                  4: { cellWidth: 14, halign: "center" },
+                  5: { cellWidth: 14, halign: "center" },
+                  6: { cellWidth: 14, halign: "center" },
+                  7: { cellWidth: 14, halign: "center" },
+                  8: { cellWidth: 14, halign: "center" },
+                  9: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+                },
+                margin: { left: ML, right: MR, top: 36 },
+                didDrawPage: () => { drawHeader(); },
+                didParseCell: (data: any) => {
+                  if (data.section === "body") {
+                    const rowI = data.row.index;
+                    if (data.column.index === 1) {
+                      const merge = criteriaMerges.find((m) => m.row === rowI);
+                      if (merge) { data.cell.rowSpan = merge.rowspan; data.cell.styles.fontStyle = "bold"; }
+                      else if (criteriaMerges.some((m) => rowI > m.row && rowI < m.row + m.rowspan)) data.cell.text = [];
+                    }
+                    if (data.column.index === 2) {
+                      const merge = moduleMerges.find((m) => m.row === rowI);
+                      if (merge) data.cell.rowSpan = merge.rowspan;
+                      else if (moduleMerges.some((m) => rowI > m.row && rowI < m.row + m.rowspan)) data.cell.text = [];
+                    }
+                  }
+                },
+              });
+
+              const tableEndY = (doc as any).lastAutoTable?.finalY ?? 34;
+              const scoreY = tableEndY + 6;
+              doc.setFontSize(9);
+              doc.setFont("helvetica", "bold");
+              doc.setTextColor(0, 31, 63);
+              doc.text(
+                `Total Score: ${finalTotal} / ${target || "—"} ${target > 0 ? `(${Math.round((finalTotal / target) * 100)}% of target)` : ""}`,
+                pw - MR, scoreY, { align: "right" },
+              );
+
+              let sigY = scoreY + 10;
+              if (ph - sigY < SIG_H + 14) { doc.addPage(); drawHeader(); sigY = 40; }
+
+              const isHodStaff2 = String(staff.role || "").toLowerCase() === "hod";
+              const boxes2 = isHodStaff2
+                ? [
+                    { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
+                    { label: "Approved By", name: principalName || "—", role: "Principal" },
+                  ]
+                : [
+                    { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
+                    { label: "Verified and Forwarded By", name: hodName || "—", role: "HoD" },
+                    { label: "Approved By", name: principalName || "—", role: "Principal" },
+                  ];
+              const boxGap2 = 4;
+              const boxW2 = (pw - ML - MR - boxGap2 * (boxes2.length - 1)) / boxes2.length;
+              boxes2.forEach((b, i) => {
+                const bx = ML + i * (boxW2 + boxGap2);
+                doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(80, 80, 80);
+                doc.text(b.label, bx + boxW2 / 2, sigY, { align: "center" });
+                doc.setDrawColor(190, 190, 200); doc.setFillColor(252, 252, 255);
+                doc.roundedRect(bx, sigY + 3, boxW2, SIG_H, 1, 1, "FD");
+                doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+                doc.text("Signature:", bx + 4, sigY + 12);
+                doc.setDrawColor(160, 160, 160); doc.line(bx + 24, sigY + 12, bx + boxW2 - 4, sigY + 12);
+                doc.text("Name:", bx + 4, sigY + 21);
+                doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0);
+                doc.text(b.name, bx + 18, sigY + 21);
+                doc.setFont("helvetica", "normal"); doc.setTextColor(120, 120, 120);
+                doc.text("Role:", bx + 4, sigY + 30);
+                doc.setFont("helvetica", "bold"); doc.setTextColor(0, 31, 63);
+                doc.text(b.role, bx + 18, sigY + 30);
+              });
+
+              const total = doc.getNumberOfPages();
+              for (let i = 1; i <= total; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(150, 150, 150);
+                doc.text(`Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`, pw / 2, ph - 5, { align: "center" });
+              }
+
+              const safeName = (staff.name || "faculty").replace(/[^a-zA-Z0-9]/g, "-");
+              doc.save(`${safeName}-FPMS-Report.pdf`);
+            };
+
+            const selectedStaff = viewerSelectedCollege ? (viewerCollegeFullData[viewerSelectedCollege] || []) : [];
+            const adminRolesV = new Set(["principal", "principle", "vice principal", "vice principle", "viceprincipal", "director", "internal committee", "committee", "superadmin", "viewer"]);
+            const deptStaffV = selectedStaff.filter((s: any) => !adminRolesV.has(String(s.role || "").toLowerCase()) && s.department);
+            const deptMapV: Record<string, { hods: any[]; faculty: any[] }> = {};
+            deptStaffV.forEach((s: any) => {
+              const dept = s.department;
+              if (!deptMapV[dept]) deptMapV[dept] = { hods: [], faculty: [] };
+              const r = String(s.role || "").toLowerCase();
+              if (r === "hod") deptMapV[dept].hods.push(s); else deptMapV[dept].faculty.push(s);
+            });
+            const deansV = selectedStaff.filter((s: any) => {
+              const r = String(s.role || "").toLowerCase();
+              return r.includes("dean") || r.includes("training") || (!s.department && !adminRolesV.has(r));
+            });
+
+            const FINALIZED_V = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+            const getConfirmedScoreV = (sub: any) => FINALIZED_V.has(sub.status) ? Number(sub.finalScore ?? sub.reviewerScore ?? 0) : 0;
+
+            const vStaffRow = (s: any) => {
+              const subs = s.submissions || [];
+              const target = s.designationTarget ? Number(s.designationTarget) : null;
+              const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+              const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+              const appealSub = subs.find((sub: any) => sub.status === "appealed");
+              const appealScore = appealSub ? (appealSub.appealScore ?? appealSub.reviewerScore ?? null) : null;
+              const pct = target && target > 0 ? Math.round((reviewer / target) * 100) : null;
+              const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+              const hasPending = subs.some((sub: any) => sub.status === "submitted");
+              const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
+              const hasCompleted = subs.some((sub: any) => FINALIZED_V.has(sub.status));
+              let overallStatus = "Not Submitted";
+              if (subs.length > 0) {
+                if (hasAppealed) overallStatus = "Appealed";
+                else if (hasPending) overallStatus = "Pending Review";
+                else if (hasReviewed) overallStatus = "Pending Acceptance";
+                else if (hasCompleted) overallStatus = "Completed";
+                else overallStatus = "Pending Acceptance";
+              }
+              return (
+                <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                  <td className="px-4 py-3 min-w-[160px]">
+                    <div className="font-medium">{s.name || "—"}</div>
+                    {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                    {s.designation || "—"}
+                    {s.hasPhd && <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{formatRoleLabel(s.role)}</td>
+                  <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
+                  <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
+                  <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
+                  <td className="px-4 py-3 text-center text-sm text-muted-foreground">{appealScore != null ? appealScore : "—"}</td>
+                  <td className="px-4 py-3 text-center text-sm font-semibold">
+                    {pct != null ? <span className={pct >= 100 ? "text-green-600" : pct >= 75 ? "text-amber-600" : "text-muted-foreground"}>{pct}%</span> : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {overallStatus === "Not Submitted" && <Badge variant="outline" className="text-xs">Not Submitted</Badge>}
+                    {overallStatus === "Pending Review" && <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">Pending Review</Badge>}
+                    {overallStatus === "Pending Acceptance" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Pending Acceptance</Badge>}
+                    {overallStatus === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
+                    {overallStatus === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download faculty report"
+                      onClick={() => downloadViewerFacultyPDF(s, viewerSelectedCollege!)}>
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            };
+
+            const vStaffTable = (rows: any[]) => {
+              const sorted = [...rows].sort((a: any, b: any) => {
+                const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+                const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+                return bR - aR;
+              });
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                        <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                        <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Target</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Claimed</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Reviewer</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
+                        <th className="text-center px-4 py-2.5 font-medium">%</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Report</th>
+                      </tr>
+                    </thead>
+                    <tbody>{sorted.map(vStaffRow)}</tbody>
+                  </table>
+                </div>
+              );
+            };
+
+            return (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    Department Reports
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">Select a college to view department-wise faculty reports and download individual PDFs</p>
+                </div>
+
+                {/* College selector tabs */}
+                <div className="flex flex-wrap gap-2">
+                  {colleges.map((c: string) => (
+                    <button key={c}
+                      onClick={() => handleCollegeTab(c)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                        viewerSelectedCollege === c
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border hover:border-primary/50 text-foreground"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
+                {viewerSelectedCollege && (
+                  <>
+                    {viewerDeptLoading && !viewerCollegeFullData[viewerSelectedCollege] ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">Loading department data…</p>
+                    ) : (
+                      <>
+                        {/* Department cards grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                          {Object.entries(deptMapV).sort(([a], [b]) => a.localeCompare(b)).map(([deptName, deptData]: any) => {
+                            const deptAllStaff = [...deptData.hods, ...deptData.faculty];
+                            const deptTotalStaff = deptAllStaff.length;
+                            const deptSubmitted = deptAllStaff.filter((s: any) => (s.submissions || []).length > 0).length;
+                            const deptNotSub = deptTotalStaff - deptSubmitted;
+                            const deptNeedAccept = deptAllStaff.filter((s: any) => (s.submissions || []).some((sub: any) => sub.status === "reviewed")).length;
+                            const deptAppealed = deptAllStaff.filter((s: any) => (s.submissions || []).some((sub: any) => sub.status === "appealed")).length;
+                            const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
+                            const deptTargetReached = deptWithTarget.filter((s: any) => {
+                              const sc = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScoreV(sub), 0);
+                              return sc >= Number(s.designationTarget);
+                            }).length;
+                            const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
+                            const deptCompleted = deptSubs.filter((s: any) => FINALIZED_V.has(s.status)).length;
+                            const completionPct = deptSubs.length > 0 ? Math.round((deptCompleted / deptSubs.length) * 100) : 0;
+                            const deptTargetPct = deptWithTarget.length > 0 ? Math.round((deptTargetReached / deptWithTarget.length) * 100) : 0;
+                            const isSelected = viewerSelectedDept === deptName;
+                            return (
+                              <Card key={deptName}
+                                className={`cursor-pointer transition-all hover:shadow-lg border-2 ${isSelected ? "border-primary shadow-md" : "border-border hover:border-primary/40"}`}
+                                onClick={() => setViewerSelectedDept(isSelected ? null : deptName)}
+                              >
+                                <CardHeader className="pb-2">
+                                  <CardTitle className="flex items-start gap-2 text-base">
+                                    <BookOpen className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                                    <span>{deptName}</span>
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    <div className="bg-muted/40 rounded-lg py-2 text-center"><p className="text-lg font-bold">{deptData.hods.length}</p><p className="text-xs text-muted-foreground">HOD</p></div>
+                                    <div className="bg-muted/40 rounded-lg py-2 text-center"><p className="text-lg font-bold">{deptData.faculty.length}</p><p className="text-xs text-muted-foreground">Faculty</p></div>
+                                    <div className="bg-muted/40 rounded-lg py-2 text-center"><p className="text-lg font-bold">{deptTotalStaff}</p><p className="text-xs text-muted-foreground">Total</p></div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-1.5 text-center text-xs">
+                                    <div className={`rounded-md py-1.5 ${deptSubmitted > 0 ? "bg-green-50 text-green-700" : "bg-muted/30"}`}><span className="font-semibold block">{deptSubmitted}/{deptTotalStaff}</span><span>Submitted</span></div>
+                                    <div className={`rounded-md py-1.5 ${deptNotSub > 0 ? "bg-amber-50 text-amber-700" : "bg-muted/30"}`}><span className="font-semibold block">{deptNotSub}</span><span>Not Submitted</span></div>
+                                    <div className={`rounded-md py-1.5 ${deptNeedAccept > 0 ? "bg-blue-50 text-blue-700" : "bg-muted/30"}`}><span className="font-semibold block">{deptNeedAccept}</span><span>Need to Accept</span></div>
+                                    <div className={`rounded-md py-1.5 ${deptAppealed > 0 ? "bg-red-50 text-red-600" : "bg-muted/30"}`}><span className="font-semibold block">{deptAppealed}</span><span>Appeals</span></div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Completion</span><span className="font-medium">{completionPct}%</span></div>
+                                    <Progress value={completionPct} className="h-1.5" />
+                                    {deptWithTarget.length > 0 && (<>
+                                      <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">Target Reached</span><span className={`font-medium ${deptTargetPct === 100 ? "text-green-600" : ""}`}>{deptTargetReached}/{deptWithTarget.length}</span></div>
+                                      <Progress value={deptTargetPct} className="h-1.5" />
+                                    </>)}
+                                  </div>
+                                  <p className="text-right text-xs text-primary font-medium">{isSelected ? "▲ Hide details" : "▼ View details"}</p>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+
+                        {/* Deans & Leadership */}
+                        {deansV.length > 0 && (
+                          <Card className="border-primary/20 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+                              <CardTitle className="flex items-center gap-2 text-lg">
+                                <Award className="h-5 w-5 text-primary" />
+                                Deans &amp; Leadership
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b bg-muted/30">
+                                      <th className="text-left px-4 py-2.5 font-medium">Name</th>
+                                      <th className="text-left px-4 py-2.5 font-medium">Role</th>
+                                      <th className="text-left px-4 py-2.5 font-medium">Designation</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Subs</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Score / Target</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                                      <th className="text-center px-4 py-2.5 font-medium">Report</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {deansV.map((s: any) => {
+                                      const subs = s.submissions || [];
+                                      const achieved = subs.reduce((sum: number, sub: any) => sum + getConfirmedScoreV(sub), 0);
+                                      const t = s.designationTarget ? Number(s.designationTarget) : null;
+                                      const accepted = subs.filter((sub: any) => FINALIZED_V.has(sub.status)).length;
+                                      const appealed = subs.filter((sub: any) => sub.status === "appealed").length;
+                                      const pending = subs.filter((sub: any) => sub.status === "submitted").length;
+                                      return (
+                                        <tr key={s.id} className="border-b last:border-b-0 hover:bg-muted/20 transition-colors">
+                                          <td className="px-4 py-3 font-medium">{s.name || "—"}</td>
+                                          <td className="px-4 py-3 text-xs text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
+                                          <td className="px-4 py-3 text-xs text-muted-foreground">{s.designation || "—"}</td>
+                                          <td className="px-4 py-3 text-center"><Badge variant="outline">{subs.length}</Badge></td>
+                                          <td className="px-4 py-3 text-center">
+                                            {t !== null ? (achieved >= t ? <span className="inline-flex items-center gap-1 text-green-600 font-semibold text-xs"><CircleCheck className="h-3.5 w-3.5" />{achieved}/{t}</span> : <span className="text-xs text-muted-foreground">{achieved} / {t}</span>) : <span className="font-semibold text-primary">{achieved}</span>}
+                                          </td>
+                                          <td className="px-4 py-3 text-center">
+                                            {subs.length === 0 ? <Badge variant="outline">Not Submitted</Badge>
+                                              : appealed > 0 ? <Badge variant="warning">{appealed} Appeal{appealed > 1 ? "s" : ""}</Badge>
+                                              : pending > 0 ? <Badge variant="secondary">{pending} Pending</Badge>
+                                              : accepted > 0 ? <Badge variant="success">{accepted} Accepted</Badge>
+                                              : <Badge variant="default">Pending Acceptance</Badge>}
+                                          </td>
+                                          <td className="px-4 py-3 text-center">
+                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download faculty report"
+                                              onClick={() => downloadViewerFacultyPDF(s, viewerSelectedCollege!)}>
+                                              <Download className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* Department Detail Panel */}
+                        {viewerSelectedDept && deptMapV[viewerSelectedDept] && (
+                          <Card className="border-primary/20 shadow-sm overflow-hidden">
+                            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 pb-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <CardTitle className="flex items-center gap-2 text-lg">
+                                    <BookOpen className="h-5 w-5 text-primary" />
+                                    {viewerSelectedDept}
+                                  </CardTitle>
+                                  <CardDescription>
+                                    {deptMapV[viewerSelectedDept].hods.length} HOD · {deptMapV[viewerSelectedDept].faculty.length} Faculty
+                                  </CardDescription>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setViewerSelectedDept(null)}>Close ✕</Button>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                              {deptMapV[viewerSelectedDept].hods.length > 0 && (
+                                <div>
+                                  <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                                    <User className="h-4 w-4 text-primary" /> HOD
+                                  </div>
+                                  <div className="py-2">{vStaffTable(deptMapV[viewerSelectedDept].hods)}</div>
+                                </div>
+                              )}
+                              {deptMapV[viewerSelectedDept].faculty.length > 0 && (
+                                <div className={deptMapV[viewerSelectedDept].hods.length > 0 ? "border-t" : ""}>
+                                  <div className="px-5 py-3 bg-muted/30 border-b flex items-center gap-2 text-sm font-semibold">
+                                    <Users className="h-4 w-4 text-primary" /> Faculty
+                                  </div>
+                                  <div className="py-2">{vStaffTable(deptMapV[viewerSelectedDept].faculty)}</div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
         </div>
       </DashboardLayout>
