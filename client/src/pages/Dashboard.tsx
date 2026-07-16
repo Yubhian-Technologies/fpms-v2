@@ -138,6 +138,7 @@ export default function Dashboard() {
   const [committeeSummary, setCommitteeSummary] = useState<any>(null);
 
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [filteredStaffList, setFilteredStaffList] = useState<any[]>([]);
   const [userTarget, setUserTarget] = useState<string>(
     user?.designationTarget || "Not assigned",
   );
@@ -481,7 +482,20 @@ export default function Dashboard() {
     if (selectedModule !== "All")
       subs = subs.filter((s) => s.moduleName === selectedModule);
 
+    // For criteria/module filters, keep only staff that have matching submissions
+    const matchedStaff = (selectedCriteria !== "All" || selectedModule !== "All")
+      ? filteredStaff.filter((s) => (s.submissions || []).some((sub: any) =>
+          (selectedCriteria === "All" || sub.criteriaName === selectedCriteria) &&
+          (selectedModule === "All" || sub.moduleName === selectedModule)
+        ))
+      : filteredStaff;
+
     setFilteredData(subs);
+    setFilteredStaffList([...matchedStaff].sort((a, b) => {
+      const aR = (a.submissions || []).reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+      const bR = (b.submissions || []).reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+      return bR - aR;
+    }));
   };
 
   const exportFilteredExcel = () => {
@@ -4874,62 +4888,104 @@ export default function Dashboard() {
                   </Select>
                   <Button size="sm" onClick={applyFilter}>Apply</Button>
                   {(selectedRole !== "All" || selectedDepartment !== "All" || selectedStaff !== "All" || selectedCriteria !== "All" || selectedModule !== "All") && (
-                    <Button variant="ghost" size="sm" onClick={() => { setSelectedRole("All"); setSelectedDepartment("All"); setSelectedStaff("All"); setSelectedCriteria("All"); setSelectedModule("All"); setFilteredData([]); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setSelectedRole("All"); setSelectedDepartment("All"); setSelectedStaff("All"); setSelectedCriteria("All"); setSelectedModule("All"); setFilteredData([]); setFilteredStaffList([]); }}>
                       Clear
                     </Button>
                   )}
                 </div>
-                {filteredData.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">{filteredData.length} submission{filteredData.length !== 1 ? "s" : ""} found</p>
+                {filteredStaffList.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">{filteredStaffList.length} staff member{filteredStaffList.length !== 1 ? "s" : ""} found</p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Results table */}
-            {filteredData.length > 0 && (
+            {/* Results table — staff-level rows sorted by reviewer score */}
+            {filteredStaffList.length > 0 && (
               <Card className="shadow-sm rounded-xl overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between pb-3 bg-muted/30 border-b">
                   <CardTitle className="text-base">Results</CardTitle>
-                  <p className="text-sm text-muted-foreground">{filteredData.length} submission{filteredData.length !== 1 ? "s" : ""}</p>
+                  <p className="text-sm text-muted-foreground">{filteredStaffList.length} staff member{filteredStaffList.length !== 1 ? "s" : ""}</p>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/40">
-                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-8">#</th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Staff</th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Criteria / Module</th>
-                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Task</th>
-                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Max</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">#</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Name</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Department</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Designation</th>
+                          <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Role</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Target</th>
                           <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Claimed</th>
                           <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Reviewer</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Appeal</th>
                           <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Final</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">%</th>
                           <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Status</th>
+                          <th className="text-center px-4 py-3 font-semibold text-muted-foreground">Report</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {filteredData.map((sub: any, idx: number) => {
-                          const staff = staffList.find((s: any) => (s.submissions || []).some((ss: any) => ss.id === sub.id));
-                          const sc = statusConfig[sub.status] || { label: sub.status, variant: "outline" as const };
+                        {filteredStaffList.map((s: any, idx: number) => {
+                          const subs = s.submissions || [];
+                          const target = s.designationTarget ? Number(s.designationTarget) : null;
+                          const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+                          const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+                          const appealSub = subs.find((sub: any) => sub.status === "appeal-resolved");
+                          const appealScore = appealSub ? (appealSub.appealerScore || null) : null;
+                          const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
+                            if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
+                              return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
+                            return sum + Number(sub.reviewerScore ?? 0);
+                          }, 0) : null;
+                          const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
+                          const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+                          const hasPending = subs.some((sub: any) => sub.status === "submitted");
+                          const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
+                          const hasCompleted = subs.some((sub: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status));
+                          let overallStatus = "Not Submitted";
+                          if (subs.length > 0) {
+                            if (hasAppealed) overallStatus = "Appealed";
+                            else if (hasPending) overallStatus = "Pending Review";
+                            else if (hasReviewed) overallStatus = "Pending Acceptance";
+                            else if (hasCompleted) overallStatus = "Completed";
+                            else overallStatus = "Pending Acceptance";
+                          }
                           return (
-                            <tr key={sub.id || idx} className="hover:bg-muted/20 transition-colors">
+                            <tr key={s.id || idx} className="hover:bg-muted/20 transition-colors">
                               <td className="px-4 py-3 text-muted-foreground text-xs">{idx + 1}</td>
-                              <td className="px-4 py-3">
-                                <div className="font-medium">{staff?.name || sub.userName || "—"}</div>
-                                <div className="text-xs text-muted-foreground">{staff?.department || "—"}</div>
+                              <td className="px-4 py-3 min-w-[150px]">
+                                <div className="font-medium">{s.name || "—"}</div>
+                                {s.email && <div className="text-xs text-muted-foreground">{s.email}</div>}
                               </td>
-                              <td className="px-4 py-3">
-                                <div className="text-xs font-medium">{sub.criteriaName || sub.formTitle || "—"}</div>
-                                <div className="text-xs text-muted-foreground">{sub.moduleName || "—"}</div>
+                              <td className="px-4 py-3 text-sm text-muted-foreground">{s.department || "—"}</td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                                {s.designation || "—"}
+                                {s.hasPhd && <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>}
                               </td>
-                              <td className="px-4 py-3 text-xs">{sub.taskName || "—"}</td>
-                              <td className="px-4 py-3 text-center text-sm">{sub.maxMarks ?? "—"}</td>
-                              <td className="px-4 py-3 text-center text-sm">{sub.claimedScore ?? "—"}</td>
-                              <td className="px-4 py-3 text-center text-sm">{sub.reviewerScore ?? "—"}</td>
-                              <td className="px-4 py-3 text-center font-semibold text-sm">{sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? "—"}</td>
+                              <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{formatRoleLabel(s.role || "")}</td>
+                              <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm font-medium">
+                                {appealScore != null ? <span className="text-violet-600">{appealScore}</span> : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-center text-sm font-semibold">{finalScore != null ? finalScore : "—"}</td>
+                              <td className="px-4 py-3 text-center text-sm font-semibold">
+                                {pct != null ? <span className={pct >= 100 ? "text-green-600" : pct >= 75 ? "text-amber-600" : "text-muted-foreground"}>{pct}%</span> : "—"}
+                              </td>
                               <td className="px-4 py-3 text-center">
-                                <Badge variant={sc.variant} className="text-xs">{sc.label}</Badge>
+                                {overallStatus === "Not Submitted" && <Badge variant="outline" className="text-xs">Not Submitted</Badge>}
+                                {overallStatus === "Pending Review" && <Badge className="text-xs bg-amber-100 text-amber-700 hover:bg-amber-100 border-0">Pending Review</Badge>}
+                                {overallStatus === "Pending Acceptance" && <Badge className="text-xs bg-gray-800 text-white hover:bg-gray-800 border-0">Pending Acceptance</Badge>}
+                                {overallStatus === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
+                                {overallStatus === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Download faculty report" onClick={() => downloadFacultyPDF(s)}>
+                                  <Download className="h-3.5 w-3.5" />
+                                </Button>
                               </td>
                             </tr>
                           );
