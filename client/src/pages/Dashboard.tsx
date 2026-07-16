@@ -1634,7 +1634,12 @@ export default function Dashboard() {
               const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
               const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
               const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
-              const pct = target && target > 0 ? Math.round((reviewer / target) * 100) : null;
+              const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
+                if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
+                  return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
+                return sum + Number(sub.reviewerScore ?? 0);
+              }, 0) : null;
+              const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
               const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
               const hasPending = subs.some((sub: any) => sub.status === "submitted");
               const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
@@ -1661,7 +1666,10 @@ export default function Dashboard() {
                   <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
                   <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
                   <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
-                  <td className="px-4 py-3 text-center text-sm text-muted-foreground">{appealScore != null ? appealScore : "—"}</td>
+                  <td className="px-4 py-3 text-center text-sm font-medium">
+                    {appealScore != null ? <span className="text-violet-600">{appealScore}</span> : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm font-semibold">{finalScore != null ? finalScore : "—"}</td>
                   <td className="px-4 py-3 text-center text-sm font-semibold">
                     {pct != null ? <span className={pct >= 100 ? "text-green-600" : pct >= 75 ? "text-amber-600" : "text-muted-foreground"}>{pct}%</span> : "—"}
                   </td>
@@ -1700,6 +1708,7 @@ export default function Dashboard() {
                         <th className="text-center px-4 py-2.5 font-medium">Claimed</th>
                         <th className="text-center px-4 py-2.5 font-medium">Reviewer</th>
                         <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
+                        <th className="text-center px-4 py-2.5 font-medium">Final</th>
                         <th className="text-center px-4 py-2.5 font-medium">%</th>
                         <th className="text-center px-4 py-2.5 font-medium">Status</th>
                         <th className="text-center px-4 py-2.5 font-medium">Report</th>
@@ -4394,7 +4403,12 @@ export default function Dashboard() {
                         const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
                         const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
                         const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
-                        const pct = target && target > 0 ? Math.round((reviewer / target) * 100) : null;
+                        const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
+                          if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
+                            return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
+                          return sum + Number(sub.reviewerScore ?? 0);
+                        }, 0) : null;
+                        const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
                         const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                         const hasPending = subs.some((sub: any) => sub.status === "submitted");
                         const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
@@ -4423,7 +4437,10 @@ export default function Dashboard() {
                             <td className="px-4 py-3 text-center text-sm">{target ?? "—"}</td>
                             <td className="px-4 py-3 text-center text-sm">{subs.length > 0 ? claimed : "—"}</td>
                             <td className="px-4 py-3 text-center text-sm font-medium">{subs.length > 0 ? reviewer : "—"}</td>
-                            <td className="px-4 py-3 text-center text-sm text-muted-foreground">{appealScore != null ? appealScore : "—"}</td>
+                            <td className="px-4 py-3 text-center text-sm font-medium">
+                              {appealScore != null ? <span className="text-violet-600">{appealScore}</span> : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm font-semibold">{finalScore != null ? finalScore : "—"}</td>
                             <td className="px-4 py-3 text-center text-sm font-semibold">
                               {pct != null ? (
                                 <span className={pct >= 100 ? "text-green-600" : pct >= 75 ? "text-amber-600" : "text-muted-foreground"}>
@@ -4470,6 +4487,7 @@ export default function Dashboard() {
                                   <th className="text-center px-4 py-2.5 font-medium">Claimed</th>
                                   <th className="text-center px-4 py-2.5 font-medium">Reviewer</th>
                                   <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Final</th>
                                   <th className="text-center px-4 py-2.5 font-medium">%</th>
                                   <th className="text-center px-4 py-2.5 font-medium">Status</th>
                                   <th className="text-center px-4 py-2.5 font-medium">Report</th>
