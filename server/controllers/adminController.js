@@ -2496,3 +2496,19 @@ export const updatePrincipalCollegeDeadlines = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export const getAdminPrincipalName = async (req, res) => {
+  try {
+    const college = String(req.admin?.college || "").trim();
+    if (!college) return res.json({ success: true, data: { name: "" } });
+    const snap = await db.collection(USERS_COLLECTION)
+      .where("college", "==", college)
+      .where("role", "in", ["principal", "principle"])
+      .limit(1).get();
+    const name = snap.empty ? "" : (snap.docs[0].data().name || "");
+    return res.json({ success: true, data: { name } });
+  } catch (err) {
+    console.error("[getAdminPrincipalName]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

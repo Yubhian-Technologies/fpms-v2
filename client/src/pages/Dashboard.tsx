@@ -1993,11 +1993,17 @@ export default function Dashboard() {
 
     // ── INDIVIDUAL FACULTY DETAILED PDF ──
     const downloadFacultyPDF = async (staff: any) => {
-      let principalName = displayName;
+      let principalName = "";
       try {
-        const res = await api.get("/api/hod/principal-name");
-        principalName = res.data?.data?.name || displayName;
-      } catch { /* fallback */ }
+        const res = await api.get("/api/admin/principal-name");
+        principalName = res.data?.data?.name || "";
+      } catch { /* ignore */ }
+      if (!principalName) {
+        try {
+          const res = await api.get("/api/hod/principal-name");
+          principalName = res.data?.data?.name || "";
+        } catch { /* ignore */ }
+      }
 
       const dept = staff.department || "Department";
       const hodName =
@@ -2239,11 +2245,17 @@ export default function Dashboard() {
         .map(([name, staff]) => ({ name, staff }));
       if (deans.length) depts.push({ name: "Deans", staff: deans });
 
-      let principalName = displayName;
+      let principalName = "";
       try {
-        const res = await api.get("/api/hod/principal-name");
-        principalName = res.data?.data?.name || displayName;
-      } catch { /* fallback to current user name */ }
+        const res = await api.get("/api/admin/principal-name");
+        principalName = res.data?.data?.name || "";
+      } catch { /* ignore */ }
+      if (!principalName) {
+        try {
+          const res = await api.get("/api/hod/principal-name");
+          principalName = res.data?.data?.name || "";
+        } catch { /* ignore */ }
+      }
       buildFacultyPDF(depts, principalName, "Head of Department");
     };
 

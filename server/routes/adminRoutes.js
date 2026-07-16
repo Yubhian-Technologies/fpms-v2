@@ -20,6 +20,7 @@ import {
   getCollegeFacultyForReview,
   exportPrincipalReport,
   updatePrincipalCollegeDeadlines,
+  getAdminPrincipalName,
 } from "../controllers/adminController.js";
 import { adminAuth } from "../middleware/adminAuth.js";
 
@@ -57,5 +58,6 @@ adminRouter.get("/college-dashboard", adminAuth, getCollegeDashboard);
 
 adminRouter.get("/college-faculty", adminAuth, getCollegeFacultyForReview);
 adminRouter.get("/export-report", adminAuth, exportPrincipalReport);
+adminRouter.get("/principal-name", adminAuth, getAdminPrincipalName);
 
 export default adminRouter;
