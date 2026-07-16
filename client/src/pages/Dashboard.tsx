@@ -2015,7 +2015,12 @@ export default function Dashboard() {
         .map(([name, staff]) => ({ name, staff }));
       if (deans.length) depts.push({ name: "Deans", staff: deans });
 
-      buildFacultyPDF(depts, displayName, "Head of Department");
+      const principalRecord = staffList.find((s: any) => {
+        const r = String(s.role || "").trim().toLowerCase();
+        return r === "principal" || r === "principle";
+      });
+      const principalName = principalRecord?.name || displayName;
+      buildFacultyPDF(depts, principalName, "Head of Department");
     };
 
     // ── HOD PDF EXPORT ──
