@@ -2009,9 +2009,9 @@ export default function Dashboard() {
       const academicYear = "2025 – 2026";
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
-      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pw = doc.internal.pageSize.getWidth();   // 210
-      const ph = doc.internal.pageSize.getHeight();  // 297
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pw = doc.internal.pageSize.getWidth();   // 297
+      const ph = doc.internal.pageSize.getHeight();  // 210
       const ML = 12; const MR = 12;
 
       const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
@@ -2051,8 +2051,8 @@ export default function Dashboard() {
 
       // ── Faculty info grid ──
       const infoStartY = 36;
-      const leftW = (pw - ML - MR) * 0.55;
-      const rightW = (pw - ML - MR) * 0.45;
+      const leftW = (pw - ML - MR) * 0.58;
+      const rightW = (pw - ML - MR) * 0.42;
       const infoRows = [
         ["Name of the Faculty:", staff.name || "—", "Date of Joining:", staff.dateOfJoining || staff.joiningDate || "—"],
         ["Designation:", staff.designation || "—", "Phone:", staff.phone || staff.phoneNumber || "—"],
@@ -2128,16 +2128,16 @@ export default function Dashboard() {
         headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7.5 },
         alternateRowStyles: { fillColor: [248, 249, 252] },
         columnStyles: {
-          0: { cellWidth: 9, halign: "center" },
-          1: { cellWidth: 28 },
-          2: { cellWidth: 28 },
-          3: { cellWidth: 45 },
-          4: { cellWidth: 12, halign: "center" },
-          5: { cellWidth: 12, halign: "center" },
-          6: { cellWidth: 12, halign: "center" },
-          7: { cellWidth: 12, halign: "center" },
-          8: { cellWidth: 12, halign: "center" },
-          9: { cellWidth: 16, halign: "center", fontStyle: "bold" },
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 38 },
+          2: { cellWidth: 42 },
+          3: { cellWidth: 72 },
+          4: { cellWidth: 14, halign: "center" },
+          5: { cellWidth: 14, halign: "center" },
+          6: { cellWidth: 14, halign: "center" },
+          7: { cellWidth: 14, halign: "center" },
+          8: { cellWidth: 14, halign: "center" },
+          9: { cellWidth: 20, halign: "center", fontStyle: "bold" },
         },
         didDrawPage: (_data: any) => {
           // Re-draw header on continuation pages
