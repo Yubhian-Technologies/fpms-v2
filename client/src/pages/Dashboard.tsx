@@ -1632,8 +1632,8 @@ export default function Dashboard() {
               const target = s.designationTarget ? Number(s.designationTarget) : null;
               const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
               const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-              const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
-              const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
+              const appealSub = subs.find((sub: any) => sub.status === "appeal-resolved");
+              const appealScore = appealSub ? (appealSub.appealerScore || null) : null;
               const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
                 if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
                   return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
@@ -1842,8 +1842,8 @@ export default function Dashboard() {
                                       const target = s.designationTarget ? Number(s.designationTarget) : null;
                                       const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
                                       const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                                      const appealSubV = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
-                                      const appealScoreV = appealSubV ? (appealSubV.appealerScore ?? appealSubV.appealScore ?? null) : null;
+                                      const appealSubV = subs.find((sub: any) => sub.status === "appeal-resolved");
+                                      const appealScoreV = appealSubV ? (appealSubV.appealerScore || null) : null;
                                       const finalScoreV = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
                                         if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
                                           return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
@@ -4364,8 +4364,8 @@ export default function Dashboard() {
                             const target = s.designationTarget ? Number(s.designationTarget) : null;
                             const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
                             const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                            const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
-                            const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
+                            const appealSub = subs.find((sub: any) => sub.status === "appeal-resolved");
+                            const appealScore = appealSub ? (appealSub.appealerScore || null) : null;
                             const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
                               if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
                                 return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
@@ -4462,8 +4462,8 @@ export default function Dashboard() {
                         const target = s.designationTarget ? Number(s.designationTarget) : null;
                         const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
                         const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                        const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
-                        const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
+                        const appealSub = subs.find((sub: any) => sub.status === "appeal-resolved");
+                        const appealScore = appealSub ? (appealSub.appealerScore || null) : null;
                         const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
                           if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
                             return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
