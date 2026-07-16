@@ -1632,8 +1632,8 @@ export default function Dashboard() {
               const target = s.designationTarget ? Number(s.designationTarget) : null;
               const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
               const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-              const appealSub = subs.find((sub: any) => sub.status === "appealed");
-              const appealScore = appealSub ? (appealSub.appealScore ?? appealSub.reviewerScore ?? null) : null;
+              const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
+              const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
               const pct = target && target > 0 ? Math.round((reviewer / target) * 100) : null;
               const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
               const hasPending = subs.some((sub: any) => sub.status === "submitted");
@@ -4392,8 +4392,8 @@ export default function Dashboard() {
                         const target = s.designationTarget ? Number(s.designationTarget) : null;
                         const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
                         const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                        const appealSub = subs.find((sub: any) => sub.status === "appealed");
-                        const appealScore = appealSub ? (appealSub.appealScore ?? appealSub.reviewerScore ?? null) : null;
+                        const appealSub = subs.find((sub: any) => sub.status === "appealed" || sub.status === "appeal-resolved");
+                        const appealScore = appealSub ? (appealSub.appealerScore ?? appealSub.appealScore ?? null) : null;
                         const pct = target && target > 0 ? Math.round((reviewer / target) * 100) : null;
                         const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
                         const hasPending = subs.some((sub: any) => sub.status === "submitted");
