@@ -1877,7 +1877,67 @@ export default function Dashboard() {
                                     {deptMapV[viewerSelectedDept].hods.length} HOD · {deptMapV[viewerSelectedDept].faculty.length} Faculty
                                   </CardDescription>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={() => setViewerSelectedDept(null)}>Close ✕</Button>
+                                <div className="flex items-center gap-2">
+                                  <Button variant="outline" size="sm" onClick={async () => {
+                                    const college = viewerSelectedCollege!;
+                                    let pName = "";
+                                    try { const r = await api.get(`/api/viewer/principal-name?college=${encodeURIComponent(college)}`); pName = r.data?.data?.name || ""; } catch { /* ignore */ }
+                                    const collegeName = college.toUpperCase();
+                                    const academicYear = "2025 – 2026";
+                                    const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+                                    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                                    const pw = doc.internal.pageSize.getWidth(); const ph = doc.internal.pageSize.getHeight();
+                                    const ML = 14; const MR = 14;
+                                    const drawH = () => {
+                                      doc.setFillColor(0, 31, 63); doc.rect(0, 0, pw, 24, "F");
+                                      try { doc.addImage(LOGO, "PNG", ML, 3.5, 16, 16); } catch { /* skip */ }
+                                      doc.setTextColor(255, 255, 255); doc.setFontSize(13); doc.setFont("helvetica", "bold");
+                                      doc.text(collegeName, pw / 2, 9.5, { align: "center" });
+                                      doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
+                                      doc.text("Faculty Performance Report", pw / 2, 15.5, { align: "center" });
+                                      doc.text(`Academic Year: ${academicYear}`, pw / 2, 21, { align: "center" });
+                                      doc.setTextColor(0, 0, 0); doc.setFontSize(10); doc.setFont("helvetica", "bold");
+                                      doc.text(`Department: ${viewerSelectedDept}`, ML, 31);
+                                      doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(80, 80, 80);
+                                      doc.text(`Date: ${dateStr}`, pw - MR, 31, { align: "right" }); doc.setTextColor(0, 0, 0);
+                                    };
+                                    drawH();
+                                    const FINC = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+                                    const allStaff = [...(deptMapV[viewerSelectedDept!]?.hods || []), ...(deptMapV[viewerSelectedDept!]?.faculty || [])];
+                                    const sorted = [...allStaff].sort((a: any, b: any) => (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0) - (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0));
+                                    const rows = sorted.map((s: any, idx: number) => {
+                                      const subs = s.submissions || [];
+                                      const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+                                      const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+                                      const final_ = subs.reduce((sum: number, sub: any) => FINC.has(sub.status) ? sum + Number(sub.finalScore ?? sub.reviewerScore ?? 0) : sum + Number(sub.reviewerScore ?? 0), 0);
+                                      const target = s.designationTarget ? Number(s.designationTarget) : null;
+                                      const pct = target && target > 0 ? Math.round((reviewer / target) * 100) + "%" : "—";
+                                      const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+                                      const hasPending = subs.some((sub: any) => sub.status === "submitted");
+                                      const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
+                                      const allFin = subs.length > 0 && subs.every((sub: any) => FINC.has(sub.status));
+                                      let status = "Not Submitted";
+                                      if (subs.length > 0) { if (hasAppealed) status = "Appealed"; else if (hasPending) status = "Pending Review"; else if (hasReviewed) status = "Pending Acceptance"; else if (allFin) status = "Completed"; else status = "Pending Acceptance"; }
+                                      return [idx + 1, s.name || "—", s.designation || "—", formatRoleLabel(s.role || ""), target ?? "—", subs.length > 0 ? claimed : "—", subs.length > 0 ? reviewer : "—", subs.length > 0 ? final_ : "—", pct, status];
+                                    });
+                                    autoTable(doc, {
+                                      head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Final", "%", "Status"]],
+                                      body: rows, startY: 35, margin: { left: ML, right: MR, top: 35 }, tableWidth: pw - ML - MR,
+                                      styles: { fontSize: 8, cellPadding: 2.2, overflow: "linebreak" },
+                                      headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 8 },
+                                      alternateRowStyles: { fillColor: [245, 248, 252] },
+                                      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: 42 }, 2: { cellWidth: 26 }, 3: { cellWidth: 20 }, 4: { cellWidth: 12, halign: "center" }, 5: { cellWidth: 13, halign: "center" }, 6: { cellWidth: 13, halign: "center" }, 7: { cellWidth: 13, halign: "center" }, 8: { cellWidth: 11, halign: "center" }, 9: { cellWidth: 24, halign: "center" } },
+                                      didDrawPage: () => { drawH(); },
+                                      didDrawCell: (data: any) => { if (data.section === "body" && data.column.index === 9) { const v = String(data.cell.text?.[0] || ""); if (v === "Completed") doc.setTextColor(22, 163, 74); else if (v === "Appealed") doc.setTextColor(220, 38, 38); else doc.setTextColor(0, 0, 0); } },
+                                    });
+                                    const total = doc.getNumberOfPages();
+                                    for (let i = 1; i <= total; i++) { doc.setPage(i); doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(150, 150, 150); doc.text(`Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`, pw / 2, ph - 5, { align: "center" }); }
+                                    doc.save(`${(viewerSelectedDept || "dept").replace(/[^a-zA-Z0-9]/g, "-")}-Consolidated-Report.pdf`);
+                                  }}>
+                                    <FileText className="mr-1.5 h-3.5 w-3.5" /> Consolidated
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => setViewerSelectedDept(null)}>Close ✕</Button>
+                                </div>
                               </div>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -2777,6 +2837,143 @@ export default function Dashboard() {
 
       const safeName = (staff.name || "faculty").replace(/[^a-zA-Z0-9]/g, "-");
       doc.save(`${safeName}-FPMS-Report.pdf`);
+    };
+
+    // ── CONSOLIDATED DEPARTMENT PORTRAIT PDF ──
+    const buildConsolidatedDeptPDF = async (deptName: string, deptStaff: any[]) => {
+      let principalName = "";
+      try {
+        const res = await api.get("/api/admin/principal-name");
+        principalName = res.data?.data?.name || "";
+      } catch { /* ignore */ }
+      if (!principalName) {
+        try {
+          const res = await api.get("/api/hod/principal-name");
+          principalName = res.data?.data?.name || "";
+        } catch { /* ignore */ }
+      }
+
+      const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+      const academicYear = "2025 – 2026";
+      const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pw = doc.internal.pageSize.getWidth();   // 210
+      const ph = doc.internal.pageSize.getHeight();  // 297
+      const ML = 14; const MR = 14;
+
+      const drawPageHeader = () => {
+        doc.setFillColor(0, 31, 63);
+        doc.rect(0, 0, pw, 24, "F");
+        try { doc.addImage(LOGO, "PNG", ML, 3.5, 16, 16); } catch { /* skip */ }
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.text(collegeName, pw / 2, 9.5, { align: "center" });
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "normal");
+        doc.text("Faculty Performance Report", pw / 2, 15.5, { align: "center" });
+        doc.text(`Academic Year: ${academicYear}`, pw / 2, 21, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Department: ${deptName}`, ML, 31);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Date: ${dateStr}`, pw - MR, 31, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+      };
+
+      drawPageHeader();
+
+      const FINALIZED_C = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+      const sorted = [...deptStaff].sort((a: any, b: any) => {
+        const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+        const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+        return bR - aR;
+      });
+
+      const rows = sorted.map((s: any, idx: number) => {
+        const subs = s.submissions || [];
+        const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
+        const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+        const final_ = subs.reduce((sum: number, sub: any) => FINALIZED_C.has(sub.status) ? sum + Number(sub.finalScore ?? sub.reviewerScore ?? 0) : sum + Number(sub.reviewerScore ?? 0), 0);
+        const target = s.designationTarget ? Number(s.designationTarget) : null;
+        const pct = target && target > 0 ? Math.round((reviewer / target) * 100) + "%" : "—";
+        const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
+        const hasPending = subs.some((sub: any) => sub.status === "submitted");
+        const hasReviewed = subs.some((sub: any) => sub.status === "reviewed");
+        const allFinalized = subs.length > 0 && subs.every((sub: any) => FINALIZED_C.has(sub.status));
+        let status = "Not Submitted";
+        if (subs.length > 0) {
+          if (hasAppealed) status = "Appealed";
+          else if (hasPending) status = "Pending Review";
+          else if (hasReviewed) status = "Pending Acceptance";
+          else if (allFinalized) status = "Completed";
+          else status = "Pending Acceptance";
+        }
+        return [
+          idx + 1,
+          s.name || s.email || "—",
+          s.designation || "—",
+          formatRoleLabel(s.role || ""),
+          target ?? "—",
+          subs.length > 0 ? claimed : "—",
+          subs.length > 0 ? reviewer : "—",
+          subs.length > 0 ? final_ : "—",
+          pct,
+          status,
+        ];
+      });
+
+      // S.No(8)+Name(42)+Desig(26)+Role(20)+Target(12)+Claimed(13)+Reviewer(13)+Final(13)+%(11)+Status(24) = 182
+      autoTable(doc, {
+        head: [["S.No", "Name of the Faculty", "Designation", "Role", "Target", "Claimed", "Reviewer", "Final", "%", "Status"]],
+        body: rows,
+        startY: 35,
+        margin: { left: ML, right: MR, top: 35 },
+        tableWidth: pw - ML - MR,
+        styles: { fontSize: 8, cellPadding: 2.2, overflow: "linebreak" },
+        headStyles: { fillColor: [0, 31, 63], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 8 },
+        alternateRowStyles: { fillColor: [245, 248, 252] },
+        columnStyles: {
+          0: { cellWidth: 8, halign: "center" },
+          1: { cellWidth: 42 },
+          2: { cellWidth: 26 },
+          3: { cellWidth: 20 },
+          4: { cellWidth: 12, halign: "center" },
+          5: { cellWidth: 13, halign: "center" },
+          6: { cellWidth: 13, halign: "center" },
+          7: { cellWidth: 13, halign: "center" },
+          8: { cellWidth: 11, halign: "center" },
+          9: { cellWidth: 24, halign: "center" },
+        },
+        didDrawPage: () => { drawPageHeader(); },
+        didDrawCell: (data: any) => {
+          if (data.section === "body" && data.column.index === 9) {
+            const val = String(data.cell.text?.[0] || "");
+            if (val === "Completed") doc.setTextColor(22, 163, 74);
+            else if (val === "Appealed") doc.setTextColor(220, 38, 38);
+            else doc.setTextColor(0, 0, 0);
+          }
+        },
+      });
+
+      const total = doc.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${i} of ${total}  |  ${collegeName}  |  Generated: ${dateStr}`,
+          pw / 2, ph - 5, { align: "center" },
+        );
+      }
+
+      const safeDept = deptName.replace(/[^a-zA-Z0-9]/g, "-");
+      doc.save(`${safeDept}-Consolidated-Report.pdf`);
     };
 
     // ── PRINCIPAL PDF EXPORT ──
@@ -4174,9 +4371,17 @@ export default function Dashboard() {
                           {deptMap[selectedDeptDetail].hods.length} HOD · {deptMap[selectedDeptDetail].faculty.length} Faculty
                         </CardDescription>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => setSelectedDeptDetail(null)}>
-                        Close ✕
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          const all = [...(deptMap[selectedDeptDetail]?.hods || []), ...(deptMap[selectedDeptDetail]?.faculty || [])];
+                          buildConsolidatedDeptPDF(selectedDeptDetail, all);
+                        }}>
+                          <FileText className="mr-1.5 h-3.5 w-3.5" /> Consolidated
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedDeptDetail(null)}>
+                          Close ✕
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
