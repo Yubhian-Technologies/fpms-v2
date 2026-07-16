@@ -1566,7 +1566,8 @@ export default function Dashboard() {
               let sigY = scoreY + 10;
               if (ph - sigY < SIG_H + 14) { doc.addPage(); drawHeader(); sigY = 40; }
 
-              const isHodStaff2 = String(staff.role || "").toLowerCase() === "hod";
+              const roleLC2 = String(staff.role || "").toLowerCase();
+              const isHodStaff2 = roleLC2 === "hod" || roleLC2.includes("dean") || roleLC2.includes("training") || !staff.department;
               const boxes2 = isHodStaff2
                 ? [
                     { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
@@ -2721,7 +2722,8 @@ export default function Dashboard() {
         sigY = 40;
       }
 
-      const isHodStaff = String(staff.role || "").toLowerCase() === "hod";
+      const roleLC = String(staff.role || "").toLowerCase();
+      const isHodStaff = roleLC === "hod" || roleLC.includes("dean") || roleLC.includes("training") || !staff.department;
       const boxes = isHodStaff
         ? [
             { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
