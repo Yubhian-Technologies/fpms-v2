@@ -41,6 +41,7 @@ import {
   CircleCheck,
   CircleDot,
   Loader2,
+  Download,
 } from "lucide-react";
 import { api } from "@/api/api";
 import { formatRoleLabel } from "@/lib/utils";
@@ -1990,6 +1991,21 @@ export default function Dashboard() {
       doc.save(`${collegeName.replace(/[/\\?*[\]:]/g, "-")}-faculty-report.pdf`);
     };
 
+    // ── INDIVIDUAL FACULTY PDF EXPORT ──
+    const downloadFacultyPDF = async (staff: any) => {
+      let principalName = displayName;
+      try {
+        const res = await api.get("/api/hod/principal-name");
+        principalName = res.data?.data?.name || displayName;
+      } catch { /* fallback */ }
+      const dept = staff.department || "Department";
+      const hodName =
+        staffList.find((s: any) =>
+          String(s.role || "").toLowerCase() === "hod" && s.department === dept
+        )?.name || "Head of Department";
+      buildFacultyPDF([{ name: dept, staff: [staff] }], principalName, hodName);
+    };
+
     // ── PRINCIPAL PDF EXPORT ──
     const exportPrincipalPDF = async () => {
       const adminRoles = new Set([
@@ -3438,6 +3454,17 @@ export default function Dashboard() {
                               {overallStatus === "Completed" && <Badge className="text-xs bg-green-500 text-white hover:bg-green-500 border-0">Completed</Badge>}
                               {overallStatus === "Appealed" && <Badge className="text-xs bg-red-100 text-red-600 hover:bg-red-100 border-0">Appealed</Badge>}
                             </td>
+                            <td className="px-4 py-3 text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="Download faculty report"
+                                onClick={() => downloadFacultyPDF(s)}
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
                           </tr>
                         );
                       };
@@ -3461,6 +3488,7 @@ export default function Dashboard() {
                                   <th className="text-center px-4 py-2.5 font-medium">Appeal</th>
                                   <th className="text-center px-4 py-2.5 font-medium">%</th>
                                   <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                                  <th className="text-center px-4 py-2.5 font-medium">Report</th>
                                 </tr>
                               </thead>
                               <tbody>{sorted.map(staffRow)}</tbody>
