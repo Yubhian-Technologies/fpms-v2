@@ -2173,10 +2173,9 @@ export default function Dashboard() {
 
       const boxes = [
         { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
-        { label: "Verified and Forwarded By", name: hodName || "—", role: "HoD" },
         { label: "Approved By", name: principalName || "—", role: "Principal" },
       ];
-      const boxW = (pw - ML - MR - 8) / 3;
+      const boxW = (pw - ML - MR - 4) / 2;
       boxes.forEach((b, i) => {
         const bx = ML + i * (boxW + 4);
         doc.setFont("helvetica", "normal");
