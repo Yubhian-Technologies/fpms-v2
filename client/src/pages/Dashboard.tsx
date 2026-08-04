@@ -2351,11 +2351,11 @@ export default function Dashboard() {
         const wb = XLSX.utils.book_new();
         const DETAIL_HEADERS = [
           "S.No", "Name of the Faculty", "Designation", "Modules", "Sub Modules", "Tasks",
-          "Max Points", "Claimed Score", "Reviewer Score", "Appeal Score", "Final Score", "Total Score",
+          "Max Points", "Claimed Score", "Reviewer Score", "Appeal Score", "Final Score", "Module Total", "Total Score",
         ];
         const DETAIL_WIDTHS = [
           { wch: 6 }, { wch: 30 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 32 },
-          { wch: 10 }, { wch: 14 }, { wch: 15 }, { wch: 13 }, { wch: 12 }, { wch: 12 },
+          { wch: 10 }, { wch: 14 }, { wch: 15 }, { wch: 13 }, { wch: 12 }, { wch: 13 }, { wch: 12 },
         ];
 
         const buildDetailSheet = (deptName: string, staffArr: any[]) => {
@@ -2379,7 +2379,7 @@ export default function Dashboard() {
             const subs: any[] = person.subs || [];
             const totalScore = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
             if (subs.length === 0) {
-              rows.push([sno++, person.name, person.designation || "—", "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
+              rows.push([sno++, person.name, person.designation || "—", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
               continue;
             }
 
@@ -2393,7 +2393,11 @@ export default function Dashboard() {
             const facStart = rows.length;
             let firstFac = true;
             const criteriaEntries = [...criteriaMap.entries()];
+            const lastCriteriaKey = criteriaEntries[criteriaEntries.length - 1][0];
+
             for (const [criteriaKey, critSubs] of criteriaEntries) {
+              const isLastCriteria = criteriaKey === lastCriteriaKey;
+              const critFinal = critSubs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
               const critStart = rows.length;
               const subModMap = new Map<string, any[]>();
               for (const sub of critSubs) {
@@ -2402,9 +2406,15 @@ export default function Dashboard() {
                 subModMap.get(smKey)!.push(sub);
               }
               let firstCrit = true;
-              for (const [smKey, smSubs] of subModMap) {
+              const subModEntries = [...subModMap.entries()];
+              const lastSmKey = subModEntries[subModEntries.length - 1][0];
+
+              for (const [smKey, smSubs] of subModEntries) {
+                const isLastSubMod = smKey === lastSmKey;
                 const smStart = rows.length;
                 smSubs.forEach((sub: any, smIdx: number) => {
+                  const isLastTask = isLastSubMod && smIdx === smSubs.length - 1;
+                  const isVeryLast = isLastCriteria && isLastTask;
                   rows.push([
                     firstFac ? sno : "",
                     firstFac ? person.name : "",
@@ -2417,22 +2427,14 @@ export default function Dashboard() {
                     sub.reviewerScore ?? "-",
                     sub.appealerScore ?? "-",
                     sub.finalScore ?? "-",
-                    "",
+                    isLastTask ? critFinal : "",   // Module Total on last task of each module
+                    isVeryLast ? totalScore : "",  // Total Score on last task of last module
                   ]);
                   firstFac = false;
                   firstCrit = false;
                 });
                 addMerge(4, smStart, rows.length - 1);
               }
-              // Module subtotal row
-              const critMax = critSubs.reduce((s: number, sub: any) => s + Number(sub.maxMarks ?? 0), 0);
-              const critClaimed = critSubs.reduce((s: number, sub: any) => s + Number(sub.claimedScore ?? 0), 0);
-              const critReviewer = critSubs.reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
-              const critAppeal = critSubs.some((sub: any) => sub.appealerScore != null)
-                ? critSubs.reduce((s: number, sub: any) => s + Number(sub.appealerScore ?? 0), 0)
-                : "-";
-              const critFinal = critSubs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
-              rows.push(["", "", "", `${criteriaKey} — Total`, "", "", critMax, critClaimed, critReviewer, critAppeal, critFinal, ""]);
               addMerge(3, critStart, rows.length - 1);
             }
             addMerge(0, facStart, rows.length - 1);
