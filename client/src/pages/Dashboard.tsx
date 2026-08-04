@@ -2435,8 +2435,6 @@ export default function Dashboard() {
               rows.push(["", "", "", `${criteriaKey} — Total`, "", "", critMax, critClaimed, critReviewer, critAppeal, critFinal, ""]);
               addMerge(3, critStart, rows.length - 1);
             }
-            // Grand total row for person
-            rows.push(["", "", "", "Grand Total", "", "", "", "", "", "", totalScore, totalScore]);
             addMerge(0, facStart, rows.length - 1);
             addMerge(1, facStart, rows.length - 1);
             addMerge(2, facStart, rows.length - 1);
