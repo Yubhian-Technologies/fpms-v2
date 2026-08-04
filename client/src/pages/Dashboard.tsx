@@ -2392,7 +2392,8 @@ export default function Dashboard() {
 
             const facStart = rows.length;
             let firstFac = true;
-            for (const [criteriaKey, critSubs] of criteriaMap) {
+            const criteriaEntries = [...criteriaMap.entries()];
+            for (const [criteriaKey, critSubs] of criteriaEntries) {
               const critStart = rows.length;
               const subModMap = new Map<string, any[]>();
               for (const sub of critSubs) {
@@ -2404,7 +2405,6 @@ export default function Dashboard() {
               for (const [smKey, smSubs] of subModMap) {
                 const smStart = rows.length;
                 smSubs.forEach((sub: any, smIdx: number) => {
-                  const isLast = sub === subs[subs.length - 1];
                   rows.push([
                     firstFac ? sno : "",
                     firstFac ? person.name : "",
@@ -2417,15 +2417,26 @@ export default function Dashboard() {
                     sub.reviewerScore ?? "-",
                     sub.appealerScore ?? "-",
                     sub.finalScore ?? "-",
-                    isLast ? totalScore : "",
+                    "",
                   ]);
                   firstFac = false;
                   firstCrit = false;
                 });
                 addMerge(4, smStart, rows.length - 1);
               }
+              // Module subtotal row
+              const critMax = critSubs.reduce((s: number, sub: any) => s + Number(sub.maxMarks ?? 0), 0);
+              const critClaimed = critSubs.reduce((s: number, sub: any) => s + Number(sub.claimedScore ?? 0), 0);
+              const critReviewer = critSubs.reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+              const critAppeal = critSubs.some((sub: any) => sub.appealerScore != null)
+                ? critSubs.reduce((s: number, sub: any) => s + Number(sub.appealerScore ?? 0), 0)
+                : "-";
+              const critFinal = critSubs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
+              rows.push(["", "", "", `${criteriaKey} — Total`, "", "", critMax, critClaimed, critReviewer, critAppeal, critFinal, ""]);
               addMerge(3, critStart, rows.length - 1);
             }
+            // Grand total row for person
+            rows.push(["", "", "", "Grand Total", "", "", "", "", "", "", totalScore, totalScore]);
             addMerge(0, facStart, rows.length - 1);
             addMerge(1, facStart, rows.length - 1);
             addMerge(2, facStart, rows.length - 1);
