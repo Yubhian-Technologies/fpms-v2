@@ -2575,10 +2575,17 @@ export default function Dashboard() {
         const { colDefs, colLabels } = buildColDefs(hodGroup);
         XLSX.utils.book_append_sheet(wb, buildSheetRows(hodGroup, colDefs, colLabels, "HOD"), "HOD");
       }
-      if (deanGroup.length) {
-        const { colDefs, colLabels } = buildColDefs(deanGroup);
-        XLSX.utils.book_append_sheet(wb, buildSheetRows(deanGroup, colDefs, colLabels, "Deans & Leadership"), "Deans");
-      }
+      // Each dean gets their own sheet (different module sets)
+      const usedSheetNames = new Set(wb.SheetNames);
+      deanGroup.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")).forEach((dean: any) => {
+        const { colDefs, colLabels } = buildColDefs([dean]);
+        const rawName = (dean.name || dean.email || "Dean").replace(/[:\\/?*[\]]/g, "").trim();
+        let sheetName = rawName.slice(0, 31);
+        let suffix = 2;
+        while (usedSheetNames.has(sheetName)) sheetName = rawName.slice(0, 28) + ` ${suffix++}`;
+        usedSheetNames.add(sheetName);
+        XLSX.utils.book_append_sheet(wb, buildSheetRows([dean], colDefs, colLabels, dean.name || ""), sheetName);
+      });
       if (wb.SheetNames.length === 0) return;
       XLSX.writeFile(wb, `${collegeName.replace(/[/\\?*[\]:]/g, "-")}-consolidated-report.xlsx`);
     };
