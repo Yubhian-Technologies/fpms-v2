@@ -2464,6 +2464,116 @@ export default function Dashboard() {
       }
     };
 
+    // ── CONSOLIDATED REPORT: all faculty × all tasks matrix ──
+    const exportConsolidatedReport = () => {
+      const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
+      const academicYear = "2024-2025";
+
+      const ADMIN_ROLES = new Set(["committee", "internal committee", "principle", "principal", "vice principle", "vice principal", "vice-principal", "viceprincipal", "director"]);
+      const allFaculty = staffList.filter((s: any) => !ADMIN_ROLES.has(String(s.role || "").toLowerCase()));
+
+      // Collect all unique criteria and tasks in first-appearance order (across all faculty)
+      const criteriaOrder: string[] = [];
+      const criteriaSet = new Set<string>();
+      const tasksByCriteria: Record<string, string[]> = {};
+      const taskSetByCriteria: Record<string, Set<string>> = {};
+
+      for (const s of allFaculty) {
+        for (const sub of (s.submissions || [])) {
+          const crit = sub.criteriaName || sub.formTitle || "-";
+          const task = sub.taskName || "-";
+          if (!criteriaSet.has(crit)) {
+            criteriaSet.add(crit);
+            criteriaOrder.push(crit);
+            tasksByCriteria[crit] = [];
+            taskSetByCriteria[crit] = new Set();
+          }
+          if (!taskSetByCriteria[crit].has(task)) {
+            taskSetByCriteria[crit].add(task);
+            tasksByCriteria[crit].push(task);
+          }
+        }
+      }
+
+      // Build column definitions: task cols + criteria total col after each group
+      type ColDef = { type: "task"; crit: string; task: string } | { type: "total"; crit: string };
+      const colDefs: ColDef[] = [];
+      const colLabels: string[] = ["S.No", "Department", "Name of the Faculty"];
+      criteriaOrder.forEach((crit, ci) => {
+        tasksByCriteria[crit].forEach((_task, ti) => {
+          colLabels.push(`${ci + 1}.${ti + 1}`);
+          colDefs.push({ type: "task", crit, task: _task });
+        });
+        colLabels.push(`${ci + 1}`);
+        colDefs.push({ type: "total", crit });
+      });
+      colLabels.push("Total");
+
+      // Sort faculty by department then name
+      const sorted = [...allFaculty].sort((a: any, b: any) => {
+        const d = (a.department || "").localeCompare(b.department || "");
+        return d !== 0 ? d : (a.name || "").localeCompare(b.name || "");
+      });
+
+      const FINALIZED_C = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
+
+      const dataRows: any[][] = [];
+      let sno = 1;
+      for (const s of sorted) {
+        // Build score lookup: crit → task → score
+        const scoreMap: Record<string, Record<string, number>> = {};
+        for (const sub of (s.submissions || [])) {
+          const crit = sub.criteriaName || sub.formTitle || "-";
+          const task = sub.taskName || "-";
+          if (!scoreMap[crit]) scoreMap[crit] = {};
+          const score = FINALIZED_C.has(sub.status)
+            ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0)
+            : Number(sub.reviewerScore ?? 0);
+          scoreMap[crit][task] = (scoreMap[crit][task] || 0) + score;
+        }
+
+        const row: any[] = [sno++, s.department || "—", s.name || s.email || "—"];
+        let grandTotal = 0;
+        for (const col of colDefs) {
+          if (col.type === "task") {
+            const sc = scoreMap[col.crit]?.[col.task];
+            row.push(sc != null ? sc : "");
+            if (sc != null) grandTotal += sc;
+          } else {
+            const critTotal = Object.values(scoreMap[col.crit] || {}).reduce((a: number, v: any) => a + Number(v), 0);
+            row.push(critTotal > 0 ? critTotal : "");
+          }
+        }
+        row.push(grandTotal > 0 ? grandTotal : "");
+        dataRows.push(row);
+      }
+
+      const ncols = colLabels.length;
+      const rows: any[][] = [
+        [collegeName, ...Array(ncols - 1).fill("")],
+        [`FPMS Consolidated data :: ${academicYear}`, ...Array(ncols - 1).fill("")],
+        [],
+        colLabels,
+        ...dataRows,
+      ];
+      const merges: XLSX.Range[] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: ncols - 1 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: ncols - 1 } },
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws["!merges"] = merges;
+      ws["!cols"] = [
+        { wch: 6 }, { wch: 18 }, { wch: 30 },
+        ...colDefs.map((c) => ({ wch: c.type === "total" ? 7 : 5 })),
+        { wch: 8 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Consolidated");
+      XLSX.writeFile(wb, `${collegeName.replace(/[/\\?*[\]:]/g, "-")}-consolidated-report.xlsx`);
+    };
+
     // ── SHARED PDF BUILDER ──
     const buildFacultyPDF = (
       depts: { name: string; staff: any[] }[],
@@ -4194,6 +4304,9 @@ export default function Dashboard() {
                   </Button>
                   <Button variant="outline" size="sm" onClick={exportDetailedReport}>
                     <FileSpreadsheet className="mr-2 h-4 w-4" /> Detailed
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={exportConsolidatedReport}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" /> Consolidated
                   </Button>
                   <Button variant="outline" size="sm" onClick={exportPrincipalPDF}>
                     <FileText className="mr-2 h-4 w-4" /> PDF
