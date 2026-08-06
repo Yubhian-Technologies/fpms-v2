@@ -44,16 +44,16 @@ interface ProfileData {
   overallExperience: number | null;
 }
 
-function profileEndpoint(role: string) {
+function profileEndpoint(role: string, level?: number) {
   const r = String(role || "").trim().toLowerCase();
   if (r === "hod" || r.startsWith("hod")) return "/api/hod/profile";
-  if (r.includes("dean") || r.includes("training")) return "/api/dean/profile";
+  if (Number(level) === 2 || r.includes("dean") || r.includes("training")) return "/api/dean/profile";
   return "/api/faculty/profile";
 }
 
 export default function MyProfile() {
   const { user } = useAuth();
-  const endpoint = profileEndpoint(user?.role || "faculty");
+  const endpoint = profileEndpoint(user?.role || "faculty", user?.level);
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [form, setForm] = useState({
