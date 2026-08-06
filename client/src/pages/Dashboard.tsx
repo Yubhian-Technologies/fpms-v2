@@ -1625,7 +1625,7 @@ export default function Dashboard() {
 
             const selectedStaff = viewerSelectedCollege ? (viewerCollegeFullData[viewerSelectedCollege] || []) : [];
             const adminRolesV = new Set(["principal", "principle", "vice principal", "vice principle", "viceprincipal", "director", "internal committee", "committee", "superadmin", "viewer"]);
-            const deptStaffV = selectedStaff.filter((s: any) => !adminRolesV.has(String(s.role || "").toLowerCase()) && s.department);
+            const deptStaffV = selectedStaff.filter((s: any) => !adminRolesV.has(String(s.role || "").toLowerCase()) && s.department && Number(s.level) !== 2);
             const deptMapV: Record<string, { hods: any[]; faculty: any[] }> = {};
             deptStaffV.forEach((s: any) => {
               const dept = s.department;
@@ -4269,7 +4269,7 @@ export default function Dashboard() {
           const totalAppeals = allCollegeSubs.filter((s: any) => s.status === "appealed").length;
 
           const deptMap = allCollegeStaff
-            .filter((s: any) => s.department)
+            .filter((s: any) => s.department && Number(s.level) !== 2)
             .reduce((acc: any, s: any) => {
               const dept = s.department;
               if (!acc[dept]) acc[dept] = { hods: [], faculty: [] };
@@ -4279,7 +4279,7 @@ export default function Dashboard() {
               return acc;
             }, {});
 
-          const allDeptStaff = allCollegeStaff.filter((s: any) => s.department);
+          const allDeptStaff = allCollegeStaff.filter((s: any) => s.department && Number(s.level) !== 2);
           const totalWithTarget = allDeptStaff.filter((s: any) => s.designationTarget);
           const totalTargetsReached = totalWithTarget.filter((s: any) => {
             const achieved = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
