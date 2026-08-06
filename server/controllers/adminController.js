@@ -315,17 +315,10 @@ export const addDean = async (req, res) => {
       });
     }
 
-    if (!isDeanRole(normalizedRole)) {
+    if (!Number.isFinite(normalizedLevel) || normalizedLevel !== 2) {
       return res.status(400).json({
         success: false,
-        message: "Role must be a dean or training-level role",
-      });
-    }
-
-    if (!Number.isFinite(normalizedLevel)) {
-      return res.status(400).json({
-        success: false,
-        message: "Level is required",
+        message: "Level is required and must be 2 for dean-level roles",
       });
     }
 
@@ -469,7 +462,7 @@ export const getAllDeans = async (req, res) => {
         id: doc.id,
         ...doc.data(),
       }))
-      .filter((item) => isDeanRole(item.role || ""))
+      .filter((item) => Number(item.level) === 2)
       .filter((item) => {
         if (!principalCollege) return true;
         const itemCollege = String(item.college || "")
@@ -1123,7 +1116,7 @@ export const getDeanEligibleRoles = async (req, res) => {
       }))
       .filter(
         (item) =>
-          item.name && Number.isFinite(item.level) && isDeanRole(item.name),
+          item.name && Number.isFinite(item.level) && item.level === 2,
       )
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
@@ -1733,10 +1726,21 @@ export const updateDean = async (req, res) => {
     }
     if (role !== undefined) {
       const normalizedRole = normalizeDeanRole(role);
-      if (!normalizedRole || !isDeanRole(normalizedRole)) {
+      if (!normalizedRole) {
         return res.status(400).json({
           success: false,
           message: "Role must be a dean or training-level role",
+        });
+      }
+      const superadminSnap = await db.collection("superadmin").doc(SUPERADMIN_DOC_ID).get();
+      const superRoles = Array.isArray(superadminSnap.data()?.roles) ? superadminSnap.data().roles : [];
+      const matchedRole = superRoles.find(
+        (r) => String(r.name || "").trim().toLowerCase() === normalizedRole.toLowerCase()
+      );
+      if (!matchedRole || Number(matchedRole.level) !== 2) {
+        return res.status(400).json({
+          success: false,
+          message: "Role must be a Level 2 dean-level role",
         });
       }
       updateData.role = normalizedRole;
@@ -2401,9 +2405,9 @@ export const exportPrincipalReport = async (req, res) => {
       .filter(Boolean);
 
     // Group: deans → own sheet, rest → by department
-    const deans = staff.filter((s) => isDeanRole(s.role));
+    const deans = staff.filter((s) => Number(s.level) === 2);
     const byDept = {};
-    staff.filter((s) => !isDeanRole(s.role) && s.department).forEach((s) => {
+    staff.filter((s) => Number(s.level) !== 2 && s.department).forEach((s) => {
       if (!byDept[s.department]) byDept[s.department] = [];
       byDept[s.department].push(s);
     });

@@ -1581,7 +1581,7 @@ export default function Dashboard() {
               if (ph - sigY < SIG_H + 14) { doc.addPage(); drawHeader(); sigY = 40; }
 
               const roleLC2 = String(staff.role || "").toLowerCase();
-              const isHodStaff2 = roleLC2 === "hod" || roleLC2.includes("dean") || roleLC2.includes("training") || !staff.department;
+              const isHodStaff2 = roleLC2 === "hod" || Number(staff.level) === 2 || !staff.department;
               const boxes2 = isHodStaff2
                 ? [
                     { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
@@ -1634,8 +1634,7 @@ export default function Dashboard() {
               if (r === "hod") deptMapV[dept].hods.push(s); else deptMapV[dept].faculty.push(s);
             });
             const deansV = selectedStaff.filter((s: any) => {
-              const r = String(s.role || "").toLowerCase();
-              return r.includes("dean") || r.includes("training") || (!s.department && !adminRolesV.has(r));
+              return Number(s.level) === 2 || (!s.department && !adminRolesV.has(String(s.role || "").toLowerCase()));
             });
 
             const FINALIZED_V = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
@@ -2322,7 +2321,7 @@ export default function Dashboard() {
       const deptMap: Record<string, any[]> = {};
       const deans: any[] = [];
       faculty.forEach((s: any) => {
-        if (String(s.role || "").toLowerCase().includes("dean") || String(s.role || "").toLowerCase().includes("training")) {
+        if (Number(s.level) === 2) {
           deans.push(s);
         } else if (s.department) {
           if (!deptMap[s.department]) deptMap[s.department] = [];
@@ -2474,10 +2473,7 @@ export default function Dashboard() {
       // Split staff into three groups
       const everyone = staffList.filter((s: any) => !ADMIN_ROLES.has(String(s.role || "").toLowerCase()));
       const isHodRole = (s: any) => String(s.role || "").toLowerCase() === "hod";
-      const isDeanRole = (s: any) => {
-        const r = String(s.role || "").toLowerCase();
-        return r.includes("dean") || r.includes("training") || (!s.department && !isHodRole(s));
-      };
+      const isDeanRole = (s: any) => Number(s.level) === 2;
       const facultyGroup = everyone.filter((s: any) => !isHodRole(s) && !isDeanRole(s));
       const hodGroup = everyone.filter(isHodRole);
       const deanGroup = everyone.filter(isDeanRole);
@@ -2985,7 +2981,7 @@ export default function Dashboard() {
       }
 
       const roleLC = String(staff.role || "").toLowerCase();
-      const isHodStaff = roleLC === "hod" || roleLC.includes("dean") || roleLC.includes("training") || !staff.department;
+      const isHodStaff = roleLC === "hod" || Number(staff.level) === 2 || !staff.department;
       const boxes = isHodStaff
         ? [
             { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
@@ -3191,7 +3187,7 @@ export default function Dashboard() {
       const deptMap: Record<string, any[]> = {};
       const deans: any[] = [];
       faculty.forEach((s: any) => {
-        if (String(s.role || "").toLowerCase().includes("dean") || String(s.role || "").toLowerCase().includes("training")) deans.push(s);
+        if (Number(s.level) === 2) deans.push(s);
         else if (s.department) {
           if (!deptMap[s.department]) deptMap[s.department] = [];
           deptMap[s.department].push(s);
@@ -3574,12 +3570,12 @@ export default function Dashboard() {
                       (s: any) => (s.college || "Unknown College") === selectedCollegeDetail,
                     )).filter((s: any) => s.role !== "committee");
 
-                    const isLeaderRole = (role: string) => {
-                      const r = String(role || "").toLowerCase().trim();
-                      return r === "principle" || r === "vice principle" || r === "director" || r.includes("dean") || r.includes("training");
+                    const isLeaderRole = (s: any) => {
+                      const r = String(s.role || "").toLowerCase().trim();
+                      return r === "principle" || r === "vice principle" || r === "director" || Number(s.level) === 2;
                     };
-                    const leaders = detailStaff.filter((s: any) => isLeaderRole(s.role));
-                    const deptStaff = detailStaff.filter((s: any) => !isLeaderRole(s.role));
+                    const leaders = detailStaff.filter(isLeaderRole);
+                    const deptStaff = detailStaff.filter((s: any) => !isLeaderRole(s));
 
                     const departments = deptStaff.reduce((acc: any, s: any) => {
                       const dept = s.department || "No Department";
@@ -3875,11 +3871,11 @@ export default function Dashboard() {
             };
 
             const wb = XLSX.utils.book_new();
-            const isDean = (role: string) => { const r = String(role || "").toLowerCase(); return r.includes("dean") || r.includes("training"); };
+            const isDean = (s: any) => Number(s.level) === 2;
 
-            const deans = nonCommitteeStaff.filter((s: any) => isDean(s.role));
+            const deans = nonCommitteeStaff.filter(isDean);
             const byDept: Record<string, any[]> = {};
-            nonCommitteeStaff.filter((s: any) => !isDean(s.role) && s.department).forEach((s: any) => {
+            nonCommitteeStaff.filter((s: any) => !isDean(s) && s.department).forEach((s: any) => {
               if (!byDept[s.department]) byDept[s.department] = [];
               byDept[s.department].push(s);
             });
@@ -4295,8 +4291,7 @@ export default function Dashboard() {
             .sort(([a], [b]) => a.localeCompare(b));
 
           const deans = staffList.filter((s: any) => {
-            const r = String(s.role || "").toLowerCase();
-            return r.includes("dean") || r.includes("training") || (!s.department && r !== "hod" && r !== "faculty");
+            return Number(s.level) === 2 || (!s.department && String(s.role || "").toLowerCase() !== "hod" && String(s.role || "").toLowerCase() !== "faculty");
           });
 
           const targetPct = totalWithTarget.length > 0 ? Math.round((totalTargetsReached / totalWithTarget.length) * 100) : 0;

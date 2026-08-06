@@ -73,7 +73,7 @@ export const deanLogin = async (req, res) => {
     const normalizedRole = String(deanData.role || "")
       .trim()
       .toLowerCase();
-    if (!normalizedRole.includes("dean")) {
+    if (Number(deanData.level) !== 2 && !normalizedRole.includes("dean")) {
       return res.status(403).json({
         success: false,
         message: "Dean access only",

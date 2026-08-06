@@ -218,10 +218,7 @@ export default function AddDean() {
               : undefined,
           hasPhd: item.hasPhd ?? item.hasPhD ?? false,
         }))
-        .filter((item: any) => {
-          const r = String(item.role || "").trim().toLowerCase();
-          return r.includes("dean") || r.includes("training");
-        });
+        .filter((item: any) => Number(item.level) === 2);
       setDeans(normalized);
     } catch {
       toast({ title: "Failed to load deans", variant: "destructive" });

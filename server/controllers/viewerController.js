@@ -164,7 +164,7 @@ export const getViewerStats = async (req, res) => {
     });
 
     const excludedRoles = new Set(["committee", "viewer", "superadmin", "internal committee"]);
-    const isDeanRole = (r) => { const n = String(r || "").trim().toLowerCase(); return n.includes("dean") || n.includes("training"); };
+    const isDeanRole = (s) => Number(s.level) === 2;
 
     const staff = usersSnap.docs
       .map((doc) => {
@@ -186,6 +186,7 @@ export const getViewerStats = async (req, res) => {
           name: data.name || "",
           email: data.email || "",
           role,
+          level: Number(data.level ?? 0),
           college,
           department: String(data.department || "").trim(),
           designation: String(data.designation || "").trim(),
@@ -240,7 +241,7 @@ export const getViewerStats = async (req, res) => {
     // Dept-wise aggregation
     const deptKey = (college, dept) => `${college}|||${dept}`;
     const deptMap = {};
-    staff.filter((s) => !isDeanRole(s.role) && s.department).forEach((s) => {
+    staff.filter((s) => !isDeanRole(s) && s.department).forEach((s) => {
       const key = deptKey(s.college, s.department);
       if (!deptMap[key]) {
         deptMap[key] = {
@@ -320,7 +321,7 @@ export const getViewerStats = async (req, res) => {
     const totalReviewed = staff.reduce((sum, s) => sum + s.reviewedCount, 0);
     const totalAccepted = staff.reduce((sum, s) => sum + s.acceptedCount, 0);
     const uniqueDepts = new Set(
-      staff.filter((s) => s.department && !isDeanRole(s.role)).map((s) => `${s.college}|||${s.department}`)
+      staff.filter((s) => s.department && !isDeanRole(s)).map((s) => `${s.college}|||${s.department}`)
     ).size;
 
     const summary = {

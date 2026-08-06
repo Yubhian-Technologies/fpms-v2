@@ -1,9 +1,8 @@
 import { auth, db } from "../config/firebase.js";
 
-const isDeanRole = (value) => {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase();
+const isDeanRole = (value, level) => {
+  if (Number(level) === 2) return true;
+  const normalized = String(value || "").trim().toLowerCase();
   return normalized === "dean" || normalized.includes("dean");
 };
 
@@ -66,7 +65,7 @@ export const deanAuth = async (req, res, next) => {
 
     const resolvedRole = String(firebaseRole || userDocData?.role || "").trim();
 
-    if (!isDeanRole(resolvedRole)) {
+    if (!isDeanRole(resolvedRole, userDocData?.level)) {
       return res.status(403).json({
         success: false,
         message: "Dean access only",
