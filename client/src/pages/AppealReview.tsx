@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useReviewAccess } from "@/hooks/useReviewAccess";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,7 @@ export default function AppealReview() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { phase, deadlineLabel } = useCollegePhase();
+  const { canReviewAppeals: canReviewAppeal } = useReviewAccess();
 
   const [queue, setQueue] = useState<SubmissionItem[]>([]);
   const [resolvedItems, setResolvedItems] = useState<SubmissionItem[]>([]);
@@ -80,14 +82,6 @@ export default function AppealReview() {
   const normalizedUserRole = String(user?.role || "")
     .trim()
     .toLowerCase();
-
-  const canReviewAppeal =
-    normalizedUserRole === "dean" ||
-    normalizedUserRole === "principle" ||
-    normalizedUserRole === "committee" ||
-    normalizedUserRole === "internal committee" ||
-    normalizedUserRole.includes("vice") ||
-    !!user?.internalCommittee;
 
   const isCommittee =
     normalizedUserRole === "committee" ||
