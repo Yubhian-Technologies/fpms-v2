@@ -1976,7 +1976,9 @@ export const updateSubmissionAppealWorkflowRules = async (req, res) => {
     const allowedAppealRoleKeys = new Set([
       "principle",
       "viceprinciple",
+      "viceprincipal",
       "internalcommittee",
+      "director",
     ]);
 
     const hasInvalidRole = normalizedRules.some(

@@ -80,7 +80,8 @@ const isAllowedAppealReviewerRole = (value: string) => {
     key === "principle" ||
     key === "viceprinciple" ||
     key === "viceprincipal" ||
-    key === "internal committee"
+    key === "internalcommittee" ||
+    key === "director"
   );
 };
 
