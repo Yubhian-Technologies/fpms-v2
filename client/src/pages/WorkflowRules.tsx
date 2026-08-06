@@ -95,15 +95,20 @@ const isPrincipalLevel = (name: string) => {
   );
 };
 
-// True for HOD, any Dean variant (Dean_Academics, Dean_COE, etc.), or Training and Placements
-const isHodOrDean = (name: string) => {
+// True for HOD, any Dean variant (Dean_Academics, Dean_COE, etc.), Training & Placements, or any Level 2 role
+const isHodOrDean = (name: string, allRoles?: RoleOption[]) => {
   const key = normalizeRoleKey(name);
-  return key === "hod" || key.includes("dean") || key.includes("training");
+  if (key === "hod" || key.includes("dean") || key.includes("training")) return true;
+  if (allRoles) {
+    const match = allRoles.find((r) => String(r.name || "").trim() === name.trim());
+    if (match && Number(match.level) === 2) return true;
+  }
+  return false;
 };
 
 // Reviewer options allowed per submitter role
 // Faculty   → HOD, IC, Principal, VP, Director
-// HOD/Dean  → Principal, VP, Director only
+// HOD/Dean/Level-2  → Principal, VP, Director only
 const getReviewerOptions = (submitterRole: string, allRoles: RoleOption[]): RoleOption[] => {
   if (normalizeRoleKey(submitterRole) === "faculty") {
     return allRoles.filter((r) => {
@@ -111,7 +116,7 @@ const getReviewerOptions = (submitterRole: string, allRoles: RoleOption[]): Role
       return key === "hod" || key === "internal committee" || isPrincipalLevel(r.name);
     });
   }
-  if (isHodOrDean(submitterRole)) {
+  if (isHodOrDean(submitterRole, allRoles)) {
     return allRoles.filter((r) => isPrincipalLevel(r.name));
   }
   return [];
@@ -177,7 +182,7 @@ export default function WorkflowRules() {
           : [];
 
       // Apply principal-level defaults only when this role has no saved rule yet
-      const mergeDefaults = isHodOrDean(roleName) && principalDefaults.length > 0 && !existing;
+      const mergeDefaults = isHodOrDean(roleName, roleOptions) && principalDefaults.length > 0 && !existing;
 
       const mergeWithDefaults = (list: string[]) =>
         mergeDefaults
