@@ -3383,6 +3383,76 @@ export default function Dashboard() {
 
               <FPMSFormOverview submissions={submissions} />
             </div>
+
+            {/* ── HOD: Department Faculty Table ── */}
+            {isHod && staffList.length > 0 && (
+              <div className="mt-10 space-y-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    Department Faculty
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Submission status and reviewer for each faculty in your department
+                  </p>
+                </div>
+                <div className="rounded-lg border overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        <th className="text-left px-4 py-3 font-medium">Name</th>
+                        <th className="text-left px-4 py-3 font-medium">Designation</th>
+                        <th className="text-center px-4 py-3 font-medium">Submitted</th>
+                        <th className="text-center px-4 py-3 font-medium">Reviewed</th>
+                        <th className="text-center px-4 py-3 font-medium">Accepted</th>
+                        <th className="text-left px-4 py-3 font-medium">Reviewer</th>
+                        <th className="text-center px-4 py-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...staffList].sort((a: any, b: any) => (a.name || "").localeCompare(b.name || "")).map((faculty: any, idx: number) => {
+                        const subs: any[] = faculty.submissions || [];
+                        const submitted = subs.length;
+                        const reviewed = subs.filter((s: any) => s.reviewerScore != null).length;
+                        const accepted = subs.filter((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status)).length;
+                        const pending = subs.filter((s: any) => s.status === "submitted").length;
+                        const appealed = subs.filter((s: any) => s.status === "appealed").length;
+
+                        // Collect distinct reviewer names from reviewed submissions
+                        const reviewerNames = [...new Set(
+                          subs
+                            .filter((s: any) => s.reviewerName)
+                            .map((s: any) => s.reviewerName)
+                        )];
+
+                        const statusBadge = (() => {
+                          if (submitted === 0) return <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 dark:bg-gray-800">Not Submitted</span>;
+                          if (appealed > 0) return <span className="px-2 py-0.5 rounded-full text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30">Appealed</span>;
+                          if (pending > 0) return <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30">Pending Review</span>;
+                          if (accepted === submitted && submitted > 0) return <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30">Completed</span>;
+                          if (reviewed > 0) return <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30">Reviewed</span>;
+                          return <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 dark:bg-gray-800">—</span>;
+                        })();
+
+                        return (
+                          <tr key={faculty.uid || idx} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                            <td className="px-4 py-3 font-medium">{faculty.name || "—"}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{faculty.designation || "—"}</td>
+                            <td className="px-4 py-3 text-center">{submitted || "—"}</td>
+                            <td className="px-4 py-3 text-center">{reviewed || "—"}</td>
+                            <td className="px-4 py-3 text-center">{accepted || "—"}</td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {reviewerNames.length > 0 ? reviewerNames.join(", ") : <span className="text-muted-foreground/50">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center">{statusBadge}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
 

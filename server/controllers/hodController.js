@@ -789,7 +789,7 @@ export const getHodDashboard = async (req, res) => {
       .where("role", "==", "faculty")
       .get();
 
-    const staff = staffSnap.docs.map((doc) => {
+    const staffRaw = staffSnap.docs.map((doc) => {
       const data = doc.data();
       const nameKey = normDesig(data.designation || "");
       const phdKey = `${nameKey}__${data.hasPhd ? "phd" : "nophd"}`;
@@ -803,6 +803,42 @@ export const getHodDashboard = async (req, res) => {
         submissions: submissionsMap.get(data.uid) || [],
       };
     });
+
+    // Collect unique reviewer UIDs so we can attach names
+    const reviewerIds = new Set();
+    staffRaw.forEach((s) => {
+      s.submissions.forEach((sub) => {
+        if (sub.reviewerId && sub.reviewerId !== "system") reviewerIds.add(sub.reviewerId);
+      });
+    });
+
+    // Look up reviewer names — try users collection first, then admins
+    const reviewerNameMap = {};
+    if (reviewerIds.size > 0) {
+      const ids = [...reviewerIds];
+      const [usersSnap, adminsSnap] = await Promise.all([
+        db.collection("users").where("uid", "in", ids.slice(0, 30)).get(),
+        db.collection("admins").where("uid", "in", ids.slice(0, 30)).get(),
+      ]);
+      usersSnap.docs.forEach((doc) => {
+        const d = doc.data();
+        if (d.uid) reviewerNameMap[d.uid] = d.name || d.email || d.uid;
+      });
+      adminsSnap.docs.forEach((doc) => {
+        const d = doc.data();
+        if (d.uid && !reviewerNameMap[d.uid]) reviewerNameMap[d.uid] = d.name || d.email || d.uid;
+      });
+    }
+
+    const staff = staffRaw.map((s) => ({
+      ...s,
+      submissions: s.submissions.map((sub) => ({
+        ...sub,
+        reviewerName: sub.reviewerId && sub.reviewerId !== "system"
+          ? (reviewerNameMap[sub.reviewerId] || null)
+          : sub.reviewerId === "system" ? "System" : null,
+      })),
+    }));
 
     return res.json({
       success: true,
