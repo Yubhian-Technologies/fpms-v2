@@ -495,6 +495,14 @@ export default function Review() {
               ? "Pending"
               : "In Progress";
           const criteriaMap = groupByCriteria(faculty.items);
+          const totalClaimed = faculty.items.reduce((s, i) => s + Number(i.claimedScore ?? 0), 0);
+          const scoredItems = faculty.items.filter((i) => i.reviewerScore != null);
+          const totalAwarded = scoredItems.reduce((s, i) => s + Number(i.reviewerScore ?? 0), 0);
+          const totalFinal = faculty.items.reduce((s, i) => {
+            const fs = i.finalScore != null ? Number(i.finalScore) : (i.reviewerScore != null ? Number(i.reviewerScore) : null);
+            return fs != null ? s + fs : s;
+          }, 0);
+          const hasFinalDiff = scoredItems.length > 0 && totalFinal !== totalAwarded;
 
           return (
             <AccordionItem
@@ -510,7 +518,20 @@ export default function Review() {
                       {email}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    {scoredItems.length > 0 && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">
+                          Submitted: <span className="font-medium text-foreground">{totalClaimed}</span>
+                        </span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground">
+                          Finalized: <span className={`font-medium ${totalAwarded < totalClaimed ? "text-amber-600" : "text-green-600"}`}>
+                            {hasFinalDiff ? totalFinal : totalAwarded}
+                          </span>
+                        </span>
+                      </div>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {total} items
                     </span>
@@ -544,6 +565,9 @@ export default function Review() {
                     ([criteria, { pending, reviewed, byModuleId, formId: cFormId, criteriaId: cCriteriaId }], ci) => {
                       const structureKey = cFormId && cCriteriaId ? `${cFormId}:${cCriteriaId}` : null;
                       const formStructure = structureKey ? formStructureCache[structureKey] : null;
+                      const allCriteriaItems = [...pending, ...reviewed];
+                      const criteriaClaimed = allCriteriaItems.reduce((s, i) => s + Number(i.claimedScore ?? 0), 0);
+                      const criteriaAwarded = reviewed.reduce((s, i) => s + Number(i.reviewerScore ?? 0), 0);
                       return (
                       <AccordionItem
                         key={criteria}
@@ -556,7 +580,14 @@ export default function Review() {
                               <span className="text-muted-foreground mr-1.5">{ci + 1}.</span>
                               {criteria}
                             </span>
-                            <div className="flex gap-3 text-xs">
+                            <div className="flex gap-3 text-xs items-center">
+                              {reviewed.length > 0 && (
+                                <span className="text-muted-foreground">
+                                  Sub: <span className="font-medium text-foreground">{criteriaClaimed}</span>
+                                  {" / "}
+                                  Fin: <span className={`font-medium ${criteriaAwarded < criteriaClaimed ? "text-amber-600" : "text-green-600"}`}>{criteriaAwarded}</span>
+                                </span>
+                              )}
                               {pending.length > 0 && (
                                 <span className="text-destructive font-medium">
                                   {pending.length} pending
