@@ -963,16 +963,16 @@ export const getFacultyPdfData = async (req, res) => {
       }
     } catch { /* ignore */ }
 
-    // Dean name: Level 2 user in the same college
+    // Dean name: Level 2 user in the same college (filter in JS to handle string or number level)
     let deanName = "";
     let deanRole = "";
     try {
       const deanSnap = await db.collection(USERS_COLLECTION)
         .where("college", "==", userData.college)
-        .where("level", "==", 2)
-        .limit(1).get();
-      if (!deanSnap.empty) {
-        const dData = deanSnap.docs[0].data();
+        .get();
+      const deanDoc = deanSnap.docs.find((d) => Number(d.data().level) === 2);
+      if (deanDoc) {
+        const dData = deanDoc.data();
         deanName = dData.name || "";
         deanRole = dData.role || "";
       }
