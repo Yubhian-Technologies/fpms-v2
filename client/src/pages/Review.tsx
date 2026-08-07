@@ -214,6 +214,8 @@ export default function Review() {
   >(null);
   const { phase, deadlineLabel } = useCollegePhase();
 
+  const [principalTab, setPrincipalTab] = useState<"queue" | "edit-scores">("queue");
+
   const isHOD = (user?.role || "").toLowerCase() === "hod";
   const isCommittee = user?.role === "committee";
   const isprincipal = ["principal", "principle", "vice principal", "vice principle", "director"]
@@ -1254,8 +1256,34 @@ export default function Review() {
         </Card>
       </div>
 
+      {/* Principal tabs */}
+      {isprincipal && (
+        <div className="flex gap-1 mb-6 border-b">
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              principalTab === "queue"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setPrincipalTab("queue")}
+          >
+            Review Queue
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              principalTab === "edit-scores"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setPrincipalTab("edit-scores")}
+          >
+            Edit Scores
+          </button>
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-3 items-center">
+      <div className={`mb-6 flex flex-wrap gap-3 items-center ${isprincipal && principalTab === "edit-scores" ? "hidden" : ""}`}>
         <Input
           placeholder="Search by name, email, criteria..."
           value={searchTerm}
@@ -1309,42 +1337,82 @@ export default function Review() {
         )}
       </div>
 
-      {/* Grouped Content */}
-      {allItems.length === 0 ? (
-        <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
-          No submissions available
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
-          No results match the selected filters
-        </div>
-      ) : isCommittee ? (
-        // Committee: College → Role+Dept → Faculty → Criteria
-        renderCommitteeView()
-      ) : isprincipal ? (
-        // principal/VP: Role+Dept → Faculty → Criteria
-        renderGroupTier(
-          groupByKey(
-            filteredItems,
-            (i) =>
-              `${i.userRole || "Staff"}${i.department ? ` — ${i.department}` : ""}`,
-          ),
-          "faculty",
-        )
-      ) : isHOD ? (
-        // HOD: Department → Faculty → Criteria
-        renderGroupTier(
-          groupByKey(filteredItems, (i) => i.department?.trim() || "Unknown Department"),
-          "faculty",
-        )
-      ) : (
-        // Dean / others: Department → Faculty → Criteria
-        renderGroupTier(
-          groupByKey(
-            filteredItems,
-            (i) => i.department?.trim() || "Unknown Department",
-          ),
-          "faculty",
+      {/* Principal: Edit Scores tab — dept-wise HOD & Dean submissions */}
+      {isprincipal && principalTab === "edit-scores" && (() => {
+        const FINALIZED = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
+        const editItems = reviewedItems.filter((i) => FINALIZED.includes(i.status));
+        if (editItems.length === 0) {
+          return (
+            <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
+              No reviewed submissions found to edit
+            </div>
+          );
+        }
+        // Group by department first, then person within each dept
+        const deptMap: Record<string, SubmissionItem[]> = {};
+        editItems.forEach((i) => {
+          const dept = i.department?.trim() || "College Level";
+          if (!deptMap[dept]) deptMap[dept] = [];
+          deptMap[dept].push(i);
+        });
+        return (
+          <div className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Scores edited here are <span className="font-medium text-foreground">final</span>. Edits update both the reviewer score and the final score.
+            </p>
+            {Object.entries(deptMap).sort(([a], [b]) => a.localeCompare(b)).map(([dept, items]) => (
+              <div key={dept} className="border rounded-lg">
+                <div className="px-5 py-3 bg-muted/40 border-b flex items-center justify-between">
+                  <span className="font-semibold text-sm">{dept}</span>
+                  <span className="text-xs text-muted-foreground">{items.length} submission{items.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="px-5 py-4">
+                  {renderFacultyTier(groupByFaculty(items))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Grouped Content — Review Queue tab (or non-principal views) */}
+      {(!isprincipal || principalTab === "queue") && (
+        allItems.length === 0 ? (
+          <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
+            No submissions available
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
+            No results match the selected filters
+          </div>
+        ) : isCommittee ? (
+          // Committee: College → Role+Dept → Faculty → Criteria
+          renderCommitteeView()
+        ) : isprincipal ? (
+          // principal/VP: Role+Dept → Faculty → Criteria
+          renderGroupTier(
+            groupByKey(
+              filteredItems,
+              (i) =>
+                `${i.userRole || "Staff"}${i.department ? ` — ${i.department}` : ""}`,
+            ),
+            "faculty",
+          )
+        ) : isHOD ? (
+          // HOD: Department → Faculty → Criteria
+          renderGroupTier(
+            groupByKey(filteredItems, (i) => i.department?.trim() || "Unknown Department"),
+            "faculty",
+          )
+        ) : (
+          // Dean / others: Department → Faculty → Criteria
+          renderGroupTier(
+            groupByKey(
+              filteredItems,
+              (i) => i.department?.trim() || "Unknown Department",
+            ),
+            "faculty",
+          )
         )
       )}
 
