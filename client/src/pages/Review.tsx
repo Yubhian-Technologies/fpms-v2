@@ -1161,9 +1161,8 @@ export default function Review() {
           ) : (
             <div className="flex justify-end items-center gap-2 pt-1">
               {(() => {
-                const itemPhase = (item.college ? collegePhaseMap[item.college] : null) || phase;
                 const editableStatus = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"].includes(item.status);
-                return ["evaluation", "appeal", "appeal-review"].includes(itemPhase) && editableStatus;
+                return editableStatus;
               })() && !editMode[id] && (
                 <Button
                   size="sm"
@@ -1175,9 +1174,8 @@ export default function Review() {
                 </Button>
               )}
               {(() => {
-                const itemPhase = (item.college ? collegePhaseMap[item.college] : null) || phase;
                 const editableStatus = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"].includes(item.status);
-                return ["evaluation", "appeal", "appeal-review"].includes(itemPhase) && editableStatus;
+                return editableStatus;
               })() && editMode[id] && (
                 <>
                   <Button
@@ -1354,10 +1352,8 @@ export default function Review() {
         )
       )}
 
-      {/* Accepted / finalized submissions — edit during evaluation, appeal, or appeal-review */}
+      {/* Accepted / finalized submissions — always available for score correction */}
       {(() => {
-        const anyPhase = Object.values(collegePhaseMap)[0] || phase;
-        if (!["evaluation", "appeal", "appeal-review"].includes(anyPhase)) return null;
         return (
           <div className="mt-6 border rounded-lg">
             <button

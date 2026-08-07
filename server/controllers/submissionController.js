@@ -1705,15 +1705,6 @@ export const editReview = async (req, res) => {
       return res.status(400).json({ success: false, message: "Only reviewed or accepted submissions can be edited" });
     }
 
-    const saData = await getSuperadminConfig();
-    const collegeDef = (saData.colleges || []).find(
-      (c) => String(c?.name || "").trim().toLowerCase() === (data.college || "").trim().toLowerCase()
-    );
-    const phase = getCollegePhase(collegeDef);
-    if (!["evaluation", "appeal", "appeal-review"].includes(phase)) {
-      return res.status(400).json({ success: false, message: "Score can only be edited during the evaluation, appeal, or appeal-review period" });
-    }
-
     const score = Number(reviewerScore);
     await docRef.update({
       reviewerScore: score,
