@@ -1710,8 +1710,8 @@ export const editReview = async (req, res) => {
       (c) => String(c?.name || "").trim().toLowerCase() === (data.college || "").trim().toLowerCase()
     );
     const phase = getCollegePhase(collegeDef);
-    if (phase !== "evaluation") {
-      return res.status(400).json({ success: false, message: "Score can only be edited during the evaluation period" });
+    if (phase !== "evaluation" && phase !== "appeal") {
+      return res.status(400).json({ success: false, message: "Score can only be edited during the evaluation or appeal period" });
     }
 
     const score = Number(reviewerScore);

@@ -1132,7 +1132,7 @@ export default function Review() {
               {(() => {
                 const itemPhase = (item.college ? collegePhaseMap[item.college] : null) || phase;
                 const editableStatus = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"].includes(item.status);
-                return itemPhase === "evaluation" && editableStatus;
+                return (itemPhase === "evaluation" || itemPhase === "appeal") && editableStatus;
               })() && !editMode[id] && (
                 <Button
                   size="sm"
@@ -1146,7 +1146,7 @@ export default function Review() {
               {(() => {
                 const itemPhase = (item.college ? collegePhaseMap[item.college] : null) || phase;
                 const editableStatus = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"].includes(item.status);
-                return itemPhase === "evaluation" && editableStatus;
+                return (itemPhase === "evaluation" || itemPhase === "appeal") && editableStatus;
               })() && editMode[id] && (
                 <>
                   <Button
@@ -1323,10 +1323,10 @@ export default function Review() {
         )
       )}
 
-      {/* Accepted / finalized submissions — edit during evaluation */}
+      {/* Accepted / finalized submissions — edit during evaluation or appeal */}
       {(() => {
         const anyPhase = Object.values(collegePhaseMap)[0] || phase;
-        if (anyPhase !== "evaluation") return null;
+        if (anyPhase !== "evaluation" && anyPhase !== "appeal") return null;
         return (
           <div className="mt-6 border rounded-lg">
             <button
