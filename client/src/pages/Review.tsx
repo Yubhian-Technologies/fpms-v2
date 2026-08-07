@@ -215,6 +215,9 @@ export default function Review() {
   const { phase, deadlineLabel } = useCollegePhase();
 
   const [principalTab, setPrincipalTab] = useState<"queue" | "edit-scores">("queue");
+  const [allFinalizedItems, setAllFinalizedItems] = useState<SubmissionItem[]>([]);
+  const [loadingAllFinalized, setLoadingAllFinalized] = useState(false);
+  const fetchedAllFinalized = useRef(false);
 
   const isHOD = (user?.role || "").toLowerCase() === "hod";
   const isCommittee = user?.role === "committee";
@@ -966,6 +969,7 @@ export default function Review() {
         r.id === id ? { ...r, reviewerScore: score, reviewerReason: input.remarks, finalScore: score } : r;
 
       setReviewedItems((prev) => prev.map(applyUpdate));
+      setAllFinalizedItems((prev) => prev.map(applyUpdate));
       setEditMode((prev) => ({ ...prev, [id]: false }));
 
       toast({ title: "Review updated successfully." });
@@ -1337,24 +1341,54 @@ export default function Review() {
         )}
       </div>
 
-      {/* Principal: Edit Scores tab — dept-wise HOD & Dean submissions */}
+      {/* Principal: Edit Scores tab — all finalized submissions across the college */}
       {isprincipal && principalTab === "edit-scores" && (() => {
-        const FINALIZED = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
-        const editItems = reviewedItems.filter((i) => FINALIZED.includes(i.status));
-        if (editItems.length === 0) {
+        // Lazy-load on first open
+        if (!fetchedAllFinalized.current && !loadingAllFinalized) {
+          fetchedAllFinalized.current = true;
+          setLoadingAllFinalized(true);
+          api.get("/api/submissions/college-all-finalized").then((r) => {
+            const data: SubmissionItem[] = Array.isArray(r.data?.data) ? r.data.data : [];
+            setAllFinalizedItems(data);
+            setReviewInputs((prev) => {
+              const next = { ...prev };
+              data.forEach((item) => {
+                const id = String(item.id || "").trim();
+                if (!id || next[id]) return;
+                next[id] = {
+                  verifiedScore: item.reviewerScore != null ? String(item.reviewerScore) : "",
+                  remarks: item.reviewerReason || "",
+                };
+              });
+              return next;
+            });
+          }).catch(() => {}).finally(() => setLoadingAllFinalized(false));
+        }
+
+        if (loadingAllFinalized) {
           return (
-            <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
-              No reviewed submissions found to edit
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           );
         }
-        // Group by department first, then person within each dept
+
+        if (allFinalizedItems.length === 0) {
+          return (
+            <div className="text-center py-16 border rounded-lg bg-muted/30 text-muted-foreground">
+              No finalized submissions found
+            </div>
+          );
+        }
+
+        // Group by department
         const deptMap: Record<string, SubmissionItem[]> = {};
-        editItems.forEach((i) => {
+        allFinalizedItems.forEach((i) => {
           const dept = i.department?.trim() || "College Level";
           if (!deptMap[dept]) deptMap[dept] = [];
           deptMap[dept].push(i);
         });
+
         return (
           <div className="space-y-6">
             <p className="text-sm text-muted-foreground">

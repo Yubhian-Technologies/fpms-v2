@@ -20,6 +20,7 @@ import {
   getFormOrder,
   getCollegePhases,
   getAllReviewedSubmissions,
+  getCollegeAllFinalized,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -63,6 +64,9 @@ router.delete("/:id", deleteSubmission);
 
 // All finalized (accepted/reviewed) submissions in reviewer's scope — for editing during evaluation
 router.get("/all-reviewed", getAllReviewedSubmissions);
+
+// All finalized submissions across the entire college — for principal Edit Scores tab
+router.get("/college-all-finalized", getCollegeAllFinalized);
 
 // College phase map (lets review page check phase per submission regardless of reviewer's own college)
 router.get("/college-phases", getCollegePhases);

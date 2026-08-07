@@ -1858,3 +1858,27 @@ export const getFormStructure = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// Returns ALL finalized submissions for the entire college — for principal Edit Scores tab.
+// Includes faculty, HOD, and dean submissions across all departments.
+export const getCollegeAllFinalized = async (req, res) => {
+  try {
+    const { userId, userRole, college } = await resolveReviewerScope(req);
+    if (!isPrincipalRole(userRole) && !isCommitteeRole(userRole)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+    if (!college) {
+      return res.status(403).json({ success: false, message: "College not found" });
+    }
+    const FINALIZED = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
+    const snap = await db.collection("submissions").where("college", "==", college).get();
+    const submissions = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((s) => FINALIZED.includes(s.status))
+      .filter((s) => s.userId !== userId);
+    return res.json({ success: true, data: submissions });
+  } catch (err) {
+    console.error("getCollegeAllFinalized error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
