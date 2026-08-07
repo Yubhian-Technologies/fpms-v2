@@ -945,14 +945,22 @@ export const getFacultyPdfData = async (req, res) => {
       if (hodDoc.exists) hodName = hodDoc.data().name || hodName;
     } catch { /* fallback to email */ }
 
-    // Principal name: fetch from users collection (role = principal, same college)
+    // Principal/Director name: fetch from users collection (role = principal/director/VP, same college)
     let principalName = "";
+    let principalRole = "Principal";
     try {
       const principalSnap = await db.collection(USERS_COLLECTION)
         .where("college", "==", userData.college)
-        .where("role", "in", ["principal", "principle", "admin", "director"])
+        .where("role", "in", ["principal", "principle", "vice principal", "vice principle", "director"])
         .limit(1).get();
-      if (!principalSnap.empty) principalName = principalSnap.docs[0].data().name || "";
+      if (!principalSnap.empty) {
+        const pData = principalSnap.docs[0].data();
+        principalName = pData.name || "";
+        const rawRole = String(pData.role || "").trim().toLowerCase();
+        if (rawRole === "director") principalRole = "Director";
+        else if (rawRole === "vice principal" || rawRole === "vice principle") principalRole = "Vice Principal";
+        else principalRole = "Principal";
+      }
     } catch { /* ignore */ }
 
     const submissions = subsSnap.docs.map((doc) => {
@@ -996,6 +1004,7 @@ export const getFacultyPdfData = async (req, res) => {
         },
         hodName,
         principalName,
+        principalRole,
         submissions,
       },
     });
@@ -1056,13 +1065,19 @@ export const getPrincipalName = async (req, res) => {
   try {
     const hodDoc = await db.collection(USERS_COLLECTION).doc(req.hod.uid).get();
     const college = hodDoc.exists ? (hodDoc.data().college || req.hod.college) : req.hod.college;
-    if (!college) return res.json({ success: true, data: { name: "" } });
+    if (!college) return res.json({ success: true, data: { name: "", role: "Principal" } });
     const snap = await db.collection(USERS_COLLECTION)
       .where("college", "==", college)
-      .where("role", "in", ["principal", "principle", "admin", "director"])
+      .where("role", "in", ["principal", "principle", "vice principal", "vice principle", "director"])
       .limit(1).get();
-    const name = snap.empty ? "" : (snap.docs[0].data().name || "");
-    return res.json({ success: true, data: { name } });
+    if (snap.empty) return res.json({ success: true, data: { name: "", role: "Principal" } });
+    const pData = snap.docs[0].data();
+    const name = pData.name || "";
+    const rawRole = String(pData.role || "").trim().toLowerCase();
+    const role = rawRole === "director" ? "Director"
+      : (rawRole === "vice principal" || rawRole === "vice principle") ? "Vice Principal"
+      : "Principal";
+    return res.json({ success: true, data: { name, role } });
   } catch (err) {
     console.error("[getPrincipalName]", err);
     return res.status(500).json({ success: false, message: "Server error" });

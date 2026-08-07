@@ -743,7 +743,7 @@ export default function Faculty() {
   const generateFacultyPDF = async (facultyId: string) => {
     try {
       const res = await api.get(`/api/hod/faculty-pdf-data/${facultyId}`);
-      const { faculty, hodName, principalName, submissions } = res.data.data;
+      const { faculty, hodName, principalName, principalRole, submissions } = res.data.data;
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const PW = doc.internal.pageSize.getWidth();   // 297
@@ -985,7 +985,7 @@ export default function Faculty() {
       const positions = [
         { x: ML, label: "Submitted and Accepted By", role: "Faculty", name: faculty.name || "" },
         { x: PW / 2 - sigBoxW / 2, label: "Verified and Forwarded By", role: "HoD", name: hodName },
-        { x: PW - MR - sigBoxW, label: "Approved By", role: "Principal", name: principalName || "Principal" },
+        { x: PW - MR - sigBoxW, label: "Approved By", role: principalRole || "Principal", name: principalName || "—" },
       ];
 
       doc.setFontSize(8);

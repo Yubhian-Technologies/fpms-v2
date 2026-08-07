@@ -1402,9 +1402,11 @@ export default function Dashboard() {
 
             const downloadViewerFacultyPDF = async (staff: any, college: string) => {
               let principalName = "";
+              let principalRole = "Principal";
               try {
                 const res = await api.get(`/api/viewer/principal-name?college=${encodeURIComponent(college)}`);
                 principalName = res.data?.data?.name || "";
+                principalRole = res.data?.data?.role || "Principal";
               } catch { /* ignore */ }
 
               const staffData = viewerCollegeFullData[college] || [];
@@ -1585,12 +1587,12 @@ export default function Dashboard() {
               const boxes2 = isHodStaff2
                 ? [
                     { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
-                    { label: "Approved By", name: principalName || "—", role: "Principal" },
+                    { label: "Approved By", name: principalName || "—", role: principalRole },
                   ]
                 : [
                     { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
                     { label: "Verified and Forwarded By", name: hodName || "—", role: "HoD" },
-                    { label: "Approved By", name: principalName || "—", role: "Principal" },
+                    { label: "Approved By", name: principalName || "—", role: principalRole },
                   ];
               const boxGap2 = 4;
               const boxW2 = (pw - ML - MR - boxGap2 * (boxes2.length - 1)) / boxes2.length;
@@ -2591,6 +2593,7 @@ export default function Dashboard() {
       depts: { name: string; staff: any[] }[],
       principalName: string,
       hodName: string,
+      principalRole: string = "Principal",
     ) => {
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
@@ -2642,7 +2645,7 @@ export default function Dashboard() {
 
         ([
           [hodX, "Head of Department", resolvedHodName],
-          [principalX, "Principal", principalName],
+          [principalX, principalRole, principalName],
         ] as [number, string, string][]).forEach(([x, role, name]) => {
           const bx = x - 46; const by = topY + 4;
           doc.setDrawColor(180, 180, 180);
@@ -2803,14 +2806,17 @@ export default function Dashboard() {
     // ── INDIVIDUAL FACULTY DETAILED PDF ──
     const downloadFacultyPDF = async (staff: any) => {
       let principalName = "";
+      let principalRole = "Principal";
       try {
         const res = await api.get("/api/admin/principal-name");
         principalName = res.data?.data?.name || "";
+        principalRole = res.data?.data?.role || "Principal";
       } catch { /* ignore */ }
       if (!principalName) {
         try {
           const res = await api.get("/api/hod/principal-name");
           principalName = res.data?.data?.name || "";
+          principalRole = res.data?.data?.role || "Principal";
         } catch { /* ignore */ }
       }
 
@@ -2985,12 +2991,12 @@ export default function Dashboard() {
       const boxes = isHodStaff
         ? [
             { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
-            { label: "Approved By", name: principalName || "—", role: "Principal" },
+            { label: "Approved By", name: principalName || "—", role: principalRole },
           ]
         : [
             { label: "Submitted and Accepted By", name: staff.name || "—", role: "Faculty" },
             { label: "Verified and Forwarded By", name: hodName || "—", role: "HoD" },
-            { label: "Approved By", name: principalName || "—", role: "Principal" },
+            { label: "Approved By", name: principalName || "—", role: principalRole },
           ];
       const boxGap = 4;
       const boxW = (pw - ML - MR - boxGap * (boxes.length - 1)) / boxes.length;
@@ -3040,14 +3046,17 @@ export default function Dashboard() {
     // ── CONSOLIDATED DEPARTMENT PORTRAIT PDF ──
     const buildConsolidatedDeptPDF = async (deptName: string, deptStaff: any[]) => {
       let principalName = "";
+      let principalRole = "Principal";
       try {
         const res = await api.get("/api/admin/principal-name");
         principalName = res.data?.data?.name || "";
+        principalRole = res.data?.data?.role || "Principal";
       } catch { /* ignore */ }
       if (!principalName) {
         try {
           const res = await api.get("/api/hod/principal-name");
           principalName = res.data?.data?.name || "";
+          principalRole = res.data?.data?.role || "Principal";
         } catch { /* ignore */ }
       }
 
@@ -3200,31 +3209,37 @@ export default function Dashboard() {
       if (deans.length) depts.push({ name: "Deans", staff: deans });
 
       let principalName = "";
+      let principalRoleLocal = "Principal";
       try {
         const res = await api.get("/api/admin/principal-name");
         principalName = res.data?.data?.name || "";
+        principalRoleLocal = res.data?.data?.role || "Principal";
       } catch { /* ignore */ }
       if (!principalName) {
         try {
           const res = await api.get("/api/hod/principal-name");
           principalName = res.data?.data?.name || "";
+          principalRoleLocal = res.data?.data?.role || "Principal";
         } catch { /* ignore */ }
       }
-      buildFacultyPDF(depts, principalName, "Head of Department");
+      buildFacultyPDF(depts, principalName, "Head of Department", principalRoleLocal);
     };
 
     // ── HOD PDF EXPORT ──
     const exportHodPDF = async () => {
       const dept = user.department || "Department";
       let principalName = "";
+      let principalRole = "Principal";
       try {
         const res = await api.get("/api/hod/principal-name");
         principalName = res.data?.data?.name || "";
+        principalRole = res.data?.data?.role || "Principal";
       } catch { /* fallback to empty */ }
       buildFacultyPDF(
         [{ name: dept, staff: staffList }],
         principalName,
         user.name || user.email || "HOD",
+        principalRole,
       );
     };
 

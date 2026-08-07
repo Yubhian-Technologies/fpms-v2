@@ -413,13 +413,19 @@ export const getViewerCollegeDashboard = async (req, res) => {
 export const getViewerPrincipalName = async (req, res) => {
   try {
     const college = String(req.query.college || "").trim();
-    if (!college) return res.json({ success: true, data: { name: "" } });
+    if (!college) return res.json({ success: true, data: { name: "", role: "Principal" } });
     const snap = await db.collection("users")
       .where("college", "==", college)
-      .where("role", "in", ["principal", "principle"])
+      .where("role", "in", ["principal", "principle", "vice principal", "vice principle", "director"])
       .limit(1).get();
-    const name = snap.empty ? "" : (snap.docs[0].data().name || "");
-    return res.json({ success: true, data: { name } });
+    if (snap.empty) return res.json({ success: true, data: { name: "", role: "Principal" } });
+    const pData = snap.docs[0].data();
+    const name = pData.name || "";
+    const rawRole = String(pData.role || "").trim().toLowerCase();
+    const role = rawRole === "director" ? "Director"
+      : (rawRole === "vice principal" || rawRole === "vice principle") ? "Vice Principal"
+      : "Principal";
+    return res.json({ success: true, data: { name, role } });
   } catch (err) {
     console.error("[getViewerPrincipalName]", err);
     return res.status(500).json({ success: false, message: "Server error" });
