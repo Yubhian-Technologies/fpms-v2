@@ -208,9 +208,6 @@ export default function Review() {
   >({});
   // Maps college name → phase — used for edit button so IC users (who may have no college) see correct phase
   const [collegePhaseMap, setCollegePhaseMap] = useState<Record<string, string>>({});
-  const [acceptedItems, setAcceptedItems] = useState<SubmissionItem[]>([]);
-  const [showAccepted, setShowAccepted] = useState(false);
-  const [loadingAccepted, setLoadingAccepted] = useState(false);
   const fetchedStructureKeys = useRef(new Set<string>());
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState<
     string | null
@@ -967,7 +964,6 @@ export default function Review() {
         r.id === id ? { ...r, reviewerScore: score, reviewerReason: input.remarks, finalScore: score } : r;
 
       setReviewedItems((prev) => prev.map(applyUpdate));
-      setAcceptedItems((prev) => prev.map(applyUpdate));
       setEditMode((prev) => ({ ...prev, [id]: false }));
 
       toast({ title: "Review updated successfully." });
@@ -1352,60 +1348,6 @@ export default function Review() {
         )
       )}
 
-      {/* Accepted / finalized submissions — always available for score correction */}
-      {(() => {
-        return (
-          <div className="mt-6 border rounded-lg">
-            <button
-              className="w-full flex items-center justify-between px-5 py-4 text-sm font-medium hover:bg-muted/30 transition-colors"
-              onClick={async () => {
-                if (showAccepted) { setShowAccepted(false); return; }
-                setShowAccepted(true);
-                if (acceptedItems.length > 0) return;
-                setLoadingAccepted(true);
-                try {
-                  const res = await api.get("/api/submissions/all-reviewed");
-                  const data: SubmissionItem[] = Array.isArray(res.data?.data) ? res.data.data : [];
-                  setAcceptedItems(data);
-                  setReviewInputs((prev) => {
-                    const next = { ...prev };
-                    data.forEach((item) => {
-                      const id = String(item.id || "").trim();
-                      if (!id || next[id]) return;
-                      next[id] = {
-                        verifiedScore: item.reviewerScore != null ? String(item.reviewerScore) : "",
-                        remarks: item.reviewerReason || "",
-                      };
-                    });
-                    return next;
-                  });
-                } catch { /* non-fatal */ }
-                finally { setLoadingAccepted(false); }
-              }}
-            >
-              <span className="flex items-center gap-2">
-                <Pencil className="h-4 w-4 text-muted-foreground" />
-                Accepted / Finalized Submissions
-                <span className="text-xs text-muted-foreground font-normal">(edit scores during evaluation)</span>
-              </span>
-              <span className="flex items-center gap-2 text-muted-foreground">
-                {loadingAccepted && <Loader2 className="h-4 w-4 animate-spin" />}
-                {acceptedItems.length > 0 && <span className="text-xs">{acceptedItems.length} submissions</span>}
-                <span>{showAccepted ? "▲" : "▼"}</span>
-              </span>
-            </button>
-            {showAccepted && !loadingAccepted && (
-              <div className="px-5 pb-5 pt-2 border-t">
-                {acceptedItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No finalized submissions found</p>
-                ) : (
-                  renderFacultyTier(groupByFaculty(acceptedItems))
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
     </DashboardLayout>
   );
 }
