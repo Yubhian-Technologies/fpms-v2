@@ -963,6 +963,21 @@ export const getFacultyPdfData = async (req, res) => {
       }
     } catch { /* ignore */ }
 
+    // Dean name: Level 2 user in the same college
+    let deanName = "";
+    let deanRole = "";
+    try {
+      const deanSnap = await db.collection(USERS_COLLECTION)
+        .where("college", "==", userData.college)
+        .where("level", "==", 2)
+        .limit(1).get();
+      if (!deanSnap.empty) {
+        const dData = deanSnap.docs[0].data();
+        deanName = dData.name || "";
+        deanRole = dData.role || "";
+      }
+    } catch { /* ignore */ }
+
     const submissions = subsSnap.docs.map((doc) => {
       const d = doc.data();
       return {
@@ -1003,6 +1018,8 @@ export const getFacultyPdfData = async (req, res) => {
           targetScore,
         },
         hodName,
+        deanName,
+        deanRole,
         principalName,
         principalRole,
         submissions,

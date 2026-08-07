@@ -743,7 +743,7 @@ export default function Faculty() {
   const generateFacultyPDF = async (facultyId: string) => {
     try {
       const res = await api.get(`/api/hod/faculty-pdf-data/${facultyId}`);
-      const { faculty, hodName, principalName, principalRole, submissions } = res.data.data;
+      const { faculty, hodName, deanName, deanRole, principalName, principalRole, submissions } = res.data.data;
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const PW = doc.internal.pageSize.getWidth();   // 297
@@ -766,20 +766,35 @@ export default function Faculty() {
       doc.setTextColor(60, 60, 60);
       doc.text(`Department of ${faculty.department || "Department"}`, PW / 2, 18, { align: "center" });
 
+      // Dean name line (if available)
+      let fpmsY = 24;
+      let academicY = 30;
+      let dividerY = 33;
+      if (deanName) {
+        const deanLabel = deanRole ? `${deanRole}: ${deanName}` : `Dean: ${deanName}`;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(80, 80, 80);
+        doc.text(deanLabel, PW / 2, 23, { align: "center" });
+        fpmsY = 29;
+        academicY = 35;
+        dividerY = 38;
+      }
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
-      doc.text("FACULTY PERFORMANCE MANAGEMENT SYSTEM", PW / 2, 24, { align: "center" });
+      doc.text("FACULTY PERFORMANCE MANAGEMENT SYSTEM", PW / 2, fpmsY, { align: "center" });
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
       doc.setTextColor(60, 60, 60);
-      doc.text(`Academic Year: ${academicYear}`, PW / 2, 30, { align: "center" });
+      doc.text(`Academic Year: ${academicYear}`, PW / 2, academicY, { align: "center" });
 
       // Divider
       doc.setDrawColor(0, 82, 165);
       doc.setLineWidth(0.5);
-      doc.line(ML, 33, PW - MR, 33);
+      doc.line(ML, dividerY, PW - MR, dividerY);
 
       // ── FACULTY INFO TABLE ──
       const doj = faculty.dateOfJoining
@@ -821,7 +836,7 @@ export default function Faculty() {
 
       autoTable(doc, {
         body: infoRows.map((row) => row.filter((_, i) => i < 4)),
-        startY: 36,
+        startY: dividerY + 3,
         margin: { left: ML, right: MR },
         tableWidth: usableW,
         styles: { fontSize: 8.5, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.2 },
