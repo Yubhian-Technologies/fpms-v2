@@ -62,7 +62,7 @@ const normalizeRoleForAccess = (role?: string) => {
   }
 
   // Known explicit roles pass through unchanged
-  const KNOWN_ROLES = new Set(["faculty", "hod", "committee", "viewer", "superadmin"]);
+  const KNOWN_ROLES = new Set(["faculty", "hod", "committee", "viewer", "guest", "superadmin"]);
   if (KNOWN_ROLES.has(value)) return value;
 
   // Any unrecognized role (e.g. "training & placements", "t&p", department-named roles)
@@ -114,6 +114,7 @@ const getNavItems = (
         "dean",
         "vice principle",
         "viewer",
+        "guest",
       ],
     },
     {
@@ -138,6 +139,12 @@ const getNavItems = (
       icon: UserCheck,
       label: "Committee Member",
       href: "/superadmin/committee-member",
+      roles: ["superadmin"],
+    },
+    {
+      icon: Users,
+      label: "Guest Users",
+      href: "/superadmin/guests",
       roles: ["superadmin"],
     },
     {
@@ -273,6 +280,7 @@ const getNavItems = (
         "vice principle",
         "superadmin",
         "viewer",
+        "guest",
       ],
     },
   ];

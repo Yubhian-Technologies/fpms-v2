@@ -431,3 +431,52 @@ export const getViewerPrincipalName = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+export const getGuestFacultySubmissions = async (req, res) => {
+  try {
+    const userId = String(req.query.userId || "").trim();
+    if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
+
+    const [userDoc, subsSnap] = await Promise.all([
+      db.collection("users").doc(userId).get(),
+      db.collection("submissions").where("userId", "==", userId).get(),
+    ]);
+
+    if (!userDoc.exists) return res.status(404).json({ success: false, message: "User not found" });
+    const u = userDoc.data();
+
+    const submissions = subsSnap.docs.map((doc) => {
+      const d = doc.data();
+      return {
+        id: doc.id,
+        criteriaName: d.criteriaName || "",
+        moduleName: d.moduleName || "",
+        taskName: d.taskName || "",
+        maxMarks: d.maxMarks != null ? Number(d.maxMarks) : null,
+        claimedScore: d.claimedScore != null ? Number(d.claimedScore) : null,
+        reviewerScore: d.reviewerScore != null ? Number(d.reviewerScore) : null,
+        appealerScore: d.appealerScore != null ? Number(d.appealerScore) : null,
+        finalScore: d.finalScore != null ? Number(d.finalScore) : null,
+        status: d.status || "",
+      };
+    }).sort((a, b) =>
+      (a.criteriaName || "").localeCompare(b.criteriaName || "") ||
+      (a.moduleName || "").localeCompare(b.moduleName || "") ||
+      (a.taskName || "").localeCompare(b.taskName || "")
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        name: u.name || "",
+        email: u.email || "",
+        department: u.department || "",
+        designation: u.designation || "",
+        submissions,
+      },
+    });
+  } catch (err) {
+    console.error("[getGuestFacultySubmissions]", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

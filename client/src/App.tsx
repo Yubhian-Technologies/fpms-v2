@@ -61,6 +61,7 @@ import FormPreviewScreen from "./pages/FormPreviewScreen";
 import WorkflowRules from "./pages/WorkflowRules";
 import MyAppeals from "./pages/MyAppeals";
 import AddViewer from "./pages/AddViewer";
+import AddGuest from "./pages/AddGuest";
 import ChangePassword from "./pages/ChangePassword";
 import CommitteeMember from "./pages/CommitteeMember";
 import CollegeDeadlines from "./pages/CollegeDeadlines";
@@ -338,6 +339,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["superadmin"]}>
             <CommitteeMember />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/superadmin/guests"
+        element={
+          <ProtectedRoute allowedRoles={["superadmin"]}>
+            <AddGuest />
           </ProtectedRoute>
         }
       />

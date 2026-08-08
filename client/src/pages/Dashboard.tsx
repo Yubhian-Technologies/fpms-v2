@@ -127,6 +127,8 @@ export default function Dashboard() {
   const [viewerSelectedDept, setViewerSelectedDept] = useState<string | null>(null);
   const [viewerDeptLoading, setViewerDeptLoading] = useState(false);
   const [isLoadingCollegeFaculty, setIsLoadingCollegeFaculty] = useState(false);
+  const [expandedFacultyForModules, setExpandedFacultyForModules] = useState<string | null>(null);
+  const [facultySubmissionsCache, setFacultySubmissionsCache] = useState<Record<string, { submissions: any[]; loading: boolean }>>({});
   const [deptCardSearch, setDeptCardSearch] = useState<string>("");
   const [roleFormColumnsByRole, setRoleFormColumnsByRole] = useState<
     Record<string, string[]>
@@ -202,8 +204,9 @@ export default function Dashboard() {
         };
 
         // ─── ROLE-SPECIFIC ───
-        if (user.role === "viewer") {
-          const res = await api.get("/api/viewer/stats", {
+        if (user.role === "viewer" || user.role === "guest") {
+          const endpoint = user.role === "guest" ? "/api/guest/stats" : "/api/viewer/stats";
+          const res = await api.get(endpoint, {
             headers: { "x-user-id": user.uid, "x-user-role": user.role },
           });
           if (res.data.success) setViewerStats(res.data.data);
@@ -591,7 +594,9 @@ export default function Dashboard() {
     if (collegeFacultyCache[collegeName]) return;
     setIsLoadingCollegeFaculty(true);
     try {
-      const res = await api.get(`/api/viewer/college-faculty?college=${encodeURIComponent(collegeName)}`);
+      const isGuest = user?.role === "guest";
+      const base = isGuest ? "/api/guest" : "/api/viewer";
+      const res = await api.get(`${base}/college-faculty?college=${encodeURIComponent(collegeName)}`);
       setCollegeFacultyCache((prev) => ({ ...prev, [collegeName]: res.data.data || [] }));
     } catch {
       setCollegeFacultyCache((prev) => ({ ...prev, [collegeName]: [] }));
@@ -600,7 +605,23 @@ export default function Dashboard() {
     }
   };
 
-  if (user?.role === "viewer") {
+  const handleFacultyModulesClick = async (uid: string) => {
+    if (expandedFacultyForModules === uid) {
+      setExpandedFacultyForModules(null);
+      return;
+    }
+    setExpandedFacultyForModules(uid);
+    if (facultySubmissionsCache[uid]) return;
+    setFacultySubmissionsCache((prev) => ({ ...prev, [uid]: { submissions: [], loading: true } }));
+    try {
+      const res = await api.get(`/api/guest/faculty-submissions?userId=${uid}`);
+      setFacultySubmissionsCache((prev) => ({ ...prev, [uid]: { submissions: res.data.data?.submissions || [], loading: false } }));
+    } catch {
+      setFacultySubmissionsCache((prev) => ({ ...prev, [uid]: { submissions: [], loading: false } }));
+    }
+  };
+
+  if (user?.role === "viewer" || user?.role === "guest") {
     const stats = viewerStats;
     const summary = stats?.summary || {};
     const collegeStats: any[] = (stats?.collegeStats || []).sort((a: any, b: any) => b.completionPct - a.completionPct);
@@ -664,7 +685,7 @@ export default function Dashboard() {
     };
 
     return (
-      <DashboardLayout title="Institution Snapshot" badge="2025-26">
+      <DashboardLayout title={user?.role === "guest" ? "Guest Overview" : "Institution Snapshot"} badge="2025-26">
         <div className="space-y-6">
 
           {/* ── Row 1: 6 summary stat cards ── */}
@@ -918,34 +939,64 @@ export default function Dashboard() {
                                 <div>
                                   <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1.5">Submitted ({sub.length})</p>
                                   <div className="space-y-1.5">
-                                    {sub.map((f: any) => (
-                                      <div key={f.uid} className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                                        <div className="flex justify-between items-start gap-1">
-                                          <div>
-                                            <p className="font-medium">{f.name || "—"}</p>
-                                            <p className="text-muted-foreground">{f.department} · {f.designation}</p>
+                                    {sub.map((f: any) => {
+                                      const mobileExpanded = expandedFacultyForModules === f.uid;
+                                      const mobileModData = facultySubmissionsCache[f.uid];
+                                      return (
+                                        <div key={f.uid} className="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+                                          <div className="flex justify-between items-start gap-1">
+                                            <div>
+                                              <p className="font-medium">{f.name || "—"}</p>
+                                              <p className="text-muted-foreground">{f.department} · {f.designation}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                              <StaffStatusBadge status={f.staffStatus} />
+                                              {f.overallStatus && (
+                                                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                                  f.overallStatus === "Completed" ? "bg-emerald-100 text-emerald-700" :
+                                                  f.overallStatus === "Pending Review" ? "bg-teal-100 text-teal-700" :
+                                                  f.overallStatus === "Appealed" ? "bg-yellow-100 text-yellow-700" :
+                                                  "bg-slate-100 text-slate-700"
+                                                }`}>{f.overallStatus}</span>
+                                              )}
+                                            </div>
                                           </div>
-                                          <div className="flex flex-col items-end gap-1 shrink-0">
-                                            <StaffStatusBadge status={f.staffStatus} />
-                                            {f.overallStatus && (
-                                              <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                                f.overallStatus === "Completed" ? "bg-emerald-100 text-emerald-700" :
-                                                f.overallStatus === "Pending Review" ? "bg-teal-100 text-teal-700" :
-                                                f.overallStatus === "Appealed" ? "bg-yellow-100 text-yellow-700" :
-                                                "bg-slate-100 text-slate-700"
-                                              }`}>{f.overallStatus}</span>
-                                            )}
-                                          </div>
+                                          {f.targetScore > 0 && (
+                                            <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
+                                              <span>Target: <span className="font-medium text-foreground">{f.targetScore}</span></span>
+                                              <span>Claimed: <span className="font-medium text-foreground">{f.claimedScore}</span></span>
+                                              <span>Reviewer: <span className="font-medium text-foreground">{f.reviewerScore}</span></span>
+                                            </div>
+                                          )}
+                                          {user?.role === "guest" && (
+                                            <div className="mt-1.5">
+                                              <button onClick={() => handleFacultyModulesClick(f.uid)} className="text-primary text-[10px] font-medium hover:underline">
+                                                {mobileExpanded ? "Hide modules ▲" : "View modules ▼"}
+                                              </button>
+                                              {mobileExpanded && (
+                                                <div className="mt-1.5 space-y-1.5 text-[10px]">
+                                                  {mobileModData?.loading ? (
+                                                    <p className="text-muted-foreground">Loading…</p>
+                                                  ) : !mobileModData || mobileModData.submissions.length === 0 ? (
+                                                    <p className="text-muted-foreground">No submissions.</p>
+                                                  ) : mobileModData.submissions.map((s: any) => (
+                                                    <div key={s.id} className="rounded border bg-background/50 px-2 py-1">
+                                                      <p className="font-medium text-[9px] text-indigo-700 uppercase">{s.criteriaName} › {s.moduleName}</p>
+                                                      <p className="mt-0.5">{s.taskName || "Task"}</p>
+                                                      <div className="flex gap-2 mt-0.5 text-muted-foreground">
+                                                        <span>Claimed: <b>{s.claimedScore ?? "—"}</b></span>
+                                                        <span>Reviewer: <b>{s.reviewerScore ?? "—"}</b></span>
+                                                        <span>Final: <b className="text-emerald-600">{s.finalScore ?? "—"}</b></span>
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
-                                        {f.targetScore > 0 && (
-                                          <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
-                                            <span>Target: <span className="font-medium text-foreground">{f.targetScore}</span></span>
-                                            <span>Claimed: <span className="font-medium text-foreground">{f.claimedScore}</span></span>
-                                            <span>Reviewer: <span className="font-medium text-foreground">{f.reviewerScore}</span></span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               )}
@@ -1089,6 +1140,7 @@ export default function Dashboard() {
                             "inactive": "bg-gray-100 text-gray-600",
                             "other": "bg-gray-100 text-gray-600",
                           };
+                          const isGuestRole = user?.role === "guest";
                           const FacultyTable = ({ rows, emptyMsg, showStatus, showScores }: { rows: any[]; emptyMsg: string; showStatus?: boolean; showScores?: boolean }) => (
                             rows.length === 0
                               ? <p className="text-xs text-muted-foreground py-2 text-center">{emptyMsg}</p>
@@ -1110,66 +1162,155 @@ export default function Dashboard() {
                                           <th className="text-right px-3 py-1.5 font-medium">%</th>
                                           <th className="text-left px-3 py-1.5 font-medium">Status</th>
                                         </>}
+                                        {isGuestRole && <th className="text-center px-3 py-1.5 font-medium">Modules</th>}
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {rows.map((f: any) => (
-                                        <tr key={f.uid} className="border-b last:border-0 hover:bg-muted/10">
-                                          <td className="px-3 py-1.5 font-medium whitespace-nowrap">{f.name || "—"}</td>
-                                          <td className="px-3 py-1.5">{f.department || "—"}</td>
-                                          <td className="px-3 py-1.5">
-                                            <span>{f.designation || "—"}</span>
-                                            {f.hasPhd && <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>}
-                                          </td>
-                                          <td className="px-3 py-1.5 capitalize">{f.role || "—"}</td>
-                                          {showStatus && (
-                                            <td className="px-3 py-1.5">
-                                              {f.staffStatus ? (
-                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[f.staffStatus] || "bg-gray-100 text-gray-600"}`}>
-                                                  {statusLabel[f.staffStatus] || f.staffStatus}
-                                                  {f.staffStatus === "other" && f.statusNote ? ` — ${f.statusNote}` : ""}
-                                                </span>
-                                              ) : "—"}
-                                            </td>
-                                          )}
-                                          {showScores && <>
-                                            <td className="px-3 py-1.5 text-right tabular-nums">{f.targetScore ?? "—"}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums">{f.claimedScore ?? "—"}</td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">{f.reviewerScore ?? "—"}</td>
-                                            <td className="px-3 py-1.5">
-                                              {f.isAppealed
-                                                ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">Appealed</span>
-                                                : f.appealScore != null
-                                                  ? <span className="font-semibold tabular-nums text-violet-600">{f.finalScore ?? f.appealScore}</span>
-                                                  : <span className="text-muted-foreground">—</span>}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
-                                              {f.overallStatus === "Completed" && f.finalScore != null && f.finalScore > 0
-                                                ? <span className="text-emerald-600">{f.finalScore}</span>
-                                                : <span className="text-muted-foreground">—</span>}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-right tabular-nums font-medium">
-                                              {f.percentage != null
-                                                ? <span className={f.percentage >= 100 ? "text-green-600" : f.percentage >= 60 ? "text-blue-600" : "text-orange-600"}>{f.percentage}%</span>
-                                                : "—"}
-                                            </td>
-                                            <td className="px-3 py-1.5">
-                                              {(() => {
-                                                const s = f.overallStatus;
-                                                const cfg: Record<string, string> = {
-                                                  "Completed":      "bg-emerald-500 text-white",
-                                                  "Pending Review": "bg-teal-400 text-white",
-                                                  "Pending Acceptance":   "bg-slate-800 text-white",
-                                                  "Appealed":       "bg-yellow-500 text-white",
-                                                };
-                                                return s ? (
-                                                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${cfg[s] || "bg-gray-200 text-gray-700"}`}>{s}</span>
-                                                ) : "—";
-                                              })()}
-                                            </td>
-                                          </>}
-                                        </tr>
-                                      ))}
+                                      {rows.map((f: any) => {
+                                        const isExpanded = expandedFacultyForModules === f.uid;
+                                        const moduleData = facultySubmissionsCache[f.uid];
+                                        const colCount = 4 + (showStatus ? 1 : 0) + (showScores ? 7 : 0) + (isGuestRole ? 1 : 0);
+                                        return (
+                                          <Fragment key={f.uid}>
+                                            <tr className="border-b hover:bg-muted/10">
+                                              <td className="px-3 py-1.5 font-medium whitespace-nowrap">{f.name || "—"}</td>
+                                              <td className="px-3 py-1.5">{f.department || "—"}</td>
+                                              <td className="px-3 py-1.5">
+                                                <span>{f.designation || "—"}</span>
+                                                {f.hasPhd && <span className="ml-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-700">PhD</span>}
+                                              </td>
+                                              <td className="px-3 py-1.5 capitalize">{f.role || "—"}</td>
+                                              {showStatus && (
+                                                <td className="px-3 py-1.5">
+                                                  {f.staffStatus ? (
+                                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[f.staffStatus] || "bg-gray-100 text-gray-600"}`}>
+                                                      {statusLabel[f.staffStatus] || f.staffStatus}
+                                                      {f.staffStatus === "other" && f.statusNote ? ` — ${f.statusNote}` : ""}
+                                                    </span>
+                                                  ) : "—"}
+                                                </td>
+                                              )}
+                                              {showScores && <>
+                                                <td className="px-3 py-1.5 text-right tabular-nums">{f.targetScore ?? "—"}</td>
+                                                <td className="px-3 py-1.5 text-right tabular-nums">{f.claimedScore ?? "—"}</td>
+                                                <td className="px-3 py-1.5 text-right tabular-nums font-medium">{f.reviewerScore ?? "—"}</td>
+                                                <td className="px-3 py-1.5">
+                                                  {f.isAppealed
+                                                    ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800">Appealed</span>
+                                                    : f.appealScore != null
+                                                      ? <span className="font-semibold tabular-nums text-violet-600">{f.finalScore ?? f.appealScore}</span>
+                                                      : <span className="text-muted-foreground">—</span>}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right tabular-nums font-semibold">
+                                                  {f.overallStatus === "Completed" && f.finalScore != null && f.finalScore > 0
+                                                    ? <span className="text-emerald-600">{f.finalScore}</span>
+                                                    : <span className="text-muted-foreground">—</span>}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-right tabular-nums font-medium">
+                                                  {f.percentage != null
+                                                    ? <span className={f.percentage >= 100 ? "text-green-600" : f.percentage >= 60 ? "text-blue-600" : "text-orange-600"}>{f.percentage}%</span>
+                                                    : "—"}
+                                                </td>
+                                                <td className="px-3 py-1.5">
+                                                  {(() => {
+                                                    const s = f.overallStatus;
+                                                    const cfg: Record<string, string> = {
+                                                      "Completed":      "bg-emerald-500 text-white",
+                                                      "Pending Review": "bg-teal-400 text-white",
+                                                      "Pending Acceptance":   "bg-slate-800 text-white",
+                                                      "Appealed":       "bg-yellow-500 text-white",
+                                                    };
+                                                    return s ? (
+                                                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${cfg[s] || "bg-gray-200 text-gray-700"}`}>{s}</span>
+                                                    ) : "—";
+                                                  })()}
+                                                </td>
+                                              </>}
+                                              {isGuestRole && (
+                                                <td className="px-3 py-1.5 text-center">
+                                                  <button
+                                                    onClick={() => handleFacultyModulesClick(f.uid)}
+                                                    className="text-primary text-xs font-medium hover:underline"
+                                                  >
+                                                    {isExpanded ? "Hide ▲" : "View ▼"}
+                                                  </button>
+                                                </td>
+                                              )}
+                                            </tr>
+                                            {isGuestRole && isExpanded && (
+                                              <tr>
+                                                <td colSpan={colCount} className="bg-muted/5 border-b px-4 py-3">
+                                                  {moduleData?.loading ? (
+                                                    <p className="text-xs text-muted-foreground text-center py-2">Loading modules…</p>
+                                                  ) : !moduleData || moduleData.submissions.length === 0 ? (
+                                                    <p className="text-xs text-muted-foreground text-center py-2">No submissions found.</p>
+                                                  ) : (() => {
+                                                    const grouped: Record<string, { module: string; tasks: any[] }[]> = {};
+                                                    moduleData.submissions.forEach((s: any) => {
+                                                      const crit = s.criteriaName || "Uncategorized";
+                                                      const mod = s.moduleName || "General";
+                                                      if (!grouped[crit]) grouped[crit] = [];
+                                                      let g = grouped[crit].find((g) => g.module === mod);
+                                                      if (!g) { g = { module: mod, tasks: [] }; grouped[crit].push(g); }
+                                                      g.tasks.push(s);
+                                                    });
+                                                    return (
+                                                      <div className="space-y-3">
+                                                        {Object.entries(grouped).map(([crit, mods]) => (
+                                                          <div key={crit}>
+                                                            <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide mb-1">{crit}</p>
+                                                            {mods.map(({ module, tasks }) => (
+                                                              <div key={module} className="mb-2 pl-2 border-l-2 border-indigo-200">
+                                                                <p className="text-[10px] font-medium text-muted-foreground mb-1">{module}</p>
+                                                                <div className="overflow-x-auto">
+                                                                  <table className="w-full text-[11px]">
+                                                                    <thead>
+                                                                      <tr className="border-b bg-muted/30">
+                                                                        <th className="text-left px-2 py-1 font-medium">Task</th>
+                                                                        <th className="text-right px-2 py-1 font-medium">Max</th>
+                                                                        <th className="text-right px-2 py-1 font-medium">Claimed</th>
+                                                                        <th className="text-right px-2 py-1 font-medium">Reviewer</th>
+                                                                        <th className="text-right px-2 py-1 font-medium">Appeal</th>
+                                                                        <th className="text-right px-2 py-1 font-medium">Final</th>
+                                                                        <th className="text-left px-2 py-1 font-medium">Status</th>
+                                                                      </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                      {tasks.map((t: any) => (
+                                                                        <tr key={t.id} className="border-b last:border-0">
+                                                                          <td className="px-2 py-1">{t.taskName || "—"}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums">{t.maxMarks ?? "—"}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums">{t.claimedScore ?? "—"}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums font-medium">{t.reviewerScore ?? "—"}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums text-violet-600">{t.appealerScore ?? "—"}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums font-semibold text-emerald-600">{t.finalScore ?? "—"}</td>
+                                                                          <td className="px-2 py-1">
+                                                                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                                                              t.status === "accepted" || t.status === "appeal-resolved" || t.status === "auto-approved" ? "bg-emerald-100 text-emerald-700"
+                                                                              : t.status === "reviewed" ? "bg-teal-100 text-teal-700"
+                                                                              : t.status === "submitted" ? "bg-blue-100 text-blue-700"
+                                                                              : t.status === "appealed" ? "bg-yellow-100 text-yellow-700"
+                                                                              : "bg-gray-100 text-gray-600"
+                                                                            }`}>{t.status}</span>
+                                                                          </td>
+                                                                        </tr>
+                                                                      ))}
+                                                                    </tbody>
+                                                                  </table>
+                                                                </div>
+                                                              </div>
+                                                            ))}
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    );
+                                                  })()}
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </Fragment>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>

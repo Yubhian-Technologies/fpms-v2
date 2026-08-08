@@ -25,6 +25,7 @@ import {
   previewDuplicateSubmissions,
   deleteDuplicateSubmissions,
 } from "../controllers/superAdminController.js";
+import { addGuest, getGuests, deleteGuest } from "../controllers/authController.js";
 import { superadminAuth } from "../middleware/superAdminAuth.js";
 
 const superadminRouter = express.Router();
@@ -72,5 +73,10 @@ superadminRouter.get("/college-staff", superadminAuth, getCollegeStaff);
 superadminRouter.post("/reset-evaluations", superadminAuth, resetCollegeEvaluations);
 superadminRouter.get("/duplicate-submissions", superadminAuth, previewDuplicateSubmissions);
 superadminRouter.delete("/duplicate-submissions", superadminAuth, deleteDuplicateSubmissions);
+
+// Guest user management (superadmin only)
+superadminRouter.get("/guests", superadminAuth, getGuests);
+superadminRouter.post("/guests", superadminAuth, addGuest);
+superadminRouter.delete("/guests/:id", superadminAuth, deleteGuest);
 
 export default superadminRouter;
