@@ -1259,7 +1259,14 @@ export default function Dashboard() {
                                                         {Object.entries(grouped).map(([crit, mods]) => (
                                                           <div key={crit}>
                                                             <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide mb-1">{crit}</p>
-                                                            {mods.map(({ module, tasks }) => (
+                                                            {mods.map(({ module, tasks }) => {
+                                                              const totMax = tasks.reduce((s: number, t: any) => s + (t.maxMarks != null ? Number(t.maxMarks) : 0), 0);
+                                                              const totClaimed = tasks.reduce((s: number, t: any) => s + (t.claimedScore != null ? Number(t.claimedScore) : 0), 0);
+                                                              const totReviewer = tasks.reduce((s: number, t: any) => s + (t.reviewerScore != null ? Number(t.reviewerScore) : 0), 0);
+                                                              const hasAppeal = tasks.some((t: any) => t.appealerScore != null);
+                                                              const totAppeal = hasAppeal ? tasks.reduce((s: number, t: any) => s + (t.appealerScore != null ? Number(t.appealerScore) : 0), 0) : null;
+                                                              const totFinal = tasks.reduce((s: number, t: any) => s + (t.finalScore != null ? Number(t.finalScore) : 0), 0);
+                                                              return (
                                                               <div key={module} className="mb-2 pl-2 border-l-2 border-indigo-200">
                                                                 <p className="text-[10px] font-medium text-muted-foreground mb-1">{module}</p>
                                                                 <div className="overflow-x-auto">
@@ -1277,7 +1284,7 @@ export default function Dashboard() {
                                                                     </thead>
                                                                     <tbody>
                                                                       {tasks.map((t: any) => (
-                                                                        <tr key={t.id} className="border-b last:border-0">
+                                                                        <tr key={t.id} className="border-b">
                                                                           <td className="px-2 py-1">{t.taskName || "—"}</td>
                                                                           <td className="px-2 py-1 text-right tabular-nums">{t.maxMarks ?? "—"}</td>
                                                                           <td className="px-2 py-1 text-right tabular-nums">{t.claimedScore ?? "—"}</td>
@@ -1295,11 +1302,23 @@ export default function Dashboard() {
                                                                           </td>
                                                                         </tr>
                                                                       ))}
+                                                                      {tasks.length > 1 && (
+                                                                        <tr className="bg-indigo-50/60 border-t-2 border-indigo-200 font-semibold text-[11px]">
+                                                                          <td className="px-2 py-1 text-indigo-700">Module Total</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums text-indigo-700">{totMax}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums text-indigo-700">{totClaimed}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums text-indigo-700">{totReviewer}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums text-violet-700">{totAppeal ?? "—"}</td>
+                                                                          <td className="px-2 py-1 text-right tabular-nums text-emerald-700">{totFinal}</td>
+                                                                          <td></td>
+                                                                        </tr>
+                                                                      )}
                                                                     </tbody>
                                                                   </table>
                                                                 </div>
                                                               </div>
-                                                            ))}
+                                                              );
+                                                            })}
                                                           </div>
                                                         ))}
                                                       </div>
