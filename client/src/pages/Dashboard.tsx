@@ -684,6 +684,79 @@ export default function Dashboard() {
       );
     };
 
+    const exportCollegeExcel = (collegeName: string) => {
+      const faculty = collegeFacultyCache[collegeName] || [];
+      if (!faculty.length) return;
+      const rows = faculty.map((f: any, i: number) => ({
+        "S.No": i + 1,
+        "Name": f.name || "",
+        "Email": f.email || "",
+        "Department": f.department || "",
+        "Designation": f.designation || "",
+        "Role": f.role || "",
+        "Target": f.targetScore ?? "",
+        "Claimed": f.claimedScore ?? "",
+        "Reviewer Score": f.reviewerScore ?? "",
+        "Final Score": f.finalScore ?? "",
+        "Achievement %": f.percentage != null ? `${f.percentage}%` : "",
+        "Status": f.overallStatus || "",
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Faculty");
+      XLSX.writeFile(wb, `${collegeName.replace(/\s+/g, "_")}_Faculty.xlsx`);
+    };
+
+    const exportDeptExcel = (collegeName: string, dept: string) => {
+      const faculty = (collegeFacultyCache[collegeName] || []).filter((f: any) => f.department === dept);
+      if (!faculty.length) return;
+      const rows = faculty.map((f: any, i: number) => ({
+        "S.No": i + 1,
+        "Name": f.name || "",
+        "Email": f.email || "",
+        "Designation": f.designation || "",
+        "Role": f.role || "",
+        "Target": f.targetScore ?? "",
+        "Claimed": f.claimedScore ?? "",
+        "Reviewer Score": f.reviewerScore ?? "",
+        "Final Score": f.finalScore ?? "",
+        "Achievement %": f.percentage != null ? `${f.percentage}%` : "",
+        "Status": f.overallStatus || "",
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, dept.substring(0, 31));
+      XLSX.writeFile(wb, `${dept.replace(/\s+/g, "_")}_Faculty.xlsx`);
+    };
+
+    const exportFacultyExcel = async (uid: string, name: string) => {
+      let data = facultySubmissionsCache[uid];
+      if (!data) {
+        try {
+          const res = await api.get(`/api/guest/faculty-submissions?userId=${uid}`);
+          data = { submissions: res.data.data?.submissions || [], loading: false };
+          setFacultySubmissionsCache((prev) => ({ ...prev, [uid]: data }));
+        } catch { return; }
+      }
+      if (!data.submissions.length) return;
+      const rows = data.submissions.map((s: any, i: number) => ({
+        "S.No": i + 1,
+        "Criteria": s.criteriaName || "",
+        "Module": s.moduleName || "",
+        "Task": s.taskName || "",
+        "Max Marks": s.maxMarks ?? "",
+        "Claimed": s.claimedScore ?? "",
+        "Reviewer Score": s.reviewerScore ?? "",
+        "Appeal Score": s.appealerScore ?? "",
+        "Final Score": s.finalScore ?? "",
+        "Status": s.status || "",
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Submissions");
+      XLSX.writeFile(wb, `${name.replace(/\s+/g, "_")}_Submissions.xlsx`);
+    };
+
     return (
       <DashboardLayout title={user?.role === "guest" ? "Guest Overview" : "Institution Snapshot"} badge="2025-26">
         <div className="space-y-6">
@@ -885,13 +958,23 @@ export default function Dashboard() {
                             <p className="text-[10px] text-muted-foreground">{achieverPct}% of active</p>
                           </div>
                         </div>
-                        {/* Tap to expand */}
-                        <button
-                          onClick={() => handleCollegeDetailClick(c.college)}
-                          className="w-full text-xs text-primary font-medium hover:underline text-center pt-1"
-                        >
-                          {expandedCollegeDetail === c.college ? "Hide faculty details ▲" : "View faculty details ▼"}
-                        </button>
+                        {/* Tap to expand + college export */}
+                        <div className="flex items-center justify-between pt-1 gap-2">
+                          <button
+                            onClick={() => handleCollegeDetailClick(c.college)}
+                            className="text-xs text-primary font-medium hover:underline"
+                          >
+                            {expandedCollegeDetail === c.college ? "Hide faculty details ▲" : "View faculty details ▼"}
+                          </button>
+                          {user?.role === "guest" && collegeFacultyCache[c.college]?.length > 0 && (
+                            <button
+                              onClick={() => exportCollegeExcel(c.college)}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700"
+                            >
+                              <Download className="h-2.5 w-2.5" />Export
+                            </button>
+                          )}
+                        </div>
                         {/* Expanded faculty detail (mobile) */}
                         {expandedCollegeDetail === c.college && (() => {
                           const facultyList = collegeFacultyCache[c.college] || [];
@@ -970,9 +1053,14 @@ export default function Dashboard() {
                                           )}
                                           {user?.role === "guest" && (
                                             <div className="mt-1.5">
-                                              <button onClick={() => handleFacultyModulesClick(f.uid)} className="text-primary text-[10px] font-medium hover:underline">
-                                                {mobileExpanded ? "Hide modules ▲" : "View modules ▼"}
-                                              </button>
+                                              <div className="flex items-center gap-3">
+                                                <button onClick={() => handleFacultyModulesClick(f.uid)} className="text-primary text-[10px] font-medium hover:underline">
+                                                  {mobileExpanded ? "Hide modules ▲" : "View modules ▼"}
+                                                </button>
+                                                <button onClick={() => exportFacultyExcel(f.uid, f.name || "Faculty")} className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
+                                                  <Download className="h-2.5 w-2.5" />Export
+                                                </button>
+                                              </div>
                                               {mobileExpanded && (
                                                 <div className="mt-1.5 space-y-1.5 text-[10px]">
                                                   {mobileModData?.loading ? (
@@ -1228,12 +1316,21 @@ export default function Dashboard() {
                                               </>}
                                               {isGuestRole && (
                                                 <td className="px-3 py-1.5 text-center">
-                                                  <button
-                                                    onClick={() => handleFacultyModulesClick(f.uid)}
-                                                    className="text-primary text-xs font-medium hover:underline"
-                                                  >
-                                                    {isExpanded ? "Hide ▲" : "View ▼"}
-                                                  </button>
+                                                  <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                      onClick={() => handleFacultyModulesClick(f.uid)}
+                                                      className="text-primary text-xs font-medium hover:underline"
+                                                    >
+                                                      {isExpanded ? "Hide ▲" : "View ▼"}
+                                                    </button>
+                                                    <button
+                                                      onClick={() => exportFacultyExcel(f.uid, f.name || "Faculty")}
+                                                      title="Export submissions"
+                                                      className="text-emerald-700 hover:text-emerald-900"
+                                                    >
+                                                      <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                  </div>
                                                 </td>
                                               )}
                                             </tr>
@@ -1349,10 +1446,28 @@ export default function Dashboard() {
                                   </table>
                                 </div>
                           );
+                          const deptGroups: Record<string, any[]> = {};
+                          submitted.forEach((f: any) => {
+                            const d = f.department || "No Department";
+                            if (!deptGroups[d]) deptGroups[d] = [];
+                            deptGroups[d].push(f);
+                          });
                           return (
                             <tr>
                               <td colSpan={colSpan} className="bg-muted/10 border-b px-0 py-0">
                                 <div className="p-4 space-y-4">
+                                  {/* College-level export */}
+                                  {isGuestRole && facultyList.length > 0 && (
+                                    <div className="flex justify-end">
+                                      <button
+                                        onClick={() => exportCollegeExcel(c.college)}
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 rounded px-2.5 py-1"
+                                      >
+                                        <Download className="h-3 w-3" />
+                                        Export College Excel
+                                      </button>
+                                    </div>
+                                  )}
                                   {isLoadingCollegeFaculty && facultyList.length === 0 ? (
                                     <p className="text-xs text-muted-foreground text-center py-2">Loading…</p>
                                   ) : (
@@ -1367,7 +1482,27 @@ export default function Dashboard() {
                                         <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-2">
                                           Submitted ({submitted.length})
                                         </p>
-                                        <FacultyTable rows={submitted} emptyMsg="No submissions yet." showScores />
+                                        {isGuestRole ? (
+                                          <div className="space-y-4">
+                                            {Object.entries(deptGroups).sort(([a], [b]) => a.localeCompare(b)).map(([dept, rows]) => (
+                                              <div key={dept}>
+                                                <div className="flex items-center justify-between mb-1 gap-2">
+                                                  <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">{dept} ({rows.length})</p>
+                                                  <button
+                                                    onClick={() => exportDeptExcel(c.college, dept)}
+                                                    className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 rounded px-2 py-0.5"
+                                                  >
+                                                    <Download className="h-2.5 w-2.5" />
+                                                    Export Dept
+                                                  </button>
+                                                </div>
+                                                <FacultyTable rows={rows} emptyMsg="No submissions." showScores />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <FacultyTable rows={submitted} emptyMsg="No submissions yet." showScores />
+                                        )}
                                       </div>
                                     </>
                                   )}
