@@ -1256,9 +1256,23 @@ export default function Dashboard() {
                                                     });
                                                     return (
                                                       <div className="space-y-3">
-                                                        {Object.entries(grouped).map(([crit, mods]) => (
+                                                        {Object.entries(grouped).map(([crit, mods]) => {
+                                                          const allTasks = mods.flatMap((m) => m.tasks);
+                                                          const critMax = allTasks.reduce((s: number, t: any) => s + (t.maxMarks != null ? Number(t.maxMarks) : 0), 0);
+                                                          const critClaimed = allTasks.reduce((s: number, t: any) => s + (t.claimedScore != null ? Number(t.claimedScore) : 0), 0);
+                                                          const critReviewer = allTasks.reduce((s: number, t: any) => s + (t.reviewerScore != null ? Number(t.reviewerScore) : 0), 0);
+                                                          const critFinal = allTasks.reduce((s: number, t: any) => s + (t.finalScore != null ? Number(t.finalScore) : 0), 0);
+                                                          return (
                                                           <div key={crit}>
-                                                            <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide mb-1">{crit}</p>
+                                                            <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                                                              <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide">{crit}</p>
+                                                              <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+                                                                Max&nbsp;<span className="text-indigo-700 font-bold">{critMax}</span>
+                                                                &ensp;·&ensp;Claimed&nbsp;<span className="font-bold text-foreground">{critClaimed}</span>
+                                                                &ensp;·&ensp;Reviewer&nbsp;<span className="font-bold text-foreground">{critReviewer}</span>
+                                                                &ensp;·&ensp;Final&nbsp;<span className="font-bold text-emerald-600">{critFinal}</span>
+                                                              </span>
+                                                            </div>
                                                             {mods.map(({ module, tasks }) => {
                                                               const totMax = tasks.reduce((s: number, t: any) => s + (t.maxMarks != null ? Number(t.maxMarks) : 0), 0);
                                                               const totClaimed = tasks.reduce((s: number, t: any) => s + (t.claimedScore != null ? Number(t.claimedScore) : 0), 0);
@@ -1320,7 +1334,8 @@ export default function Dashboard() {
                                                               );
                                                             })}
                                                           </div>
-                                                        ))}
+                                                          );
+                                                        })}
                                                       </div>
                                                     );
                                                   })()}
