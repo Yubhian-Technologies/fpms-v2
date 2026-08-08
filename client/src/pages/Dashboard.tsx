@@ -1689,12 +1689,13 @@ export default function Dashboard() {
           {(() => {
             const colleges = (viewerStats?.collegeStats || []).map((c: any) => c.college).sort();
             if (colleges.length === 0) return null;
+            const viewerBase = user?.role === "guest" ? "/api/guest" : "/api/viewer";
 
             const loadCollegeData = async (college: string) => {
               if (viewerCollegeFullData[college]) return;
               setViewerDeptLoading(true);
               try {
-                const res = await api.get(`/api/viewer/college-dashboard?college=${encodeURIComponent(college)}`);
+                const res = await api.get(`${viewerBase}/college-dashboard?college=${encodeURIComponent(college)}`);
                 if (res.data.success) {
                   setViewerCollegeFullData((prev) => ({ ...prev, [college]: res.data.data.staff || [] }));
                 }
@@ -1714,7 +1715,7 @@ export default function Dashboard() {
               let principalName = "";
               let principalRole = "Principal";
               try {
-                const res = await api.get(`/api/viewer/principal-name?college=${encodeURIComponent(college)}`);
+                const res = await api.get(`${viewerBase}/principal-name?college=${encodeURIComponent(college)}`);
                 principalName = res.data?.data?.name || "";
                 principalRole = res.data?.data?.role || "Principal";
               } catch { /* ignore */ }
@@ -2248,7 +2249,7 @@ export default function Dashboard() {
                                   <Button variant="outline" size="sm" onClick={async () => {
                                     const college = viewerSelectedCollege!;
                                     let pName = "";
-                                    try { const r = await api.get(`/api/viewer/principal-name?college=${encodeURIComponent(college)}`); pName = r.data?.data?.name || ""; } catch { /* ignore */ }
+                                    try { const r = await api.get(`${viewerBase}/principal-name?college=${encodeURIComponent(college)}`); pName = r.data?.data?.name || ""; } catch { /* ignore */ }
                                     const collegeName = college.toUpperCase();
                                     const academicYear = "2025 – 2026";
                                     const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
