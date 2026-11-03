@@ -2145,12 +2145,15 @@ export const getApplicableForms = async (req, res) => {
       });
     }
 
-    const formsSnapshot = await formsCollectionRef()
-      .orderBy("updatedAt", "desc")
-      .get();
+    // Selected year's forms only; sorted in memory (year filter + orderBy would need an index)
+    const formsSnapshot = await (await yearScopeFromReq(req)).forms().get();
+    const toMillis = (v) => (v?.toMillis ? v.toMillis() : new Date(v || 0).getTime() || 0);
+    const formDocs = [...formsSnapshot.docs].sort(
+      (a, b) => toMillis(b.data().updatedAt) - toMillis(a.data().updatedAt),
+    );
 
     const forms = await Promise.all(
-      formsSnapshot.docs.map(async (doc) => {
+      formDocs.map(async (doc) => {
         const data = doc.data() || {};
         const applicableRoles = Array.isArray(data.applicableRoles)
           ? data.applicableRoles.map((item) => normalizeRoleValue(item))
