@@ -10,7 +10,37 @@ export interface Task {
   marksType?: "fixed" | "range"; // fixed = single max; range = min–max
   minMarks?: number;      // lower bound when marksType === "range"
   note?: string;          // optional note shown to faculty above claimed score
+  tableColumns?: TableColumn[]; // columns faculty fill in (S. No. is added automatically); empty = no table
+  tableRows?: number;         // rows shown initially; faculty can add more
+  evidenceOptions?: string[]; // checkbox labels, e.g. "Completion Certificate"
 }
+
+export interface TableColumn {
+  label: string;
+  /** Per-row proof for this column: none, optional or required */
+  document: "none" | "optional" | "required";
+  /** 0 = no limit, 1 = unique, N = same value (or same proof) allowed N times per college per year */
+  maxUses: number;
+}
+
+// One filled table row as stored on a submission (Firestore can't nest arrays)
+export interface TaskTableRow {
+  cells: string[];
+  docs?: string[];      // proof link per column ("" when none)
+  docHashes?: string[]; // proof fingerprint per column, for the duplicate limit
+}
+
+// Older forms stored columns as plain labels
+export const normalizeTableColumns = (columns: unknown): TableColumn[] =>
+  (Array.isArray(columns) ? columns : []).map((column: any) =>
+    typeof column === "string"
+      ? { label: column, document: "none", maxUses: 0 }
+      : {
+          label: String(column?.label ?? ""),
+          document: column?.document === "optional" || column?.document === "required" ? column.document : "none",
+          maxUses: Math.max(0, Number(column?.maxUses) || 0),
+        },
+  );
 
 export interface Module {
   id: string;

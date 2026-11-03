@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
 } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAcademicYear, formatAcademicYearLong } from "@/contexts/AcademicYearContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -95,6 +96,8 @@ const statusConfig: Record<
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { selectedYear } = useAcademicYear();
+  const academicYearLong = formatAcademicYearLong(selectedYear);
   const [loading, setLoading] = useState(true);
   const [deadline, setDeadline] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -758,7 +761,7 @@ export default function Dashboard() {
     };
 
     return (
-      <DashboardLayout title={user?.role === "guest" ? "Guest Overview" : "Institution Snapshot"} badge="2025-26">
+      <DashboardLayout title={user?.role === "guest" ? "Guest Overview" : "Institution Snapshot"} badge={selectedYear}>
         <div className="space-y-6">
 
           {/* ── Row 1: 6 summary stat cards ── */}
@@ -1726,7 +1729,7 @@ export default function Dashboard() {
               )?.name || "";
 
               const collegeName = String(college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
-              const academicYear = "2025 – 2026";
+              const academicYear = academicYearLong;
               const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
               const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
               const pw = doc.internal.pageSize.getWidth();
@@ -2251,7 +2254,7 @@ export default function Dashboard() {
                                     let pName = "";
                                     try { const r = await api.get(`${viewerBase}/principal-name?college=${encodeURIComponent(college)}`); pName = r.data?.data?.name || ""; } catch { /* ignore */ }
                                     const collegeName = college.toUpperCase();
-                                    const academicYear = "2025 – 2026";
+                                    const academicYear = academicYearLong;
                                     const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
                                     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
                                     const pw = doc.internal.pageSize.getWidth(); const ph = doc.internal.pageSize.getHeight();
@@ -2779,7 +2782,7 @@ export default function Dashboard() {
     // ── CONSOLIDATED REPORT: all faculty × all tasks matrix ──
     const exportConsolidatedReport = () => {
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
-      const academicYear = "2024-2025";
+      const academicYear = academicYearLong;
       const FINALIZED_C = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
       const ADMIN_ROLES = new Set(["committee", "internal committee", "principle", "principal", "vice principle", "vice principal", "vice-principal", "viceprincipal", "director"]);
 
@@ -2917,7 +2920,7 @@ export default function Dashboard() {
       // S.No(12) + Name(62) + Desig(36) + Role(26) + Target(16) + Claimed(18) + Reviewer(18) + Final(18) + %(15) + Status(48) = 269
       const COL_WIDTHS = [12, 62, 36, 26, 16, 18, 18, 18, 15, 48];
 
-      const academicYear = "2025 – 2026";
+      const academicYear = academicYearLong;
 
       const addPageHeader = (deptName?: string) => {
         doc.setFillColor(0, 31, 63);
@@ -3138,7 +3141,7 @@ export default function Dashboard() {
         )?.name || "";
 
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
-      const academicYear = "2025 – 2026";
+      const academicYear = academicYearLong;
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -3372,7 +3375,7 @@ export default function Dashboard() {
       }
 
       const collegeName = String(user.college || "VISHNU INSTITUTE OF TECHNOLOGY").toUpperCase();
-      const academicYear = "2025 – 2026";
+      const academicYear = academicYearLong;
       const dateStr = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });

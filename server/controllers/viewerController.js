@@ -1,5 +1,9 @@
 import { db } from "../config/firebase.js";
-import { getSuperadminConfig } from "../config/superadminCache.js";
+import {
+  yearScopeFromReq,
+  getCollegesForYear,
+  getFacultySnapshotsForYear,
+} from "../config/academicYear.js";
 
 const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
 
@@ -8,6 +12,22 @@ const getConfirmedScore = (sub) => {
     return Number(sub.finalScore ?? sub.score ?? 0);
   }
   return 0;
+};
+
+// For a closed year, overlay the profile frozen at year end (designation, PhD,
+// department…) so targets and grouping reflect that year, not today's profile.
+const withYearProfile = (uid, data, snapshots) => {
+  const snap = snapshots?.get(uid);
+  if (!snap) return data;
+  return {
+    ...data,
+    department: snap.department ?? data.department,
+    designation: snap.designation ?? data.designation,
+    hasPhd: snap.hasPhd ?? data.hasPhd,
+    role: snap.role ?? data.role,
+    staffStatus: snap.staffStatus ?? data.staffStatus,
+    college: snap.college ?? data.college,
+  };
 };
 
 export const getCollegeFaculty = async (req, res) => {
@@ -21,20 +41,22 @@ export const getCollegeFaculty = async (req, res) => {
     const normStr = (s) => String(s || "").trim().toLowerCase();
     const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
 
-    const [usersSnap, subsSnap, saData] = await Promise.all([
+    const scope = await yearScopeFromReq(req);
+    const [usersSnap, subsSnap, colleges, snapshots] = await Promise.all([
       db.collection("users")
         .where("college", "==", collegeName)
         .select("uid", "name", "email", "role", "department", "designation", "staffStatus", "statusNote", "hasPhd")
         .get(),
-      db.collection("submissions")
+      scope.submissions()
         .where("college", "==", collegeName)
         .select("userId", "status", "claimedScore", "reviewerScore", "finalScore", "isAppealed", "appealerScore")
         .get(),
-      getSuperadminConfig(),
+      getCollegesForYear(scope),
+      getFacultySnapshotsForYear(scope),
     ]);
 
     // Build designation → target map for this college (keyed by name__phd / name__nophd)
-    const collegeConfig = (saData.colleges || []).find((c) => normStr(c?.name) === normStr(collegeName));
+    const collegeConfig = colleges.find((c) => normStr(c?.name) === normStr(collegeName));
     const desigMap = {};
     (collegeConfig?.designations || []).forEach((d) => {
       if (!d?.name) return;
@@ -57,7 +79,7 @@ export const getCollegeFaculty = async (req, res) => {
 
     const faculty = usersSnap.docs
       .map((doc) => {
-        const d = doc.data();
+        const d = withYearProfile(doc.id, doc.data(), snapshots);
         if (excluded.has(normStr(d.role))) return null;
 
         const subs = subsByUser.get(doc.id) || [];
@@ -124,12 +146,16 @@ export const getViewerStats = async (req, res) => {
   try {
     const normStr = (s) => String(s || "").trim().toLowerCase();
 
-    const saData = await getSuperadminConfig();
+    const scope = await yearScopeFromReq(req);
+    const [colleges, snapshots] = await Promise.all([
+      getCollegesForYear(scope),
+      getFacultySnapshotsForYear(scope),
+    ]);
 
     const collegeDesignationMap = {};
     const collegeCodeMap = {};
     const collegeDeadlineMap = {};
-    (saData.colleges || []).forEach((c) => {
+    colleges.forEach((c) => {
       const key = normStr(c?.name);
       collegeDesignationMap[key] = {};
       if (c?.code) collegeCodeMap[key] = String(c.code).trim().toUpperCase();
@@ -152,8 +178,8 @@ export const getViewerStats = async (req, res) => {
     });
 
     const [usersSnap, subsSnap] = await Promise.all([
-      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd", "staffStatus").get(),
-      db.collection("submissions").select("userId", "college", "status", "finalScore", "score").get(),
+      db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd", "staffStatus", "level").get(),
+      scope.submissions().select("userId", "college", "status", "finalScore", "score").get(),
     ]);
 
     const subsMap = new Map();
@@ -168,7 +194,7 @@ export const getViewerStats = async (req, res) => {
 
     const staff = usersSnap.docs
       .map((doc) => {
-        const data = doc.data();
+        const data = withYearProfile(doc.id, doc.data(), snapshots);
         const role = normStr(data.role);
         const college = String(data.college || "").trim();
         if (!college || excludedRoles.has(role)) return null;
@@ -359,13 +385,15 @@ export const getViewerCollegeDashboard = async (req, res) => {
     ]);
     const normStr = (s) => String(s || "").trim().toLowerCase();
 
-    const [usersSnap, subsSnap, saData] = await Promise.all([
+    const scope = await yearScopeFromReq(req);
+    const [usersSnap, subsSnap, colleges, snapshots] = await Promise.all([
       db.collection("users").where("college", "==", college).get(),
-      db.collection("submissions").where("college", "==", college).get(),
-      getSuperadminConfig(),
+      scope.submissions().where("college", "==", college).get(),
+      getCollegesForYear(scope),
+      getFacultySnapshotsForYear(scope),
     ]);
 
-    const collegeConfig = (saData.colleges || []).find((c) => normStr(c?.name) === normStr(college));
+    const collegeConfig = colleges.find((c) => normStr(c?.name) === normStr(college));
     const desigMap = {};
     (collegeConfig?.designations || []).forEach((d) => {
       if (!d?.name) return;
@@ -384,7 +412,7 @@ export const getViewerCollegeDashboard = async (req, res) => {
 
     const staff = usersSnap.docs
       .map((doc) => {
-        const d = doc.data();
+        const d = withYearProfile(doc.id, doc.data(), snapshots);
         if (EXCLUDED_ROLES.has(normStr(d.role))) return null;
         const phdKey = `${normStr(d.designation)}__${d.hasPhd ? "phd" : "nophd"}`;
         return {
@@ -437,9 +465,10 @@ export const getGuestFacultySubmissions = async (req, res) => {
     const userId = String(req.query.userId || "").trim();
     if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
 
+    const scope = await yearScopeFromReq(req);
     const [userDoc, subsSnap] = await Promise.all([
       db.collection("users").doc(userId).get(),
-      db.collection("submissions").where("userId", "==", userId).get(),
+      scope.submissions().where("userId", "==", userId).get(),
     ]);
 
     if (!userDoc.exists) return res.status(404).json({ success: false, message: "User not found" });

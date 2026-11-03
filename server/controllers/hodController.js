@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
 import { getSuperadminConfig } from "../config/superadminCache.js";
+import { yearScopeFromReq } from "../config/academicYear.js";
 import { getFirebaseIdToken } from "../utils/firebaseTokenHelper.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
@@ -741,8 +742,9 @@ export const getHodDashboard = async (req, res) => {
   try {
     const { college, department } = req.hod;
 
-    const submissionsSnap = await db
-      .collection("submissions")
+    const scope = await yearScopeFromReq(req);
+    const submissionsSnap = await scope
+      .submissions()
       .where("college", "==", college)
       .get();
 
@@ -854,13 +856,14 @@ export const exportHodReport = async (req, res) => {
   try {
     const { college, department } = req.hod;
 
+    const scope = await yearScopeFromReq(req);
     const [facultySnap, subsSnap] = await Promise.all([
       db.collection("users")
         .where("college", "==", college)
         .where("department", "==", department)
         .where("role", "==", "faculty")
         .get(),
-      db.collection("submissions")
+      scope.submissions()
         .where("college", "==", college)
         .where("department", "==", department)
         .get(),
@@ -913,9 +916,10 @@ export const getFacultyPdfData = async (req, res) => {
     const { userId } = req.params;
     const { college } = req.hod;
 
+    const scope = await yearScopeFromReq(req);
     const [userDoc, subsSnap, saData] = await Promise.all([
       db.collection(USERS_COLLECTION).doc(userId).get(),
-      db.collection("submissions").where("userId", "==", userId).get(),
+      scope.submissions().where("userId", "==", userId).get(),
       getSuperadminConfig(),
     ]);
 

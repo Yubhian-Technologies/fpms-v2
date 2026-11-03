@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { TaskTableInput, EvidenceChecklist, buildTableRows } from "@/components/fpms/TaskTableFields";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Edit2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import type { FPMSForm } from "@/types/formBuilder";
+import { normalizeTableColumns, type FPMSForm } from "@/types/formBuilder";
 import { api } from "@/api/api";
 
 export default function FormPreviewScreen() {
@@ -190,6 +191,18 @@ export default function FormPreviewScreen() {
                                   <p className="text-sm">
                                     Reference: {taskItem.reference}
                                   </p>
+                                ) : null}
+                                {taskItem.tableColumns?.length ? (
+                                  <TaskTableInput
+                                    columns={normalizeTableColumns(taskItem.tableColumns)}
+                                    rows={buildTableRows(normalizeTableColumns(taskItem.tableColumns), [], taskItem.tableRows || 2)}
+                                  />
+                                ) : null}
+                                {taskItem.evidenceOptions?.length ? (
+                                  <div className="space-y-1.5">
+                                    <p className="text-sm font-medium">Evidence Submitted</p>
+                                    <EvidenceChecklist options={taskItem.evidenceOptions} checked={[]} />
+                                  </div>
                                 ) : null}
                               </CardContent>
                             </Card>

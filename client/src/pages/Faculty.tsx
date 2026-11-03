@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAcademicYear, formatAcademicYearLong } from "@/contexts/AcademicYearContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ interface CollegeDetails {
 
 export default function Faculty() {
   const { user } = useAuth();
+  const { selectedYear, currentYear } = useAcademicYear();
   const [faculty, setFaculty] = useState<FacultyMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [designations, setDesignations] = useState<DesignationOption[]>([]);
@@ -749,7 +751,7 @@ export default function Faculty() {
       const PW = doc.internal.pageSize.getWidth();   // 297
       const ML = 14; const MR = 14;
       const usableW = PW - ML - MR;
-      const academicYear = "2025 – 2026";
+      const academicYear = formatAcademicYearLong(selectedYear);
 
       // ── HEADER ──
       // Logo
@@ -1335,7 +1337,7 @@ export default function Faculty() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Subjects Handled including labs (During 2025–2026)</Label>
+                  <Label>Subjects Handled including labs (During {formatAcademicYearLong(currentYear)})</Label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="Type a subject and press Enter"

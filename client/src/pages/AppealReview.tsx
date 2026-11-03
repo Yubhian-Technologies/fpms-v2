@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "@/api/api";
+import { SubmissionTableView } from "@/components/fpms/TaskTableFields";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReviewAccess } from "@/hooks/useReviewAccess";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -478,6 +479,8 @@ export default function AppealReview() {
               </p>
             </div>
           </div>
+
+          <SubmissionTableView submission={item} />
 
           {item.reviewerScore !== null && item.reviewerReason && (
             <div className="border border-blue-200 bg-blue-50/50 rounded p-3 text-sm">

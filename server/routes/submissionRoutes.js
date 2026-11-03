@@ -21,6 +21,7 @@ import {
   getCollegePhases,
   getAllReviewedSubmissions,
   getCollegeAllFinalized,
+  checkTaskTable,
 } from "../controllers/submissionController.js";
 import optionalAuth from "../middleware/optionalAuth.js";
 
@@ -46,6 +47,7 @@ const ensureJsonBody = (req, res, next) => {
 // Faculty endpoints
 router.post("/submit", ensureJsonBody, submitTask);
 router.put("/:id/update", ensureJsonBody, updateSubmission);
+router.post("/check-table", ensureJsonBody, checkTaskTable);
 
 router.get("/my-submissions", getMySubmissions);
 router.post("/:id/accept", acceptReview);

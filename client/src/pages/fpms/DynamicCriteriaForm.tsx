@@ -28,6 +28,16 @@ import { Clock } from "lucide-react";
 import { resolveEvidenceLink, formatRoleLabel } from "@/lib/utils";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable } from "firebase/storage";
+import {
+  TaskTableInput,
+  EvidenceChecklist,
+  buildTableRows,
+  toTableData,
+  tableHasFilledRow,
+  type EditableTableRow,
+  type TableCellErrors,
+} from "@/components/fpms/TaskTableFields";
+import { normalizeTableColumns, type TableColumn } from "@/types/formBuilder";
 
 interface TaskItem {
   id: string;
@@ -41,6 +51,9 @@ interface TaskItem {
   marksType?: "fixed" | "range";
   minMarks?: number;   // lower bound when marksType === "range"
   note?: string;
+  tableColumns?: (TableColumn | string)[];
+  tableRows?: number;
+  evidenceOptions?: string[];
   order: number;
 }
 
@@ -68,6 +81,8 @@ interface TaskProgress {
   claimedScore: number;
   evidenceUrl: string | File;
   description: string;
+  tableRows?: EditableTableRow[]; // undefined until faculty edits or a submission is loaded
+  evidenceChecked?: string[];
 }
 
 interface WorkflowTaskStatusItem {
@@ -98,6 +113,8 @@ interface WorkflowTaskStatusItem {
   submitToRoleIds?: string[];
   appealToRoleIds?: string[];
   maxMarks?: number;
+  tableData?: { cells: string[]; docs?: string[]; docHashes?: string[] }[];
+  evidenceChecked?: string[];
 }
 
 type TaskStatus = "pending" | "submitted";
@@ -111,6 +128,34 @@ type TaskWorkflowStatus =
   | "auto-approved";
 
 const COLLAPSE_LIMIT = 120;
+
+// Current table rows for a task, shaped to the task's columns
+function getTaskTableRows(task: TaskItem, progress?: TaskProgress): EditableTableRow[] {
+  const columns = normalizeTableColumns(task.tableColumns);
+  const rows = progress?.tableRows ?? buildTableRows(columns, [], task.tableRows || 2);
+  return rows.map((row) => ({
+    cells: columns.map((_, i) => row.cells?.[i] ?? ""),
+    docs: columns.map((_, i) => row.docs?.[i] ?? ""),
+    docHashes: columns.map((_, i) => row.docHashes?.[i] ?? ""),
+  }));
+}
+
+// Uploads to Firebase Storage client-side (bypasses Vercel's 4.5MB body limit)
+async function uploadEvidenceFile(file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "bin";
+  const path = `task_evidence/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const storageRef = ref(storage, path);
+  await new Promise<void>((resolve, reject) => {
+    const upload = uploadBytesResumable(storageRef, file);
+    upload.on("state_changed", null, reject, () => resolve());
+  });
+  // Construct public URL directly — avoids getDownloadURL which requires Firebase Auth token
+  return `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o/${encodeURIComponent(path)}?alt=media`;
+}
+
+// Duplicate-limit results from the server, keyed for TaskTableInput
+const toCellErrors = (duplicates: { row: number; column: number; message: string }[] = []): TableCellErrors =>
+  Object.fromEntries(duplicates.map((d) => [`${d.row}:${d.column}`, d.message]));
 
 function CollapsibleText({ text, className }: { text: string; className?: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -174,6 +219,7 @@ export default function DynamicCriteriaForm() {
   const [taskReviewData, setTaskReviewData] = useState<
     Record<string, { reviewerScore: number; reviewerReason: string }>
   >({});
+  const [tableErrors, setTableErrors] = useState<Record<string, TableCellErrors>>({});
   const [taskAppealData, setTaskAppealData] = useState<
     Record<string, { appealerScore: number; appealerReason: string }>
   >({});
@@ -415,6 +461,14 @@ export default function DynamicCriteriaForm() {
           claimedScore: submission.claimedScore || 0,
           evidenceUrl: submission.evidence || "",
           description: submission.description || "",
+          tableRows: submission.tableData?.length
+            ? submission.tableData.map((row) => ({
+                cells: row.cells || [],
+                docs: row.docs || [],
+                docHashes: row.docHashes || [],
+              }))
+            : undefined,
+          evidenceChecked: submission.evidenceChecked || [],
         };
       });
 
@@ -568,6 +622,8 @@ export default function DynamicCriteriaForm() {
         claimedScore: prev[taskId]?.claimedScore || 0,
         evidenceUrl: prev[taskId]?.evidenceUrl || "",
         description: prev[taskId]?.description || "",
+        tableRows: prev[taskId]?.tableRows,
+        evidenceChecked: prev[taskId]?.evidenceChecked,
         ...patch,
       },
     }));
@@ -582,6 +638,30 @@ export default function DynamicCriteriaForm() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Asks the server whether limited columns hold values/proofs already used in the
+  // college this year. Returns the number of offending cells.
+  const checkTaskTable = async (task: TaskItem, rows: EditableTableRow[]) => {
+    const columns = normalizeTableColumns(task.tableColumns);
+    if (!columns.some((column) => column.maxUses > 0)) return 0;
+    try {
+      const res = await api.post("/api/submissions/check-table", {
+        formId,
+        taskId: task.id,
+        submissionId: taskSubmissionIds[task.id],
+        tableData: rows.map((row) => ({
+          cells: row.cells,
+          docs: row.docs.map((d) => (typeof d === "string" ? d : "")),
+          docHashes: row.docHashes,
+        })),
+      });
+      const duplicates = res.data?.data?.duplicates || [];
+      setTableErrors((prev) => ({ ...prev, [task.id]: toCellErrors(duplicates) }));
+      return duplicates.length;
+    } catch {
+      return 0; // server re-checks on submit
     }
   };
 
@@ -619,22 +699,54 @@ export default function DynamicCriteriaForm() {
         return false;
       }
 
+      const tableColumns = normalizeTableColumns(task.tableColumns);
+      const tableRows = getTaskTableRows(task, progress);
+      const missingDocRow = tableRows.findIndex(
+        (row) =>
+          tableHasFilledRow([row]) &&
+          tableColumns.some((column, i) => column.document === "required" && !row.docs[i]),
+      );
+
+      const missingExtras =
+        missingDocRow !== -1
+          ? { title: "Document required", description: `Row ${missingDocRow + 1}: upload the required document(s) in the table.` }
+          : claimedNum <= 0
+            ? null
+            : tableColumns.length > 0 && !tableHasFilledRow(tableRows)
+              ? { title: "Table required", description: "Fill at least one row of the table when claiming a score greater than 0." }
+              : (task.evidenceOptions?.length ?? 0) > 0 && !(progress.evidenceChecked?.length)
+                ? { title: "Evidence checklist required", description: "Tick at least one evidence item when claiming a score greater than 0." }
+                : null;
+      if (missingExtras) {
+        toast({ ...missingExtras, variant: "destructive" });
+        return false;
+      }
+
       setSubmittingTaskId(task.id);
 
-      // Upload file to Firebase Storage (client-side, bypasses Vercel's 4.5MB body limit)
+      // Duplicate limits are checked before anything is uploaded
+      if ((await checkTaskTable(task, tableRows)) > 0) {
+        toast({
+          title: "Duplicate entries",
+          description: "Some table values or documents are already used — see the highlighted cells.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
       let evidenceValue: string = progress.evidenceUrl instanceof File ? "" : (progress.evidenceUrl || "");
       if (progress.evidenceUrl instanceof File) {
-        const file = progress.evidenceUrl;
-        const ext = file.name.split(".").pop() || "bin";
-        const path = `task_evidence/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const storageRef = ref(storage, path);
-        await new Promise<void>((resolve, reject) => {
-          const task = uploadBytesResumable(storageRef, file);
-          task.on("state_changed", null, reject, () => resolve());
-        });
-        // Construct public URL directly — avoids getDownloadURL which requires Firebase Auth token
-        evidenceValue = `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o/${encodeURIComponent(path)}?alt=media`;
+        evidenceValue = await uploadEvidenceFile(progress.evidenceUrl);
       }
+
+      const uploadedRows = await Promise.all(
+        tableRows.map(async (row) => ({
+          ...row,
+          docs: await Promise.all(row.docs.map((doc) => (doc instanceof File ? uploadEvidenceFile(doc) : doc))),
+        })),
+      );
+      // Keep the uploaded links so a retry doesn't upload the same files again
+      updateTaskProgress(task.id, { tableRows: uploadedRows });
 
       const jsonPayload = {
         formId: formId || "",
@@ -653,6 +765,9 @@ export default function DynamicCriteriaForm() {
         claimedScore: progress.claimedScore,
         description: progress.description || "",
         evidence: evidenceValue,
+        tableData: toTableData(uploadedRows),
+        evidenceOptions: task.evidenceOptions || [],
+        evidenceChecked: progress.evidenceChecked || [],
       };
 
       let submitRes;
@@ -700,6 +815,9 @@ export default function DynamicCriteriaForm() {
       });
       return true;
     } catch (error: any) {
+      if (error?.response?.data?.duplicates) {
+        setTableErrors((prev) => ({ ...prev, [task.id]: toCellErrors(error.response.data.duplicates) }));
+      }
       toast({
         title: "Task submission failed",
         description:
@@ -1265,6 +1383,29 @@ export default function DynamicCriteriaForm() {
                         {task.note && (
                           <div className="rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
                             <span className="font-semibold">Note: </span>{task.note}
+                          </div>
+                        )}
+
+                        {(task.tableColumns?.length ?? 0) > 0 && (
+                          <TaskTableInput
+                            columns={normalizeTableColumns(task.tableColumns)}
+                            rows={getTaskTableRows(task, progress)}
+                            readOnly={taskFrozen}
+                            errors={tableErrors[task.id]}
+                            onChange={(tableRows) => updateTaskProgress(task.id, { tableRows })}
+                            onLimitedCellCommit={(rows) => checkTaskTable(task, rows)}
+                          />
+                        )}
+
+                        {(task.evidenceOptions?.length ?? 0) > 0 && (
+                          <div className="space-y-1.5">
+                            <p className="text-sm font-medium">Evidence Submitted</p>
+                            <EvidenceChecklist
+                              options={task.evidenceOptions || []}
+                              checked={progress.evidenceChecked || []}
+                              readOnly={taskFrozen}
+                              onChange={(evidenceChecked) => updateTaskProgress(task.id, { evidenceChecked })}
+                            />
                           </div>
                         )}
 

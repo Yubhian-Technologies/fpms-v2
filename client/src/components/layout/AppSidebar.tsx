@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   UserCircle,
+  CalendarRange,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,12 @@ const getNavItems = (
       icon: Users,
       label: "Guest Users",
       href: "/superadmin/guests",
+      roles: ["superadmin"],
+    },
+    {
+      icon: CalendarRange,
+      label: "Academic Years",
+      href: "/superadmin/academic-years",
       roles: ["superadmin"],
     },
     {
