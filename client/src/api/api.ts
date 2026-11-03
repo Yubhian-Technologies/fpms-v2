@@ -12,6 +12,15 @@ export const api = axios.create({
   baseURL: backendUrl,
 });
 
+// Academic year being viewed when it is not the current one (history mode).
+// Set by AcademicYearContext; added as ?year= to every GET so the server
+// returns that year's data. Writes always target the current year.
+let viewedAcademicYear: string | null = null;
+
+export function setViewedAcademicYear(year: string | null) {
+  viewedAcademicYear = year;
+}
+
 // ── Warmup ping ──────────────────────────────────────────────────────────────
 // Vercel serverless functions go cold after ~5 min of inactivity.
 // When the user returns to the tab, ping /api/health to wake the function
@@ -59,6 +68,10 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  if (viewedAcademicYear && method === "get" && config.params?.year === undefined) {
+    config.params = { ...(config.params || {}), year: viewedAcademicYear };
   }
 
   // Add user info to headers for simplified auth

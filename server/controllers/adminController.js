@@ -5,6 +5,7 @@ import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
 import { getFirebaseIdToken } from "../utils/firebaseTokenHelper.js";
 import { invalidateSuperadminCache } from "../config/superadminCache.js";
+import { yearScopeFromReq, getYearScope } from "../config/academicYear.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const USERS_COLLECTION = "users";
@@ -2000,7 +2001,8 @@ export const getCollegeDashboard = async (req, res) => {
     }
 
     /* -------- FETCH SUBMISSIONS -------- */
-    const submissionsSnap = await db.collection("submissions").where("college", "==", college).get();
+    const scope = await yearScopeFromReq(req);
+    const submissionsSnap = await scope.submissions().where("college", "==", college).get();
 
     const allSubmissions = submissionsSnap.docs.map((doc) => ({
       ...doc.data(),
@@ -2340,9 +2342,10 @@ export const exportPrincipalReport = async (req, res) => {
       return res.status(400).json({ success: false, message: "Principal college not found" });
     }
 
+    const scope = await yearScopeFromReq(req);
     const [usersSnap, subsSnap, saDoc] = await Promise.all([
       db.collection(USERS_COLLECTION).where("college", "==", principalCollege).get(),
-      db.collection("submissions").where("college", "==", principalCollege).get(),
+      scope.submissions().where("college", "==", principalCollege).get(),
       db.collection("superadmin").doc(SUPERADMIN_DOC_ID).get(),
     ]);
 
@@ -2465,7 +2468,9 @@ export const updatePrincipalCollegeDeadlines = async (req, res) => {
     // submissions back to "submitted" so reviewers can actually score them.
     if (evaluationEnd && new Date(evaluationEnd) > new Date()) {
       try {
-        const autoApprovedSnap = await db.collection("submissions")
+        // Current year only — past years' auto-approvals are history
+        const currentScope = await getYearScope();
+        const autoApprovedSnap = await currentScope.submissions()
           .where("college", "==", principalCollege)
           .where("status", "==", "auto-approved")
           .get();

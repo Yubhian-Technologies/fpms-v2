@@ -8,15 +8,24 @@ let _cachedAt = 0;
 
 const isFresh = () => _cache !== null && Date.now() - _cachedAt < TTL_MS;
 
-const resolveDoc = async () => {
+const resolveSnapshot = async () => {
   let doc = await db.collection("superadmin").doc("config").get();
   if (!doc.exists) doc = await db.collection("superadmin").doc(SUPERADMIN_DOC_ID).get();
   if (!doc.exists) {
     const snap = await db.collection("superadmin").limit(1).get();
     if (!snap.empty) doc = snap.docs[0];
   }
+  return doc;
+};
+
+const resolveDoc = async () => {
+  const doc = await resolveSnapshot();
   return doc.exists ? doc.data() || {} : {};
 };
+
+// The exact document getSuperadminConfig() reads — write config that must be
+// visible to readers here, bypassing the cache.
+export const getSuperadminConfigSnapshot = resolveSnapshot;
 
 // Returns cached superadmin config. Re-fetches from Firestore at most once per
 // 5 minutes per warm serverless instance, eliminating the hot-document read

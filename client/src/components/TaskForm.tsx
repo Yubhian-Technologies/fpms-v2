@@ -3,8 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
-import type { Task } from "@/types/formBuilder";
+import { Plus, Table2, Trash2, X } from "lucide-react";
+import { normalizeTableColumns, type Task, type TableColumn } from "@/types/formBuilder";
 
 interface TaskFormProps {
   task: Task;
@@ -12,7 +12,115 @@ interface TaskFormProps {
   onDelete: () => void;
 }
 
+// Editable list of short labels (table columns / evidence checkboxes)
+function LabelListEditor({
+  items,
+  onChange,
+  placeholder,
+  addLabel,
+}: {
+  items: string[];
+  onChange: (items: string[]) => void;
+  placeholder: string;
+  addLabel: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            value={item}
+            onChange={(e) => onChange(items.map((v, vi) => (vi === i ? e.target.value : v)))}
+            placeholder={placeholder}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => onChange(items.filter((_, vi) => vi !== i))}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...items, ""])}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> {addLabel}
+      </Button>
+    </div>
+  );
+}
+
+const EMPTY_COLUMN: TableColumn = { label: "", document: "none", maxUses: 0 };
+
+// Table columns: label, per-row document (none / optional / required) and duplicate limit
+function ColumnListEditor({
+  columns,
+  onChange,
+}: {
+  columns: TableColumn[];
+  onChange: (columns: TableColumn[]) => void;
+}) {
+  const update = (index: number, patch: Partial<TableColumn>) =>
+    onChange(columns.map((column, i) => (i === index ? { ...column, ...patch } : column)));
+
+  return (
+    <div className="space-y-2">
+      <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_150px_120px_40px]">
+        <span>Column</span>
+        <span>Document per row</span>
+        <span>Duplicate limit</span>
+        <span />
+      </div>
+      {columns.map((column, i) => (
+        <div key={i} className="grid gap-2 rounded-md border p-2 md:grid-cols-[1fr_150px_120px_40px] md:border-0 md:p-0">
+          <Input
+            value={column.label}
+            onChange={(e) => update(i, { label: e.target.value })}
+            placeholder="e.g. Programme Title / Type"
+          />
+          <select
+            value={column.document}
+            onChange={(e) => update(i, { document: e.target.value as TableColumn["document"] })}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            title="Document per row"
+          >
+            <option value="none">No document</option>
+            <option value="optional">Optional</option>
+            <option value="required">Required</option>
+          </select>
+          <Input
+            type="number"
+            min={0}
+            max={50}
+            value={column.maxUses}
+            onChange={(e) => update(i, { maxUses: Math.min(50, Math.max(0, Number(e.target.value) || 0)) })}
+            title="0 = no limit, 1 = unique, N = same value allowed N times in the college this year"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => onChange(columns.filter((_, ci) => ci !== i))}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...columns, { ...EMPTY_COLUMN }])}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> Add column
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Duplicate limit: <strong>0</strong> = no limit, <strong>1</strong> = unique, <strong>3</strong> = the same value (or the same
+        proof file/link) may be entered by at most 3 faculty of a college in an academic year.
+      </p>
+    </div>
+  );
+}
+
 export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
+  const tableColumns = normalizeTableColumns(task.tableColumns);
   const marksType = task.marksType ?? "fixed";
   const isRange = marksType === "range";
 
@@ -144,6 +252,70 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Optional fill-in table */}
+        <div className="space-y-3 rounded-md border border-dashed p-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="flex items-center gap-1.5">
+              <Table2 className="h-4 w-4" /> Table for faculty to fill
+            </Label>
+            {tableColumns.length ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => onChange({ tableColumns: undefined, tableRows: undefined })}
+              >
+                Remove table
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onChange({ tableColumns: [{ ...EMPTY_COLUMN }], tableRows: 2 })}
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" /> Add table
+              </Button>
+            )}
+          </div>
+          {tableColumns.length ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Columns (S. No. is added automatically)</p>
+                <ColumnListEditor columns={tableColumns} onChange={(next) => onChange({ tableColumns: next })} />
+              </div>
+              <div className="max-w-[200px] space-y-1.5">
+                <p className="text-xs text-muted-foreground">Rows shown initially</p>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={task.tableRows ?? 2}
+                  onChange={(e) =>
+                    onChange({ tableRows: Math.min(50, Math.max(1, Number(e.target.value) || 1)) })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">Faculty can add more rows.</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Evidence checkboxes */}
+        <div className="space-y-2 rounded-md border border-dashed p-3">
+          <Label>Evidence checkboxes</Label>
+          <p className="text-xs text-muted-foreground">
+            Faculty tick which evidence they are submitting, e.g. Completion Certificate.
+          </p>
+          <LabelListEditor
+            items={task.evidenceOptions || []}
+            onChange={(evidenceOptions) => onChange({ evidenceOptions })}
+            placeholder="e.g. Completion Certificate"
+            addLabel="Add checkbox"
+          />
         </div>
 
         {/* Marks input — single field regardless of type */}

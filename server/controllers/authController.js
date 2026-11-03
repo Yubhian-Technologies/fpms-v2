@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
 import { getSuperadminConfig, invalidateSuperadminCache } from "../config/superadminCache.js";
+import { yearScopeFromReq } from "../config/academicYear.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const formsCollectionRef = () => db.collection("fpmsForms");
@@ -2284,6 +2285,9 @@ export const getCriteriaModulesTasks = async (req, res) => {
         marksType: String(data.marksType || "fixed"),
         minMarks: data.minMarks !== undefined ? Number(data.minMarks) : null,
         note: String(data.note || ""),
+        tableColumns: Array.isArray(data.tableColumns) ? data.tableColumns : [],
+        tableRows: Number(data.tableRows || 0),
+        evidenceOptions: Array.isArray(data.evidenceOptions) ? data.evidenceOptions : [],
         order: Number(data.order || 0),
       });
       return acc;
@@ -2341,7 +2345,7 @@ export const getCommitteeSummary = async (req, res) => {
     // Fetch only the fields we need — no cap, much smaller transfer than full documents
     const [usersSnap, subsSnap] = await Promise.all([
       db.collection("users").select("college", "role", "uid").get(),
-      db.collection("submissions").select("college", "status", "userId").get(),
+      (await yearScopeFromReq(req)).submissions().select("college", "status", "userId").get(),
     ]);
 
     // Aggregate per-college user counts
@@ -2435,7 +2439,7 @@ export const getCommitteeDashboard = async (req, res) => {
     const usersSnap = await (filterCollege ? usersQuery : usersQuery.limit(1000)).get();
 
     // Fetch submissions — scoped to college when provided
-    let subsQuery = db.collection("submissions");
+    let subsQuery = (await yearScopeFromReq(req)).submissions();
     if (filterCollege) subsQuery = subsQuery.where("college", "==", filterCollege);
     const submissionsSnap = await (filterCollege ? subsQuery : subsQuery.limit(3000)).get();
 

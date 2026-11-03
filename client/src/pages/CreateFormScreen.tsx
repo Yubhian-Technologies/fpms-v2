@@ -20,13 +20,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Save, Eye, Trash2, Loader2 } from "lucide-react";
+import { Plus, Save, Eye, Trash2, Loader2, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { FPMSForm, Criteria, Module, Task } from "@/types/formBuilder";
 import CriteriaForm from "@/components/CriteriaForm";
 import FormSummary from "@/components/FormSummary";
 import { api } from "@/api/api";
 import DeleteConfirmationDialog from "@/components/DeleteConfirmationDialog";
+import ImportFormsDialog from "@/components/ImportFormsDialog";
+import { useAcademicYear } from "@/contexts/AcademicYearContext";
 
 const createTask = (): Task => ({
   id: `task-${Date.now()}-${Math.random()}`,
@@ -126,6 +128,8 @@ export default function CreateFormScreen() {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const editFormIdFromQuery = searchParams.get("edit");
+  const { isHistory, years } = useAcademicYear();
+  const [importOpen, setImportOpen] = useState(false);
 
   const [draft, setDraft] = useState<FPMSForm>(createEmptyForm());
   const [savedForms, setSavedForms] = useState<SavedFormSummary[]>([]);
@@ -762,10 +766,20 @@ export default function CreateFormScreen() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Saved Forms</CardTitle>
-              <CardDescription>
-                Load, preview, or delete existing forms
-              </CardDescription>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1.5">
+                  <CardTitle>Saved Forms</CardTitle>
+                  <CardDescription>
+                    Load, preview, or delete existing forms
+                  </CardDescription>
+                </div>
+                {!isHistory && years.length > 1 && (
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportOpen(true)}>
+                    <Copy className="h-4 w-4" />
+                    Import from previous year
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {savedForms.length === 0 && (
@@ -823,6 +837,12 @@ export default function CreateFormScreen() {
           </Card>
         </div>
       )}
+
+      <ImportFormsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => fetchSavedForms(true)}
+      />
 
       <DeleteConfirmationDialog
         open={!!confirmDialog}

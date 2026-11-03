@@ -1,6 +1,13 @@
 import admin from "firebase-admin";
 import { auth, db } from "../config/firebase.js";
 import { invalidateSuperadminCache } from "../config/superadminCache.js";
+import { normalizeTableColumns } from "../utils/taskTable.js";
+import {
+  getYearScope,
+  yearScopeFromReq,
+  isClosedYearRecord,
+  CLOSED_YEAR_MESSAGE,
+} from "../config/academicYear.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 
@@ -151,6 +158,19 @@ const normalizeMarks = (value) => {
   return parsed;
 };
 
+// Task table / evidence checklist config: trimmed, non-empty, bounded lists
+const normalizeLabelList = (value, maxItems) =>
+  (Array.isArray(value) ? value : [])
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean)
+    .slice(0, maxItems);
+
+const normalizeTableRows = (value, hasColumns) => {
+  if (!hasColumns) return 0;
+  const rows = Math.floor(Number(value));
+  return Number.isFinite(rows) && rows > 0 ? Math.min(rows, 50) : 2;
+};
+
 const normalizeFormPayload = (payload) => {
   const criteriaInput = Array.isArray(payload?.criteria)
     ? payload.criteria
@@ -173,7 +193,9 @@ const normalizeFormPayload = (payload) => {
       const taskInput = Array.isArray(moduleItem?.tasks)
         ? moduleItem.tasks
         : [];
-      const tasks = taskInput.map((taskItem, taskIndex) => ({
+      const tasks = taskInput.map((taskItem, taskIndex) => {
+        const tableColumns = normalizeTableColumns(taskItem?.tableColumns);
+        return {
         id: String(taskItem?.id || generateId("task")),
         criteriaId,
         moduleId,
@@ -188,7 +210,11 @@ const normalizeFormPayload = (payload) => {
         marksType: String(taskItem?.marksType || "fixed"),
         minMarks: normalizeMarks(taskItem?.minMarks),
         note: String(taskItem?.note || "").trim(),
-      }));
+        tableColumns,
+        tableRows: normalizeTableRows(taskItem?.tableRows, tableColumns.length > 0),
+        evidenceOptions: normalizeLabelList(taskItem?.evidenceOptions, 20),
+        };
+      });
 
       const totalMarks = tasks.reduce((sum, task) => sum + task.marks, 0);
 
@@ -265,6 +291,9 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       marksType: task.marksType || "fixed",
       minMarks: normalizeMarks(task.minMarks),
       note: task.note || "",
+      tableColumns: task.tableColumns || [],
+      tableRows: Number(task.tableRows || 0),
+      evidenceOptions: task.evidenceOptions || [],
       order: Number(task.order || 0),
     });
     return acc;
@@ -291,6 +320,9 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       marksType: task.marksType || "fixed",
       minMarks: task.minMarks,
       note: task.note || "",
+      tableColumns: task.tableColumns,
+      tableRows: task.tableRows,
+      evidenceOptions: task.evidenceOptions,
     }));
 
     acc[criteriaId].push({
@@ -349,10 +381,18 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
 
   const formRef = formsCollectionRef().doc(formId);
   const existing = await formRef.get();
+  const yearScope = await getYearScope();
+
+  if (existing.exists && isClosedYearRecord(existing.data(), yearScope)) {
+    return { error: CLOSED_YEAR_MESSAGE, status: 403 };
+  }
 
   await formRef.set(
     {
       formTitle: normalized.formTitle,
+      academicYear: existing.exists
+        ? existing.data()?.academicYear || yearScope.current
+        : yearScope.current,
       applicableRoles: normalized.applicableRoles,
       totalMarks: normalized.totalMarks,
       criteriaCount: normalized.criteriaCount,
@@ -427,6 +467,9 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
             marksType: taskItem.marksType || "fixed",
             minMarks: taskItem.minMarks || 0,
             note: taskItem.note || "",
+            tableColumns: taskItem.tableColumns,
+            tableRows: taskItem.tableRows,
+            evidenceOptions: taskItem.evidenceOptions,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
@@ -1123,11 +1166,15 @@ export const deleteCommitteeMember = async (req, res) => {
 
 export const getForms = async (req, res) => {
   try {
-    const snapshot = await formsCollectionRef()
-      .orderBy("updatedAt", "desc")
-      .get();
+    const scope = await yearScopeFromReq(req);
+    const snapshot = await scope.forms().get();
+    // Sorted in memory: academicYear filter + orderBy would need a composite index
+    const toMillis = (v) => (v?.toMillis ? v.toMillis() : new Date(v || 0).getTime() || 0);
+    const docs = [...snapshot.docs].sort(
+      (a, b) => toMillis(b.data().updatedAt) - toMillis(a.data().updatedAt),
+    );
 
-    const forms = snapshot.docs.map((doc) => {
+    const forms = docs.map((doc) => {
       const data = doc.data() || {};
       return {
         id: doc.id,
@@ -1139,6 +1186,9 @@ export const getForms = async (req, res) => {
         taskCount: Number(data.taskCount || 0),
         status: data.status || "draft",
         version: Number(data.version || 1),
+        academicYear: data.academicYear || scope.year,
+        readOnly: isClosedYearRecord(data, scope),
+        clonedFrom: data.clonedFrom || null,
         createdAt: data.createdAt || null,
         updatedAt: data.updatedAt || null,
       };
@@ -1176,8 +1226,16 @@ export const getFormById = async (req, res) => {
       modulesSnapshot.docs,
       tasksSnapshot.docs,
     );
+    const yearScope = await getYearScope();
 
-    return res.status(200).json({ success: true, data: form });
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...form,
+        academicYear: formDoc.data()?.academicYear || yearScope.current,
+        readOnly: isClosedYearRecord(formDoc.data(), yearScope),
+      },
+    });
   } catch (error) {
     console.error("Get form by id error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
@@ -1255,6 +1313,10 @@ export const deleteForm = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Form not found" });
+    }
+
+    if (isClosedYearRecord(existing.data(), await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
     }
 
     await Promise.all([
@@ -1521,7 +1583,9 @@ export const resetCollegeEvaluations = async (req, res) => {
     // Statuses that have HOD review data attached
     const reviewedStatuses = ["reviewed", "accepted", "auto-approved"];
 
-    let query = db.collection("submissions").where("college", "==", collegeName);
+    // Current year only — closed years are history
+    const scope = await getYearScope();
+    let query = scope.submissions().where("college", "==", collegeName);
     if (department && String(department).trim()) {
       query = query.where("department", "==", String(department).trim());
     }
@@ -1574,7 +1638,7 @@ const buildDuplicateGroups = (docs) => {
   const groups = {};
   docs.forEach((doc) => {
     const d = doc.data ? { id: doc.id, ...doc.data() } : doc;
-    const key = `${d.userId}||${d.taskId}`;
+    const key = `${d.userId}||${d.taskId}||${d.academicYear || ""}`;
     if (!groups[key]) groups[key] = [];
     groups[key].push(d);
   });
@@ -1599,7 +1663,8 @@ export const previewDuplicateSubmissions = async (req, res) => {
     const college = String(req.query.college || "").trim();
     if (!college) return res.status(400).json({ success: false, message: "College is required" });
 
-    const snap = await db.collection("submissions").where("college", "==", college).get();
+    const scope = await getYearScope();
+    const snap = await scope.submissions().where("college", "==", college).get();
     const groups = buildDuplicateGroups(snap.docs);
     const toDeleteAll = groups.flatMap((g) => g.toDelete);
 
@@ -1638,7 +1703,8 @@ export const deleteDuplicateSubmissions = async (req, res) => {
     const college = String(req.body.college || "").trim();
     if (!college) return res.status(400).json({ success: false, message: "College is required" });
 
-    const snap = await db.collection("submissions").where("college", "==", college).get();
+    const scope = await getYearScope();
+    const snap = await scope.submissions().where("college", "==", college).get();
     const groups = buildDuplicateGroups(snap.docs);
     const toDeleteIds = groups.flatMap((g) => g.toDelete.map((s) => s.id));
 

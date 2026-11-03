@@ -1,6 +1,21 @@
 import admin from "firebase-admin";
 import { db } from "../config/firebase.js";
 import { getSuperadminConfig } from "../config/superadminCache.js";
+import {
+  getYearScope,
+  yearScopeFromReq,
+  isClosedYearRecord,
+  CLOSED_YEAR_MESSAGE,
+  getCollegesForYear,
+} from "../config/academicYear.js";
+import {
+  loadTaskDefinition,
+  sanitizeTaskExtras,
+  shapeTableRows,
+  taskExtrasError,
+  findTableDuplicates,
+  duplicatesMessage,
+} from "../utils/taskTable.js";
 
 // Returns current assessment phase based on college config dates
 const getCollegePhase = (collegeDef) => {
@@ -56,7 +71,8 @@ const autoRevertAutoApprovedForCollege = async (college) => {
     // Only revert when evaluation is still open (deadline not yet passed)
     if (phase !== "evaluation") return;
 
-    const snap = await db.collection("submissions")
+    const scope = await getYearScope();
+    const snap = await scope.submissions()
       .where("college", "==", college)
       .where("status", "==", "auto-approved")
       .get();
@@ -96,7 +112,8 @@ const autoApproveUnreviewedForCollege = async (college) => {
     const phase = getCollegePhase(collegeDef);
     if (phase !== "appeal" && phase !== "appeal-review" && phase !== "locked") return;
 
-    const snapshot = await db.collection("submissions")
+    const scope = await getYearScope();
+    const snapshot = await scope.submissions()
       .where("college", "==", college)
       .where("status", "==", "submitted")
       .get();
@@ -137,7 +154,8 @@ const autoFreezeExpiredAppeals = async (college) => {
     const phase = getCollegePhase(collegeDef);
     if (phase !== "locked") return;
 
-    const snapshot = await db.collection("submissions")
+    const scope = await getYearScope();
+    const snapshot = await scope.submissions()
       .where("college", "==", college)
       .where("status", "==", "appealed")
       .get();
@@ -190,7 +208,8 @@ const autoFinalizeReviewedForCollege = async (college) => {
     const phase = getCollegePhase(collegeDef);
     if (phase !== "appeal-review" && phase !== "locked") return;
 
-    const snapshot = await db.collection("submissions")
+    const scope = await getYearScope();
+    const snapshot = await scope.submissions()
       .where("college", "==", college)
       .where("status", "==", "reviewed")
       .get();
@@ -564,9 +583,20 @@ export const submitTask = async (req, res) => {
       role.toLowerCase(),
     );
 
-    // Check if submission already exists for this task
-    const existingSnapshot = await db
-      .collection("submissions")
+    // Check if submission already exists for this task in the current academic year
+    const yearScope = await getYearScope();
+    const formDoc = await db.collection("fpmsForms").doc(formId).get();
+    if (formDoc.exists && isClosedYearRecord(formDoc.data(), yearScope)) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
+    const taskDef = await loadTaskDefinition(formId, taskId);
+    const extras = sanitizeTaskExtras(req.body, taskDef);
+    const extrasMessage = taskExtrasError(taskDef, claimedScore, extras);
+    if (extrasMessage) {
+      return res.status(400).json({ success: false, message: extrasMessage });
+    }
+    const existingSnapshot = await yearScope
+      .submissions()
       .where("userId", "==", userId)
       .where("formId", "==", formId)
       .where("criteriaId", "==", criteriaId)
@@ -587,6 +617,16 @@ export const submitTask = async (req, res) => {
           appealToRoleIds,
         },
       });
+    }
+
+    const duplicates = await findTableDuplicates({
+      taskDef,
+      tableData: extras.tableData,
+      college,
+      year: yearScope.current,
+    });
+    if (duplicates.length) {
+      return res.status(409).json({ success: false, message: duplicatesMessage(duplicates), duplicates });
     }
 
     // Create new submission
@@ -624,6 +664,8 @@ export const submitTask = async (req, res) => {
       finalScore: null,
       submitToRoleIds,
       appealToRoleIds,
+      ...extras,
+      academicYear: yearScope.current,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
@@ -670,6 +712,10 @@ export const updateSubmission = async (req, res) => {
 
     const data = docSnap.data();
 
+    if (isClosedYearRecord(data, await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
+
     // 🔐 Allow only owner to edit
     if (data.userId !== userId) {
       return res.status(403).json({
@@ -686,6 +732,30 @@ export const updateSubmission = async (req, res) => {
       });
     }
 
+    const hasNewExtras = req.body.tableData !== undefined || req.body.evidenceChecked !== undefined;
+    const taskDef = await loadTaskDefinition(data.formId, data.taskId);
+    const extras = hasNewExtras ? sanitizeTaskExtras(req.body, taskDef) : null;
+    const extrasMessage = taskExtrasError(
+      taskDef,
+      claimedScore !== undefined ? claimedScore : data.claimedScore,
+      extras || data,
+    );
+    if (extrasMessage) {
+      return res.status(400).json({ success: false, message: extrasMessage });
+    }
+    if (extras) {
+      const duplicates = await findTableDuplicates({
+        taskDef,
+        tableData: extras.tableData,
+        college: data.college,
+        year: (await getYearScope()).current,
+        excludeSubmissionId: id,
+      });
+      if (duplicates.length) {
+        return res.status(409).json({ success: false, message: duplicatesMessage(duplicates), duplicates });
+      }
+    }
+
     let finalEvidence = evidence && String(evidence).trim() ? String(evidence).trim() : data.evidence;
 
     await docRef.update({
@@ -693,6 +763,7 @@ export const updateSubmission = async (req, res) => {
       claimedScore:
         claimedScore !== undefined ? Number(claimedScore) : data.claimedScore,
       evidence: finalEvidence,
+      ...(extras || {}),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -708,6 +779,34 @@ export const updateSubmission = async (req, res) => {
     });
   }
 };
+// POST /api/submissions/check-table — live duplicate check while faculty fill a
+// task table. Row/column indexes match the client's grid (blank rows kept).
+export const checkTaskTable = async (req, res) => {
+  try {
+    const userId = req.user?.uid || req.user?.id || req.headers["x-user-id"];
+    const { formId, taskId, submissionId, tableData } = req.body || {};
+    if (!userId || !formId || !taskId) {
+      return res.status(400).json({ success: false, message: "formId and taskId are required" });
+    }
+    const [taskDef, userDoc, yearScope] = await Promise.all([
+      loadTaskDefinition(formId, taskId),
+      db.collection("users").doc(String(userId)).get(),
+      getYearScope(),
+    ]);
+    const duplicates = await findTableDuplicates({
+      taskDef,
+      tableData: shapeTableRows(tableData, taskDef?.tableColumns || []),
+      college: userDoc.exists ? userDoc.data()?.college || "" : "",
+      year: yearScope.current,
+      excludeSubmissionId: submissionId ? String(submissionId) : undefined,
+    });
+    return res.json({ success: true, data: { duplicates } });
+  } catch (error) {
+    console.error("checkTaskTable error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // Get my submissions
 export const getMySubmissions = async (req, res) => {
   try {
@@ -737,7 +836,8 @@ export const getMySubmissions = async (req, res) => {
     await autoFreezeExpiredAppeals(userCollege);
     await autoFinalizeReviewedForCollege(userCollege);
 
-    let query = db.collection("submissions").where("userId", "==", userId);
+    const scope = await yearScopeFromReq(req);
+    let query = scope.submissions().where("userId", "==", userId);
 
     if (formId) query = query.where("formId", "==", formId);
     if (criteriaId) query = query.where("criteriaId", "==", criteriaId);
@@ -788,6 +888,15 @@ export const getMySubmissions = async (req, res) => {
         finalScore: data.finalScore || null,
         submitToRoleIds: data.submitToRoleIds || [],
         appealToRoleIds: data.appealToRoleIds || [],
+        tableColumns: data.tableColumns || [],
+        tableData: (data.tableData || []).map((row) => ({
+          cells: row.cells || [],
+          docs: row.docs || [],
+          docHashes: row.docHashes || [],
+        })),
+        evidenceOptions: data.evidenceOptions || [],
+        evidenceChecked: data.evidenceChecked || [],
+        academicYear: data.academicYear || scope.year,
         createdAt: data.createdAt || null,
         updatedAt: data.updatedAt || null,
       };
@@ -830,9 +939,13 @@ export const getReviewQueue = async (req, res) => {
       });
     }
 
+    const scope = await yearScopeFromReq(req);
+
     // Auto-approve unreviewed submissions and freeze expired appeals as needed.
     // Also revert system-auto-approved records if the deadline was later extended.
-    if (college) {
+    if (!scope.isCurrent) {
+      // Closed years are history — no phase jobs run against them
+    } else if (college) {
       await autoRevertAutoApprovedForCollege(college);
       await autoApproveUnreviewedForCollege(college);
       await autoFreezeExpiredAppeals(college);
@@ -863,8 +976,8 @@ export const getReviewQueue = async (req, res) => {
         )
         .map((rule) => norm(rule.role));
 
-      const principalSnap = await db
-        .collection("submissions")
+      const principalSnap = await scope
+        .submissions()
         .where("status", "==", "submitted")
         .where("college", "==", college)
         .get();
@@ -897,8 +1010,8 @@ export const getReviewQueue = async (req, res) => {
         .map((rule) => norm(rule.role));
 
       if (icSubmitterRoles.length > 0) {
-        const icSnapshot = await db
-          .collection("submissions")
+        const icSnapshot = await scope
+          .submissions()
           .where("status", "==", "submitted")
           .where("college", "==", college)
           .get();
@@ -915,7 +1028,7 @@ export const getReviewQueue = async (req, res) => {
     }
 
     // ── Regular reviewer logic ────────────────────────────────────────────────
-    let baseQuery = db.collection("submissions").where("status", "==", "submitted");
+    let baseQuery = scope.submissions().where("status", "==", "submitted");
     if (college) baseQuery = baseQuery.where("college", "==", college);
 
     let query;
@@ -985,6 +1098,8 @@ export const getReviewedSubmissions = async (req, res) => {
       });
     }
 
+    const scope = await yearScopeFromReq(req);
+
     // Principal fast-path: return ALL non-submitted submissions from roles that
     // route to this principal (not just where reviewerId === principalId).
     // This ensures HOD/Dean submissions reviewed by IC are still visible here.
@@ -997,8 +1112,8 @@ export const getReviewedSubmissions = async (req, res) => {
         )
         .map((rule) => norm(rule.role));
 
-      const snap = await db
-        .collection("submissions")
+      const snap = await scope
+        .submissions()
         .where("college", "==", college)
         .get();
 
@@ -1016,7 +1131,7 @@ export const getReviewedSubmissions = async (req, res) => {
     }
 
     // Fetch all submissions reviewed by this user (regardless of current status)
-    let query = db.collection("submissions").where("reviewerId", "==", userId);
+    let query = scope.submissions().where("reviewerId", "==", userId);
 
     if (college) query = query.where("college", "==", college);
     if (
@@ -1075,6 +1190,9 @@ export const reviewSubmission = async (req, res) => {
 
     // Phase check: block review after evaluation period ends
     const subData = doc.data();
+    if (isClosedYearRecord(subData, await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
     const saDataForReview = await getSuperadminConfig();
     const collegeDefForReview = (saDataForReview.colleges || []).find(
       (c) => String(c?.name || "").trim().toLowerCase() === String(subData?.college || "").trim().toLowerCase()
@@ -1140,6 +1258,9 @@ export const raiseAppeal = async (req, res) => {
     }
 
     const data = doc.data();
+    if (isClosedYearRecord(data, await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
     const appealableStatuses = ["reviewed", "auto-approved", "accepted"];
     if (!appealableStatuses.includes(data.status)) {
       return res.status(400).json({
@@ -1221,6 +1342,10 @@ export const acceptReview = async (req, res) => {
 
     const data = doc.data();
 
+    if (isClosedYearRecord(data, await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
+
     // Verify this is the user's submission
     if (data.userId !== userId) {
       return res.status(403).json({ success: false, message: "Unauthorized" });
@@ -1282,8 +1407,12 @@ export const getAppealQueue = async (req, res) => {
       });
     }
 
+    const scope = await yearScopeFromReq(req);
+
     // Auto-approve any missed unreviewed submissions and freeze expired appeals
-    if (college) {
+    if (!scope.isCurrent) {
+      // Closed years are history — no phase jobs run against them
+    } else if (college) {
       await autoApproveUnreviewedForCollege(college);
       await autoFreezeExpiredAppeals(college);
       await autoFinalizeReviewedForCollege(college);
@@ -1297,7 +1426,7 @@ export const getAppealQueue = async (req, res) => {
 
     // Base query builder
     const buildCollegeQuery = (status) => {
-      let q = db.collection("submissions").where("status", "==", status);
+      let q = scope.submissions().where("status", "==", status);
       if (isPrincipalRole(userRole) && college) {
         q = q.where("college", "==", college);
       } else if ((isInternalCommitteeRole(userRole) || internalCommittee) && college) {
@@ -1318,7 +1447,7 @@ export const getAppealQueue = async (req, res) => {
         : null;
       const currentPhase = getCollegePhase(collegeDefForQueue);
       console.log("[getAppealQueue] phase:", currentPhase);
-      if (currentPhase === "appeal-review") {
+      if (scope.isCurrent && currentPhase === "appeal-review") {
         const expiredSnap = await buildCollegeQuery("appeal-expired").get();
         expiredDocs = expiredSnap.docs;
       }
@@ -1374,7 +1503,7 @@ export const getAppealQueue = async (req, res) => {
 
     await Promise.all(
       appeals
-        .filter((item) => item.shouldSyncAppealToRoles)
+        .filter((item) => scope.isCurrent && item.shouldSyncAppealToRoles)
         .map(async (item) => {
           const docRef = db.collection("submissions").doc(item.id);
           await docRef.update({
@@ -1426,6 +1555,10 @@ export const reviewAppeal = async (req, res) => {
     }
 
     const submissionData = doc.data() || {};
+
+    if (isClosedYearRecord(submissionData, await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
 
     // Phase check: appeal resolution allowed during appeal AND appeal-review phases
     const saDataForAppealReview = await getSuperadminConfig();
@@ -1551,8 +1684,9 @@ export const getResolvedAppeals = async (req, res) => {
         .json({ success: false, message: "User not authenticated" });
     }
 
-    let query = db
-      .collection("submissions")
+    const scope = await yearScopeFromReq(req);
+    let query = scope
+      .submissions()
       .where("appealerId", "==", appealerId);
 
     if (college) query = query.where("college", "==", college);
@@ -1589,8 +1723,9 @@ export const getUserTotal = async (req, res) => {
         .json({ success: false, message: "User not authenticated" });
     }
 
-    let query = db
-      .collection("submissions")
+    const scope = await yearScopeFromReq(req);
+    let query = scope
+      .submissions()
       .where("userId", "==", userId)
       .where("status", "in", ["reviewed", "appeal-resolved", "auto-approved"]);
 
@@ -1674,6 +1809,10 @@ export const deleteSubmission = async (req, res) => {
       return res.status(404).json({ success: false, message: "Submission not found" });
     }
 
+    if (isClosedYearRecord(doc.data(), await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
+
     await docRef.delete();
 
     return res.status(200).json({ success: true, message: "Submission deleted. Faculty can now resubmit." });
@@ -1700,6 +1839,9 @@ export const editReview = async (req, res) => {
     }
 
     const data = docSnap.data();
+    if (isClosedYearRecord(data, await getYearScope())) {
+      return res.status(403).json({ success: false, message: CLOSED_YEAR_MESSAGE });
+    }
     const editableStatuses = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
     if (!editableStatuses.includes(data.status)) {
       return res.status(400).json({ success: false, message: "Only reviewed or accepted submissions can be edited" });
@@ -1729,6 +1871,7 @@ export const getAllReviewedSubmissions = async (req, res) => {
     if (!college) return res.status(403).json({ success: false, message: "College not found" });
 
     const FINALIZED = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
+    const scope = await yearScopeFromReq(req);
 
     // IC fast-path: all faculty (or whichever roles route to IC) in the college
     if (internalCommittee) {
@@ -1738,7 +1881,7 @@ export const getAllReviewedSubmissions = async (req, res) => {
         .filter((rule) => (rule.submitToRoles || []).some((r) => norm(r) === "internal committee"))
         .map((rule) => norm(rule.role));
 
-      const snap = await db.collection("submissions")
+      const snap = await scope.submissions()
         .where("college", "==", college)
         .get();
 
@@ -1753,7 +1896,7 @@ export const getAllReviewedSubmissions = async (req, res) => {
 
     // HOD: own department only
     if (department) {
-      const snap = await db.collection("submissions")
+      const snap = await scope.submissions()
         .where("college", "==", college)
         .where("department", "==", department)
         .get();
@@ -1776,10 +1919,13 @@ export const getAllReviewedSubmissions = async (req, res) => {
 // Returns evaluation phase for every college — lets the review page check each submission's phase
 export const getCollegePhases = async (req, res) => {
   try {
-    const saData = await getSuperadminConfig();
+    const scope = await yearScopeFromReq(req);
+    const colleges = await getCollegesForYear(scope);
     const phases = {};
-    (saData.colleges || []).forEach((c) => {
-      if (c?.name) phases[String(c.name).trim()] = getCollegePhase(c);
+    colleges.forEach((c) => {
+      if (!c?.name) return;
+      // A closed academic year is always locked, whatever its dates say
+      phases[String(c.name).trim()] = scope.isCurrent ? getCollegePhase(c) : "locked";
     });
     return res.json({ success: true, data: phases });
   } catch (err) {
@@ -1791,8 +1937,12 @@ export const getCollegePhases = async (req, res) => {
 // Returns all forms in display order (same as form builder) — used by review page to order criteria groups
 export const getFormOrder = async (req, res) => {
   try {
-    const snap = await db.collection("fpmsForms").orderBy("updatedAt", "desc").get();
-    const forms = snap.docs.map((doc, idx) => ({
+    const scope = await yearScopeFromReq(req);
+    const snap = await scope.forms().get();
+    // Sorted in memory: academicYear filter + orderBy would need a composite index
+    const toMillis = (v) => (v?.toMillis ? v.toMillis() : new Date(v || 0).getTime() || 0);
+    const docs = [...snap.docs].sort((a, b) => toMillis(b.data().updatedAt) - toMillis(a.data().updatedAt));
+    const forms = docs.map((doc, idx) => ({
       id: doc.id,
       formTitle: String(doc.data().formTitle || ""),
       order: idx,
@@ -1871,7 +2021,8 @@ export const getCollegeAllFinalized = async (req, res) => {
       return res.status(403).json({ success: false, message: "College not found" });
     }
     const FINALIZED = ["reviewed", "accepted", "auto-approved", "appeal-resolved", "appeal-expired"];
-    const snap = await db.collection("submissions").where("college", "==", college).get();
+    const scope = await yearScopeFromReq(req);
+    const snap = await scope.submissions().where("college", "==", college).get();
     const submissions = snap.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .filter((s) => FINALIZED.includes(s.status))

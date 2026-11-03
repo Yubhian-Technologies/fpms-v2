@@ -18,6 +18,7 @@ if (import.meta.env.VITE_MAINTENANCE_MODE === "true") {
 }
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { FPMSProvider } from "@/contexts/FPMSContext";
+import { AcademicYearProvider, useAcademicYear } from "@/contexts/AcademicYearContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -62,6 +63,7 @@ import WorkflowRules from "./pages/WorkflowRules";
 import MyAppeals from "./pages/MyAppeals";
 import AddViewer from "./pages/AddViewer";
 import AddGuest from "./pages/AddGuest";
+import AcademicYears from "./pages/AcademicYears";
 import ChangePassword from "./pages/ChangePassword";
 import CommitteeMember from "./pages/CommitteeMember";
 import CollegeDeadlines from "./pages/CollegeDeadlines";
@@ -130,9 +132,11 @@ function ProtectedRoute({
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
+  const { selectedYear } = useAcademicYear();
 
   return (
-    <Routes>
+    // Keyed by year so every page remounts and refetches when the viewed year changes
+    <Routes key={selectedYear}>
       <Route path="/" element={<Index />} />
       <Route path="/register-superadmin" element={<AddSuperAdmin />} />
       <Route
@@ -351,6 +355,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/superadmin/academic-years"
+        element={
+          <ProtectedRoute allowedRoles={["superadmin"]}>
+            <AcademicYears />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/superadmin/form-builder"
         element={
           <ProtectedRoute allowedRoles={["superadmin"]}>
@@ -377,9 +389,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <FPMSProvider>
-            <AppRoutes />
-          </FPMSProvider>
+          <AcademicYearProvider>
+            <FPMSProvider>
+              <AppRoutes />
+            </FPMSProvider>
+          </AcademicYearProvider>
         </AuthProvider>
       </BrowserRouter>
       <SpeedInsights />

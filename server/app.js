@@ -27,6 +27,7 @@ import formRouter from "./routes/formsRoutes.js";
 import cloudinaryRouter from "./routes/cloudinaryRoutes.js";
 import viewerRouter from "./routes/viewerRoutes.js";
 import guestRouter from "./routes/guestRoutes.js";
+import academicYearRouter from "./routes/academicYearRoutes.js";
 
 const app = express();
 
@@ -103,6 +104,7 @@ app.use("/api/forms", formRouter);
 app.use("/api/cloudinary", cloudinaryRouter);
 app.use("/api/viewer", viewerRouter);
 app.use("/api/guest", guestRouter);
+app.use("/api/academic-years", academicYearRouter);
 
 // 404 — no route matched
 app.use((req, res) => {

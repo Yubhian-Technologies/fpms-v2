@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "@/api/api";
+import { SubmissionTableView } from "@/components/fpms/TaskTableFields";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1073,6 +1074,8 @@ export default function Review() {
               </p>
             </div>
           </div>
+
+          <SubmissionTableView submission={item} />
 
           {item.isAppealed && item.appealReason && (
             <div className="border border-amber-200 bg-amber-50/70 rounded p-3 text-sm">

@@ -1,5 +1,6 @@
 
 import { db } from "../config/firebase.js";
+import { yearScopeFromReq } from "../config/academicYear.js";
 
 export const getUserForms = async (req, res) => {
   try {
@@ -17,8 +18,10 @@ export const getUserForms = async (req, res) => {
     console.log(`[getUserForms] Fetching forms for userId: ${userId}, role: ${userRole}`);
 
     // Query fpmsForms where applicableRoles contains the user's role
-    const snapshot = await db
-      .collection("fpmsForms")
+    // The selected year's forms — closed years are view-only (submitTask rejects them)
+    const scope = await yearScopeFromReq(req);
+    const snapshot = await scope
+      .forms()
       .where("applicableRoles", "array-contains", userRole)
       .get();
 

@@ -9,6 +9,7 @@ import { Loader2, Save, User, X, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/api/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAcademicYear, formatAcademicYearLong } from "@/contexts/AcademicYearContext";
 
 function calculateExperience(dateOfJoining: string): { years: number; months: number; total: number } {
   if (!dateOfJoining) return { years: 0, months: 0, total: 0 };
@@ -53,6 +54,7 @@ function profileEndpoint(role: string, level?: number) {
 
 export default function MyProfile() {
   const { user } = useAuth();
+  const { currentYear } = useAcademicYear();
   const endpoint = profileEndpoint(user?.role || "faculty", user?.level);
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -237,7 +239,7 @@ export default function MyProfile() {
             </div>
 
             <div className="space-y-2">
-              <Label>Subjects Handled incl. Labs (2025–2026)</Label>
+              <Label>Subjects Handled incl. Labs ({formatAcademicYearLong(currentYear)})</Label>
               <div className="flex gap-2">
                 <Input
                   ref={subjectInputRef}
