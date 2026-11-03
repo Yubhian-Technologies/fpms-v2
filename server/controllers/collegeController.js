@@ -1,6 +1,7 @@
 import express from 'express';
 import { getSuperadminData } from './superAdminController.js';
 import { db } from '../config/firebase.js';
+import { yearScopeFromReq, getCollegesForYear } from '../config/academicYear.js';
 
 // New endpoint: any authenticated role can read their college's designations/targets
 export const getDesignationsByCollege = async (req, res) => {
@@ -11,7 +12,8 @@ export const getDesignationsByCollege = async (req, res) => {
 
     console.log("[getDesignationsByCollege] role:", role, "| college from header:", college, "| userId:", userId);
 
-    const { colleges } = await getSuperadminData();
+    // Targets as they were in the selected academic year
+    const colleges = await getCollegesForYear(await yearScopeFromReq(req));
 
     if (role === "committee") {
       const result = colleges.map((c) => ({
@@ -68,8 +70,9 @@ export const getUserCollegeDeadline = async (req, res) => {
 
     let userCollege = req.user.college;
 
-    const superadminData = await getSuperadminData();
-    const colleges = Array.isArray(superadminData?.colleges) ? superadminData.colleges : [];
+    // A closed year reports its frozen dates, so it shows as finished rather than "not set"
+    const yearScope = await yearScopeFromReq(req);
+    const colleges = await getCollegesForYear(yearScope);
 
     const findCollege = (name) =>
       name ? colleges.find((c) => c?.name && c.name.toLowerCase() === String(name).toLowerCase()) : null;
@@ -104,6 +107,8 @@ export const getUserCollegeDeadline = async (req, res) => {
         evaluationEnd: collegeData.evaluationEnd || null,
         appealEnd: collegeData.appealEnd || null,
         appealReviewEnd: collegeData.appealReviewEnd || null,
+        academicYear: yearScope.year,
+        closed: !yearScope.isCurrent,
       },
     });
   } catch (error) {

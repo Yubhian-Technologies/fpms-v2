@@ -101,19 +101,22 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
 
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-md border border-slate-300">
+        <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-slate-100 text-left align-bottom">
-              <th className="w-14 px-3 py-2 font-semibold">S. No.</th>
+              <th className="w-16 whitespace-nowrap border-b border-r border-slate-300 px-3 py-2.5 font-semibold">S. No.</th>
               {columns.map((col, i) => (
-                <th key={i} className={`px-3 py-2 font-semibold ${col.document !== "none" ? "min-w-[220px]" : "min-w-[140px]"}`}>
+                <th
+                  key={i}
+                  className={`border-b border-r border-slate-300 px-3 py-2.5 font-semibold last:border-r-0 ${col.document !== "none" ? "min-w-[220px]" : "min-w-[160px]"}`}
+                >
                   {col.label}
                   {col.document === "required" && <span className="ml-1 text-xs font-normal text-red-600">+ document*</span>}
                   {col.document === "optional" && <span className="ml-1 text-xs font-normal text-muted-foreground">+ document</span>}
                 </th>
               ))}
-              {!readOnly && <th className="w-10" />}
+              {!readOnly && <th className="w-10 border-b border-slate-300" />}
             </tr>
           </thead>
           <tbody>
@@ -125,27 +128,28 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
               </tr>
             ) : (
               visibleRows.map((row, r) => (
-                <tr key={r} className="border-t align-top">
-                  <td className="px-3 py-2 tabular-nums">{r + 1}</td>
+                <tr key={r} className="align-top [&:not(:last-child)>td]:border-b [&>td]:border-slate-300">
+                  <td className="border-r px-3 py-2.5 tabular-nums">{r + 1}</td>
                   {columns.map((column, c) => {
                     const error = errors?.[`${r}:${c}`];
                     const doc = row.docs[c];
                     if (readOnly) {
                       return (
-                        <td key={c} className="space-y-1 px-3 py-2">
+                        <td key={c} className="space-y-1 border-r px-3 py-2.5 last:border-r-0">
                           <div className="whitespace-pre-wrap">{row.cells[c] || "—"}</div>
                           {typeof doc === "string" && doc && <DocumentLink doc={doc} />}
                         </td>
                       );
                     }
                     return (
-                      <td key={c} className="space-y-1 p-1">
+                      <td key={c} className="space-y-1.5 border-r p-1.5">
                         <input
                           value={row.cells[c]}
                           onChange={(e) => setCell(r, c, e.target.value)}
                           onBlur={() => column.maxUses && onLimitedCellCommit?.(rows)}
-                          className={`w-full rounded border bg-transparent px-2 py-1.5 outline-none focus:bg-white ${
-                            error ? "border-red-400 focus:border-red-500" : "border-transparent focus:border-indigo-300"
+                          placeholder={column.label}
+                          className={`w-full rounded border bg-white px-2 py-1.5 outline-none placeholder:text-slate-300 focus:ring-2 ${
+                            error ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
                           }`}
                         />
                         {column.document !== "none" &&
@@ -210,9 +214,9 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
         <button
           type="button"
           onClick={() => onChange?.([...rows, emptyRow(columns)])}
-          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-indigo-300 bg-indigo-50/50 py-2 text-sm font-medium text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
         >
-          <Plus className="h-3.5 w-3.5" /> Add row
+          <Plus className="h-4 w-4" /> Add row
         </button>
       )}
     </div>
