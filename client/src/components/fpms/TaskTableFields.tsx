@@ -214,9 +214,9 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
         <button
           type="button"
           onClick={() => onChange?.([...rows, emptyRow(columns)])}
-          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-indigo-300 bg-indigo-50/50 py-2 text-sm font-medium text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
         >
-          <Plus className="h-3.5 w-3.5" /> Add row
+          <Plus className="h-4 w-4" /> Add row
         </button>
       )}
     </div>
