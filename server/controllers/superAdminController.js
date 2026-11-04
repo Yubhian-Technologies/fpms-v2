@@ -158,13 +158,6 @@ const normalizeMarks = (value) => {
   return parsed;
 };
 
-// Task table / evidence checklist config: trimmed, non-empty, bounded lists
-const normalizeLabelList = (value, maxItems) =>
-  (Array.isArray(value) ? value : [])
-    .map((item) => String(item ?? "").trim())
-    .filter(Boolean)
-    .slice(0, maxItems);
-
 const normalizeTableRows = (value, hasColumns) => {
   if (!hasColumns) return 0;
   const rows = Math.floor(Number(value));
@@ -212,7 +205,6 @@ const normalizeFormPayload = (payload) => {
         note: String(taskItem?.note || "").trim(),
         tableColumns,
         tableRows: normalizeTableRows(taskItem?.tableRows, tableColumns.length > 0),
-        evidenceOptions: normalizeLabelList(taskItem?.evidenceOptions, 20),
         };
       });
 
@@ -293,7 +285,6 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       note: task.note || "",
       tableColumns: task.tableColumns || [],
       tableRows: Number(task.tableRows || 0),
-      evidenceOptions: task.evidenceOptions || [],
       order: Number(task.order || 0),
     });
     return acc;
@@ -322,7 +313,6 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       note: task.note || "",
       tableColumns: task.tableColumns,
       tableRows: task.tableRows,
-      evidenceOptions: task.evidenceOptions,
     }));
 
     acc[criteriaId].push({
@@ -469,7 +459,6 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
             note: taskItem.note || "",
             tableColumns: taskItem.tableColumns,
             tableRows: taskItem.tableRows,
-            evidenceOptions: taskItem.evidenceOptions,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },

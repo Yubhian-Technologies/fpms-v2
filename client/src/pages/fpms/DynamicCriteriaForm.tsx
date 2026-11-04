@@ -30,7 +30,6 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadBytesResumable } from "firebase/storage";
 import {
   TaskTableInput,
-  EvidenceChecklist,
   buildTableRows,
   toTableData,
   tableHasFilledRow,
@@ -53,7 +52,6 @@ interface TaskItem {
   note?: string;
   tableColumns?: (TableColumn | string)[];
   tableRows?: number;
-  evidenceOptions?: string[];
   order: number;
 }
 
@@ -82,7 +80,6 @@ interface TaskProgress {
   evidenceUrl: string | File;
   description: string;
   tableRows?: EditableTableRow[]; // undefined until faculty edits or a submission is loaded
-  evidenceChecked?: string[];
 }
 
 interface WorkflowTaskStatusItem {
@@ -114,7 +111,6 @@ interface WorkflowTaskStatusItem {
   appealToRoleIds?: string[];
   maxMarks?: number;
   tableData?: { cells: string[]; docs?: string[]; docHashes?: string[] }[];
-  evidenceChecked?: string[];
 }
 
 type TaskStatus = "pending" | "submitted";
@@ -468,7 +464,6 @@ export default function DynamicCriteriaForm() {
                 docHashes: row.docHashes || [],
               }))
             : undefined,
-          evidenceChecked: submission.evidenceChecked || [],
         };
       });
 
@@ -623,7 +618,6 @@ export default function DynamicCriteriaForm() {
         evidenceUrl: prev[taskId]?.evidenceUrl || "",
         description: prev[taskId]?.description || "",
         tableRows: prev[taskId]?.tableRows,
-        evidenceChecked: prev[taskId]?.evidenceChecked,
         ...patch,
       },
     }));
@@ -714,9 +708,7 @@ export default function DynamicCriteriaForm() {
             ? null
             : tableColumns.length > 0 && !tableHasFilledRow(tableRows)
               ? { title: "Table required", description: "Fill at least one row of the table when claiming a score greater than 0." }
-              : (task.evidenceOptions?.length ?? 0) > 0 && !(progress.evidenceChecked?.length)
-                ? { title: "Evidence checklist required", description: "Tick at least one evidence item when claiming a score greater than 0." }
-                : null;
+              : null;
       if (missingExtras) {
         toast({ ...missingExtras, variant: "destructive" });
         return false;
@@ -766,8 +758,6 @@ export default function DynamicCriteriaForm() {
         description: progress.description || "",
         evidence: evidenceValue,
         tableData: toTableData(uploadedRows),
-        evidenceOptions: task.evidenceOptions || [],
-        evidenceChecked: progress.evidenceChecked || [],
       };
 
       let submitRes;
@@ -1395,18 +1385,6 @@ export default function DynamicCriteriaForm() {
                             onChange={(tableRows) => updateTaskProgress(task.id, { tableRows })}
                             onLimitedCellCommit={(rows) => checkTaskTable(task, rows)}
                           />
-                        )}
-
-                        {(task.evidenceOptions?.length ?? 0) > 0 && (
-                          <div className="space-y-1.5">
-                            <p className="text-sm font-medium">Evidence Submitted</p>
-                            <EvidenceChecklist
-                              options={task.evidenceOptions || []}
-                              checked={progress.evidenceChecked || []}
-                              readOnly={taskFrozen}
-                              onChange={(evidenceChecked) => updateTaskProgress(task.id, { evidenceChecked })}
-                            />
-                          </div>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

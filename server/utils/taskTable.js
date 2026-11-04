@@ -21,12 +21,6 @@ export const normalizeTableColumns = (value) =>
     .filter((column) => column.label)
     .slice(0, 12);
 
-const normalizeLabels = (value, maxItems) =>
-  (Array.isArray(value) ? value : [])
-    .map((item) => String(item ?? "").trim().slice(0, 300))
-    .filter(Boolean)
-    .slice(0, maxItems);
-
 const normalizeText = (value) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 // Fingerprint of a proof: the client's SHA-256 of an uploaded file, else the link itself
@@ -37,7 +31,7 @@ const proofFingerprint = (doc, clientHash) => {
 };
 
 // ── Task definition ──────────────────────────────────────────────────────────
-// Column and checkbox rules always come from the form, never from the client.
+// Column rules always come from the form, never from the client.
 export const loadTaskDefinition = async (formId, taskId) => {
   if (!formId || !taskId) return null;
   const doc = await db.collection("fpmsForms").doc(formId).collection("tasks").doc(taskId).get();
@@ -46,11 +40,10 @@ export const loadTaskDefinition = async (formId, taskId) => {
   return {
     id: doc.id,
     tableColumns: normalizeTableColumns(data.tableColumns),
-    evidenceOptions: normalizeLabels(data.evidenceOptions, 20),
   };
 };
 
-// Table rows + evidence ticks to store on a submission. Rows are
+// Table rows to store on a submission. Rows are
 // { cells, docs, docHashes } — Firestore cannot nest arrays directly.
 // `uniqueKeys` indexes the limited columns so duplicates can be found with
 // one array-contains-any query.
@@ -69,21 +62,14 @@ export const shapeTableRows = (rows, tableColumns) =>
 
 export const sanitizeTaskExtras = (body, taskDef) => {
   const tableColumns = taskDef?.tableColumns || [];
-  const evidenceOptions = taskDef?.evidenceOptions || [];
 
   const tableData = shapeTableRows(tableColumns.length ? body?.tableData : [], tableColumns).filter(
     (row) => row.cells.some(Boolean) || row.docs.some(Boolean),
   );
 
-  const evidenceChecked = normalizeLabels(body?.evidenceChecked, 20).filter((item) =>
-    evidenceOptions.includes(item),
-  );
-
   return {
     tableColumns,
     tableData,
-    evidenceOptions,
-    evidenceChecked,
     uniqueKeys: buildUniqueEntries(taskDef?.id, tableColumns, tableData).map((entry) => entry.key),
   };
 };
@@ -110,7 +96,7 @@ const buildUniqueEntries = (taskId, tableColumns, tableData) => {
 
 // ── Rules ────────────────────────────────────────────────────────────────────
 // Required documents always apply to filled rows. When marks are claimed, a
-// table needs at least one row and a checklist at least one tick.
+// table needs at least one filled row.
 export const taskExtrasError = (taskDef, claimedScore, extras) => {
   if (!taskDef) return null;
   const tableColumns = taskDef.tableColumns || [];
@@ -123,9 +109,6 @@ export const taskExtrasError = (taskDef, claimedScore, extras) => {
   if (!(Number(claimedScore) > 0)) return null;
   if (tableColumns.length > 0 && !(extras.tableData || []).length) {
     return "Fill at least one row of the table when claiming marks.";
-  }
-  if ((taskDef.evidenceOptions || []).length > 0 && !(extras.evidenceChecked || []).length) {
-    return "Tick at least one evidence item when claiming marks.";
   }
   return null;
 };

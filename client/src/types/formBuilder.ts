@@ -12,7 +12,6 @@ export interface Task {
   note?: string;          // optional note shown to faculty above claimed score
   tableColumns?: TableColumn[]; // columns faculty fill in (S. No. is added automatically); empty = no table
   tableRows?: number;         // rows shown initially; faculty can add more
-  evidenceOptions?: string[]; // checkbox labels, e.g. "Completion Certificate"
 }
 
 export interface TableColumn {
