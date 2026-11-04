@@ -125,6 +125,10 @@ type TaskWorkflowStatus =
 
 const COLLAPSE_LIMIT = 120;
 
+// Upload columns in the table replace the task-level evidence field
+const tableHasDocumentColumn = (task: TaskItem) =>
+  normalizeTableColumns(task.tableColumns).some((column) => column.document !== "none");
+
 // Current table rows for a task, shaped to the task's columns
 function getTaskTableRows(task: TaskItem, progress?: TaskProgress): EditableTableRow[] {
   const columns = normalizeTableColumns(task.tableColumns);
@@ -680,7 +684,8 @@ export default function DynamicCriteriaForm() {
 
       const claimedNum = Number(progress.claimedScore || 0);
 
-      if (claimedNum > 0 && !progress.evidenceUrl) {
+      // A table with upload columns carries the evidence; the task-level upload is hidden then
+      if (claimedNum > 0 && !progress.evidenceUrl && !tableHasDocumentColumn(task)) {
         toast({
           title: "Evidence required",
           description:
@@ -1272,6 +1277,7 @@ export default function DynamicCriteriaForm() {
                       : null;
                   const taskStatus = getTaskStatus(task.id);
                   const taskFrozen = isTaskFrozen(task.id);
+                  const showTaskEvidence = !tableHasDocumentColumn(task);
 
                   return (
                     <Card key={task.id} className="border">
@@ -1413,6 +1419,7 @@ export default function DynamicCriteriaForm() {
                             )}
                           </div>
 
+                          {showTaskEvidence && (
                           <div>
                             <label className="text-sm font-medium block mb-1.5">
                               Evidence (Upload File or Paste Link)
@@ -1474,6 +1481,7 @@ export default function DynamicCriteriaForm() {
                               </>
                             )}
                           </div>
+                          )}
 
                           <div className="md:col-span-2">
                             <label className="text-sm font-medium block mb-1.5">

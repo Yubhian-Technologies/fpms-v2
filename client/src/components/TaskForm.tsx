@@ -14,7 +14,7 @@ interface TaskFormProps {
 
 const EMPTY_COLUMN: TableColumn = { label: "", document: "none", maxUses: 0 };
 
-// Table columns: label, per-row document (none / optional / required) and duplicate limit
+// Table columns: label, type (text or document upload) and duplicate limit
 function ColumnListEditor({
   columns,
   onChange,
@@ -27,14 +27,14 @@ function ColumnListEditor({
 
   return (
     <div className="space-y-2">
-      <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_150px_120px_40px]">
+      <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_190px_120px_40px]">
         <span>Column</span>
-        <span>Document per row</span>
+        <span>Type</span>
         <span>Duplicate limit</span>
         <span />
       </div>
       {columns.map((column, i) => (
-        <div key={i} className="grid gap-2 rounded-md border p-2 md:grid-cols-[1fr_150px_120px_40px] md:border-0 md:p-0">
+        <div key={i} className="grid gap-2 rounded-md border p-2 md:grid-cols-[1fr_190px_120px_40px] md:border-0 md:p-0">
           <Input
             value={column.label}
             onChange={(e) => update(i, { label: e.target.value })}
@@ -44,11 +44,11 @@ function ColumnListEditor({
             value={column.document}
             onChange={(e) => update(i, { document: e.target.value as TableColumn["document"] })}
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            title="Document per row"
+            title="Column type"
           >
-            <option value="none">No document</option>
-            <option value="optional">Optional</option>
-            <option value="required">Required</option>
+            <option value="none">Text</option>
+            <option value="required">Document upload (required)</option>
+            <option value="optional">Document upload (optional)</option>
           </select>
           <Input
             type="number"
@@ -73,8 +73,12 @@ function ColumnListEditor({
         <Plus className="mr-1 h-3.5 w-3.5" /> Add column
       </Button>
       <p className="text-xs text-muted-foreground">
+        Document upload columns are shown at the end of the table. When the table has one, the separate task
+        Evidence upload is not shown to faculty.
+      </p>
+      <p className="text-xs text-muted-foreground">
         Duplicate limit: <strong>0</strong> = no limit, <strong>1</strong> = unique, <strong>3</strong> = the same value (or the same
-        proof file/link) may be entered by at most 3 faculty of a college in an academic year.
+        uploaded file) may be entered by at most 3 faculty of a college in an academic year.
       </p>
     </div>
   );
