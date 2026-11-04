@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Paperclip, Plus, Trash2, X } from "lucide-react";
 import { resolveEvidenceLink } from "@/lib/utils";
 import { normalizeTableColumns, type TableColumn, type TaskTableRow } from "@/types/formBuilder";
@@ -46,6 +47,15 @@ export const toTableData = (rows: EditableTableRow[]): TaskTableRow[] =>
 
 export const tableHasFilledRow = (rows: EditableTableRow[]) => rows.some(rowIsFilled);
 
+// Table uploads: PDF only, under 10 MB
+const MAX_DOC_BYTES = 10 * 1024 * 1024;
+const docFileError = (file: File) => {
+  const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  if (!isPdf) return "Only PDF files are allowed.";
+  if (file.size >= MAX_DOC_BYTES) return "PDF must be smaller than 10 MB.";
+  return null;
+};
+
 // Fingerprint used by the server's duplicate-proof limit
 const fingerprintFile = async (file: File) => {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
@@ -74,6 +84,15 @@ interface TaskTableInputProps {
 
 // Faculty fill-in table (S. No. column is automatic)
 export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLimitedCellCommit }: TaskTableInputProps) {
+  const [fileErrors, setFileErrors] = useState<TableCellErrors>({});
+  const setFileError = (key: string, message: string | null) =>
+    setFileErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[key] = message;
+      else delete next[key];
+      return next;
+    });
+
   const updateRow = (r: number, patch: (row: EditableTableRow) => EditableTableRow) => {
     const next = rows.map((row, ri) => (ri === r ? patch(row) : row));
     onChange?.(next);
@@ -97,6 +116,10 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
   };
 
   const visibleRows = readOnly ? rows.filter(rowIsFilled) : rows;
+  // Text columns first, document (upload) columns at the end of the table
+  const order = columns
+    .map((_, i) => i)
+    .sort((a, b) => Number(columns[a].document !== "none") - Number(columns[b].document !== "none"));
 
   return (
     <div className="space-y-2">
@@ -105,16 +128,19 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
           <thead>
             <tr className="bg-slate-100 text-left align-bottom">
               <th className="w-16 whitespace-nowrap border-b border-r border-slate-300 px-3 py-2.5 font-semibold">S. No.</th>
-              {columns.map((col, i) => (
-                <th
-                  key={i}
-                  className={`border-b border-r border-slate-300 px-3 py-2.5 font-semibold last:border-r-0 ${col.document !== "none" ? "min-w-[220px]" : "min-w-[160px]"}`}
-                >
-                  {col.label}
-                  {col.document === "required" && <span className="ml-1 text-xs font-normal text-red-600">+ document*</span>}
-                  {col.document === "optional" && <span className="ml-1 text-xs font-normal text-muted-foreground">+ document</span>}
-                </th>
-              ))}
+              {order.map((i) => {
+                const col = columns[i];
+                return (
+                  <th
+                    key={i}
+                    className={`border-b border-r border-slate-300 px-3 py-2.5 font-semibold last:border-r-0 ${col.document !== "none" ? "min-w-[200px]" : "min-w-[160px]"}`}
+                  >
+                    {col.label}
+                    {col.document === "required" && <span className="ml-0.5 text-red-600">*</span>}
+                    {col.document === "optional" && <span className="ml-1 text-xs font-normal text-muted-foreground">(optional)</span>}
+                  </th>
+                );
+              })}
               {!readOnly && <th className="w-10 border-b border-slate-300" />}
             </tr>
           </thead>
@@ -129,63 +155,63 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
               visibleRows.map((row, r) => (
                 <tr key={r} className="align-top [&:not(:last-child)>td]:border-b [&>td]:border-slate-300">
                   <td className="border-r px-3 py-2.5 tabular-nums">{r + 1}</td>
-                  {columns.map((column, c) => {
-                    const error = errors?.[`${r}:${c}`];
+                  {order.map((c) => {
+                    const column = columns[c];
+                    const error = fileErrors[`${r}:${c}`] || errors?.[`${r}:${c}`];
                     const doc = row.docs[c];
+                    const isDocColumn = column.document !== "none";
                     if (readOnly) {
                       return (
                         <td key={c} className="space-y-1 border-r px-3 py-2.5 last:border-r-0">
-                          <div className="whitespace-pre-wrap">{row.cells[c] || "—"}</div>
+                          {row.cells[c] && <div className="whitespace-pre-wrap">{row.cells[c]}</div>}
                           {typeof doc === "string" && doc && <DocumentLink doc={doc} />}
+                          {!row.cells[c] && !doc && <div>—</div>}
                         </td>
                       );
                     }
                     return (
                       <td key={c} className="space-y-1.5 border-r p-1.5">
-                        <input
-                          value={row.cells[c]}
-                          onChange={(e) => setCell(r, c, e.target.value)}
-                          onBlur={() => column.maxUses && onLimitedCellCommit?.(rows)}
-                          placeholder={column.label}
-                          className={`w-full rounded border bg-white px-2 py-1.5 outline-none placeholder:text-slate-300 focus:ring-2 ${
-                            error ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
-                          }`}
-                        />
-                        {column.document !== "none" &&
-                          (doc ? (
-                            <div className="flex items-center gap-2 px-2 text-xs">
-                              <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              {doc instanceof File ? (
-                                <span className="truncate">{doc.name}</span>
-                              ) : (
-                                <DocumentLink doc={doc} />
-                              )}
-                              <button
-                                type="button"
-                                title="Remove document"
-                                onClick={() => commitDoc(r, c, "")}
-                                className="ml-auto rounded p-0.5 text-red-600 hover:bg-red-50"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-1 px-1">
-                              <input
-                                type="file"
-                                className="block w-full text-xs file:mr-2 file:rounded file:border-0 file:bg-indigo-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-indigo-700"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) commitDoc(r, c, file);
-                                }}
-                              />
-                              <input
-                                placeholder="or paste link"
-                                className="w-full rounded border border-dashed px-2 py-1 text-xs outline-none focus:border-indigo-300"
-                                onBlur={(e) => e.target.value.trim() && commitDoc(r, c, e.target.value.trim())}
-                              />
-                            </div>
-                          ))}
+                        {!isDocColumn ? (
+                          <input
+                            value={row.cells[c]}
+                            onChange={(e) => setCell(r, c, e.target.value)}
+                            onBlur={() => column.maxUses && onLimitedCellCommit?.(rows)}
+                            placeholder={column.label}
+                            className={`w-full rounded border bg-white px-2 py-1.5 outline-none placeholder:text-slate-300 focus:ring-2 ${
+                              error ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
+                            }`}
+                          />
+                        ) : doc ? (
+                          <div className={`flex items-center gap-2 rounded border bg-white px-2 py-1.5 text-xs ${error ? "border-red-400" : "border-slate-200"}`}>
+                            <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            {doc instanceof File ? <span className="truncate">{doc.name}</span> : <DocumentLink doc={doc} />}
+                            <button
+                              type="button"
+                              title="Remove document"
+                              onClick={() => commitDoc(r, c, "")}
+                              className="ml-auto rounded p-0.5 text-red-600 hover:bg-red-50"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="block w-full py-1 text-xs file:mr-2 file:rounded file:border-0 file:bg-indigo-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-indigo-700"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const message = docFileError(file);
+                              setFileError(`${r}:${c}`, message);
+                              if (message) {
+                                e.target.value = "";
+                                return;
+                              }
+                              commitDoc(r, c, file);
+                            }}
+                          />
+                        )}
                         {error && <p className="px-2 text-xs font-medium text-red-600">{error}</p>}
                       </td>
                     );
@@ -196,7 +222,10 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
                         type="button"
                         title="Remove row"
                         disabled={rows.length <= 1}
-                        onClick={() => onChange?.(rows.filter((_, ri) => ri !== r))}
+                        onClick={() => {
+                          setFileErrors({});
+                          onChange?.(rows.filter((_, ri) => ri !== r));
+                        }}
                         className="rounded p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-30"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
