@@ -2290,7 +2290,6 @@ export const getCriteriaModulesTasks = async (req, res) => {
         note: String(data.note || ""),
         tableColumns: Array.isArray(data.tableColumns) ? data.tableColumns : [],
         tableRows: Number(data.tableRows || 0),
-        evidenceOptions: Array.isArray(data.evidenceOptions) ? data.evidenceOptions : [],
         order: Number(data.order || 0),
       });
       return acc;

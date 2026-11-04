@@ -127,8 +127,8 @@ export default function ImportFormsDialog({ open, onOpenChange, onImported }: Im
         <DialogHeader>
           <DialogTitle>Import forms from a previous year</DialogTitle>
           <DialogDescription>
-            Selected forms are copied into {currentYear} with all criteria, modules, tasks, tables and evidence
-            checkboxes. Edit the copies freely — the originals stay unchanged as history.
+            Selected forms are copied into {currentYear} with all criteria, modules, tasks and
+            tables. Edit the copies freely — the originals stay unchanged as history.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,5 +1,4 @@
 import { Paperclip, Plus, Trash2, X } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { resolveEvidenceLink } from "@/lib/utils";
 import { normalizeTableColumns, type TableColumn, type TaskTableRow } from "@/types/formBuilder";
 
@@ -223,53 +222,9 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
   );
 }
 
-interface EvidenceChecklistProps {
-  options: string[];
-  checked: string[];
-  onChange?: (checked: string[]) => void;
-  readOnly?: boolean;
-}
-
-export function EvidenceChecklist({ options, checked, onChange, readOnly }: EvidenceChecklistProps) {
-  return (
-    <div className="flex flex-wrap gap-x-5 gap-y-2">
-      {options.map((option) => {
-        const isChecked = checked.includes(option);
-        return (
-          <label key={option} className={`flex items-center gap-2 text-sm ${readOnly ? "" : "cursor-pointer"}`}>
-            <Checkbox
-              checked={isChecked}
-              disabled={readOnly}
-              onCheckedChange={(value) =>
-                onChange?.(value ? [...checked, option] : checked.filter((item) => item !== option))
-              }
-            />
-            <span className={readOnly && !isChecked ? "text-muted-foreground" : ""}>{option}</span>
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-// Read-only table + ticked evidence for reviewer / appeal screens
+// Read-only table for reviewer / appeal screens
 export function SubmissionTableView({ submission }: { submission: any }) {
   const columns = normalizeTableColumns(submission?.tableColumns);
-  const tableData: TaskTableRow[] = submission?.tableData || [];
-  const evidenceOptions: string[] = submission?.evidenceOptions || [];
-  if (!columns.length && !evidenceOptions.length) return null;
-
-  return (
-    <div className="space-y-3">
-      {columns.length > 0 && (
-        <TaskTableInput columns={columns} rows={buildTableRows(columns, tableData, 0)} readOnly />
-      )}
-      {evidenceOptions.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Evidence Submitted</p>
-          <EvidenceChecklist options={evidenceOptions} checked={submission?.evidenceChecked || []} readOnly />
-        </div>
-      )}
-    </div>
-  );
+  if (!columns.length) return null;
+  return <TaskTableInput columns={columns} rows={buildTableRows(columns, submission?.tableData || [], 0)} readOnly />;
 }

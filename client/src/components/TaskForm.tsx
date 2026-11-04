@@ -12,45 +12,6 @@ interface TaskFormProps {
   onDelete: () => void;
 }
 
-// Editable list of short labels (table columns / evidence checkboxes)
-function LabelListEditor({
-  items,
-  onChange,
-  placeholder,
-  addLabel,
-}: {
-  items: string[];
-  onChange: (items: string[]) => void;
-  placeholder: string;
-  addLabel: string;
-}) {
-  return (
-    <div className="space-y-2">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <Input
-            value={item}
-            onChange={(e) => onChange(items.map((v, vi) => (vi === i ? e.target.value : v)))}
-            placeholder={placeholder}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 text-red-600 hover:bg-red-50 hover:text-red-700"
-            onClick={() => onChange(items.filter((_, vi) => vi !== i))}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <Button type="button" variant="outline" size="sm" onClick={() => onChange([...items, ""])}>
-        <Plus className="mr-1 h-3.5 w-3.5" /> {addLabel}
-      </Button>
-    </div>
-  );
-}
-
 const EMPTY_COLUMN: TableColumn = { label: "", document: "none", maxUses: 0 };
 
 // Table columns: label, per-row document (none / optional / required) and duplicate limit
@@ -302,20 +263,6 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
               </div>
             </div>
           ) : null}
-        </div>
-
-        {/* Evidence checkboxes */}
-        <div className="space-y-2 rounded-md border border-dashed p-3">
-          <Label>Evidence checkboxes</Label>
-          <p className="text-xs text-muted-foreground">
-            Faculty tick which evidence they are submitting, e.g. Completion Certificate.
-          </p>
-          <LabelListEditor
-            items={task.evidenceOptions || []}
-            onChange={(evidenceOptions) => onChange({ evidenceOptions })}
-            placeholder="e.g. Completion Certificate"
-            addLabel="Add checkbox"
-          />
         </div>
 
         {/* Marks input — single field regardless of type */}

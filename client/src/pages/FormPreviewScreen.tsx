@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { TaskTableInput, EvidenceChecklist, buildTableRows } from "@/components/fpms/TaskTableFields";
+import { TaskTableInput, buildTableRows } from "@/components/fpms/TaskTableFields";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -197,12 +197,6 @@ export default function FormPreviewScreen() {
                                     columns={normalizeTableColumns(taskItem.tableColumns)}
                                     rows={buildTableRows(normalizeTableColumns(taskItem.tableColumns), [], taskItem.tableRows || 2)}
                                   />
-                                ) : null}
-                                {taskItem.evidenceOptions?.length ? (
-                                  <div className="space-y-1.5">
-                                    <p className="text-sm font-medium">Evidence Submitted</p>
-                                    <EvidenceChecklist options={taskItem.evidenceOptions} checked={[]} />
-                                  </div>
                                 ) : null}
                               </CardContent>
                             </Card>

@@ -732,7 +732,7 @@ export const updateSubmission = async (req, res) => {
       });
     }
 
-    const hasNewExtras = req.body.tableData !== undefined || req.body.evidenceChecked !== undefined;
+    const hasNewExtras = req.body.tableData !== undefined;
     const taskDef = await loadTaskDefinition(data.formId, data.taskId);
     const extras = hasNewExtras ? sanitizeTaskExtras(req.body, taskDef) : null;
     const extrasMessage = taskExtrasError(
@@ -894,8 +894,6 @@ export const getMySubmissions = async (req, res) => {
           docs: row.docs || [],
           docHashes: row.docHashes || [],
         })),
-        evidenceOptions: data.evidenceOptions || [],
-        evidenceChecked: data.evidenceChecked || [],
         academicYear: data.academicYear || scope.year,
         createdAt: data.createdAt || null,
         updatedAt: data.updatedAt || null,
