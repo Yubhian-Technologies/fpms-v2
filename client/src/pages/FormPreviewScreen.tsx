@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, Edit2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { normalizeTableColumns, type FPMSForm } from "@/types/formBuilder";
+import { normalizeTableColumns, type FPMSForm, displayTaskNumber } from "@/types/formBuilder";
 import { api } from "@/api/api";
 
 export default function FormPreviewScreen() {
@@ -161,7 +161,7 @@ export default function FormPreviewScreen() {
                               <CardContent className="pt-4 space-y-2">
                                 <div className="flex items-center justify-between gap-4">
                                   <p className="font-medium">
-                                    Task {taskIndex + 1}:{" "}
+                                    Task {displayTaskNumber(taskItem, moduleItem.moduleNumber, taskIndex)}:{" "}
                                     {taskItem.title || "Untitled Task"}
                                   </p>
                                   <Badge>Marks: {taskItem.marks}</Badge>

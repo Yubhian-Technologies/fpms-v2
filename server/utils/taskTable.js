@@ -1,6 +1,14 @@
 import { db } from "../config/firebase.js";
 import { recordYear } from "../config/academicYear.js";
 
+// Tasks (sorted by order) with a display number: the typed Task No., else
+// module number + position, e.g. 3.1 → 3.1.1, 3.1.2
+export const withTaskNumbers = (tasks, moduleNumber) =>
+  tasks.map((task, index) => ({
+    ...task,
+    taskNumber: String(task.taskNumber || "").trim() || `${moduleNumber || "-"}.${index + 1}`,
+  }));
+
 // ── Table column config ──────────────────────────────────────────────────────
 // A column is { label, document: "none" | "optional" | "required", maxUses }.
 // maxUses: 0 = no limit, 1 = unique, N = the same value may be entered N times

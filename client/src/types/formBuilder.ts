@@ -1,5 +1,6 @@
 export interface Task {
   id: string;
+  taskNumber?: string;   // manual override; blank = module number + position, e.g. "1.1.1"
   title: string;
   subtitle?: string;
   description?: string;
@@ -40,6 +41,13 @@ export const normalizeTableColumns = (columns: unknown): TableColumn[] =>
           maxUses: Math.max(0, Number(column?.maxUses) || 0),
         },
   );
+
+// "3.1" + 2nd task → "3.1.2"; a typed Task No. wins
+export const autoTaskNumber = (moduleNumber: number | string, index: number) =>
+  `${moduleNumber || "-"}.${index + 1}`;
+
+export const displayTaskNumber = (task: { taskNumber?: string }, moduleNumber: number | string, index: number) =>
+  String(task.taskNumber || "").trim() || autoTaskNumber(moduleNumber, index);
 
 export interface Module {
   id: string;

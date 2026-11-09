@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 import type { Module, Task } from "@/types/formBuilder";
 import TaskForm from "@/components/TaskForm";
+import { autoTaskNumber } from "@/types/formBuilder";
 
 interface ModuleFormProps {
   module: Module;
@@ -98,10 +99,11 @@ export default function ModuleForm({
             </div>
 
             <div className="space-y-3">
-              {module.tasks.map((task) => (
+              {module.tasks.map((task, index) => (
                 <TaskForm
                   key={task.id}
                   task={task}
+                  autoNumber={autoTaskNumber(module.moduleNumber, index)}
                   onChange={(updates) => onUpdateTask(task.id, updates)}
                   onDelete={() => onDeleteTask(task.id)}
                 />

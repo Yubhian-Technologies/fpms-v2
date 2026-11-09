@@ -199,7 +199,7 @@ export default function Review() {
     moduleName: string;
     totalMarks: number;
     order: number;
-    tasks: { id: string; title: string; marks: number; marksType: string; order: number }[];
+    tasks: { id: string; taskNumber?: string; title: string; marks: number; marksType: string; order: number }[];
   };
   const [formStructureCache, setFormStructureCache] = useState<
     Record<string, { modules: ModuleStructure[] } | null>
@@ -646,7 +646,8 @@ export default function Review() {
                                             renderSubmissionCard(
                                               item,
                                               item.reviewerScore == null ? "pending" : "reviewed",
-                                              `${mod.moduleNumber}.${idx + 1}`,
+                                              mod.tasks.find((t) => t.id === item.taskId)?.taskNumber ||
+                                                `${mod.moduleNumber}.${idx + 1}`,
                                             )
                                           )}
                                         </div>
