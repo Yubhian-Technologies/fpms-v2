@@ -15,6 +15,7 @@ import {
   taskExtrasError,
   findTableDuplicates,
   duplicatesMessage,
+  withTaskNumbers,
 } from "../utils/taskTable.js";
 
 // Returns current assessment phase based on college config dates
@@ -1989,14 +1990,15 @@ export const getFormStructure = async (req, res) => {
       const d = doc.data();
       const mid = String(d.moduleId || "");
       if (!tasksByModule[mid]) tasksByModule[mid] = [];
-      tasksByModule[mid].push({ id: doc.id, title: String(d.title || ""), marks: Number(d.marks || 0), marksType: String(d.marksType || "fixed"), order: Number(d.order || 0) });
+      tasksByModule[mid].push({ id: doc.id, taskNumber: String(d.taskNumber || ""), title: String(d.title || ""), marks: Number(d.marks || 0), marksType: String(d.marksType || "fixed"), order: Number(d.order || 0) });
     });
     Object.values(tasksByModule).forEach((arr) => arr.sort((a, b) => a.order - b.order));
 
     const modules = modulesSnap.docs
       .map((doc) => {
         const d = doc.data();
-        return { id: doc.id, moduleNumber: Number(d.moduleNumber || 0), moduleName: String(d.moduleName || ""), totalMarks: Number(d.totalMarks || 0), order: Number(d.order || 0), tasks: tasksByModule[doc.id] || [] };
+        const moduleNumber = Number(d.moduleNumber || 0);
+        return { id: doc.id, moduleNumber, moduleName: String(d.moduleName || ""), totalMarks: Number(d.totalMarks || 0), order: Number(d.order || 0), tasks: withTaskNumbers(tasksByModule[doc.id] || [], moduleNumber) };
       })
       .sort((a, b) => a.order - b.order);
 

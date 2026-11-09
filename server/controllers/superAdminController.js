@@ -193,6 +193,7 @@ const normalizeFormPayload = (payload) => {
         criteriaId,
         moduleId,
         order: taskIndex + 1,
+        taskNumber: String(taskItem?.taskNumber || "").trim().slice(0, 20),
         title: String(taskItem?.title || "").trim(),
         subtitle: String(taskItem?.subtitle || "").trim(),
         description: String(taskItem?.description || "").trim(),
@@ -273,6 +274,7 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
     if (!acc[moduleId]) acc[moduleId] = [];
     acc[moduleId].push({
       id: taskDoc.id,
+      taskNumber: task.taskNumber || "",
       title: task.title || "",
       subtitle: task.subtitle || "",
       description: task.description || "",
@@ -301,6 +303,7 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
 
     const tasks = (taskByModule[moduleDoc.id] || []).map((task) => ({
       id: task.id,
+      taskNumber: task.taskNumber,
       title: task.title,
       subtitle: task.subtitle,
       description: task.description,
@@ -457,6 +460,7 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
             marksType: taskItem.marksType || "fixed",
             minMarks: taskItem.minMarks || 0,
             note: taskItem.note || "",
+            taskNumber: taskItem.taskNumber || "",
             tableColumns: taskItem.tableColumns,
             tableRows: taskItem.tableRows,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),

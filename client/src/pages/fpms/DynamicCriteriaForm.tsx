@@ -40,6 +40,7 @@ import { normalizeTableColumns, type TableColumn } from "@/types/formBuilder";
 
 interface TaskItem {
   id: string;
+  taskNumber?: string;
   title: string;
   subtitle: string;
   description: string;
@@ -1285,6 +1286,11 @@ export default function DynamicCriteriaForm() {
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
                             <CardTitle className="text-lg">
+                              {task.taskNumber && (
+                                <span className="mr-2 rounded bg-muted px-1.5 py-0.5 font-mono text-sm text-muted-foreground">
+                                  {task.taskNumber}
+                                </span>
+                              )}
                               {task.title || "Task"}
                             </CardTitle>
                             {task.subtitle ? (

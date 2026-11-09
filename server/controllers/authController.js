@@ -3,6 +3,7 @@ import { db, auth } from "../config/firebase.js";
 import admin from "firebase-admin";
 import { getSuperadminConfig, invalidateSuperadminCache } from "../config/superadminCache.js";
 import { yearScopeFromReq } from "../config/academicYear.js";
+import { withTaskNumbers } from "../utils/taskTable.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const formsCollectionRef = () => db.collection("fpmsForms");
@@ -2278,6 +2279,7 @@ export const getCriteriaModulesTasks = async (req, res) => {
       if (!acc[moduleId]) acc[moduleId] = [];
       acc[moduleId].push({
         id: doc.id,
+        taskNumber: String(data.taskNumber || "").trim(),
         title: String(data.title || "").trim(),
         subtitle: String(data.subtitle || "").trim(),
         description: String(data.description || "").trim(),
@@ -2302,13 +2304,14 @@ export const getCriteriaModulesTasks = async (req, res) => {
     const modules = modulesSnapshot.docs
       .map((doc) => {
         const data = doc.data() || {};
+        const moduleNumber = Number(data.moduleNumber || 0);
         return {
           id: doc.id,
-          moduleNumber: Number(data.moduleNumber || 0),
+          moduleNumber,
           moduleName: String(data.moduleName || "").trim(),
           totalMarks: Number(data.totalMarks || 0),
           order: Number(data.order || 0),
-          tasks: tasksByModuleId[doc.id] || [],
+          tasks: withTaskNumbers(tasksByModuleId[doc.id] || [], moduleNumber),
         };
       })
       .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));

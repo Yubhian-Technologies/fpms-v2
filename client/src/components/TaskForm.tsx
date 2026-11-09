@@ -10,6 +10,8 @@ interface TaskFormProps {
   task: Task;
   onChange: (updates: Partial<Task>) => void;
   onDelete: () => void;
+  /** Number used when Task No. is left blank, e.g. 3.1.2 */
+  autoNumber: string;
 }
 
 const EMPTY_COLUMN: TableColumn = { label: "", document: "none", maxUses: 0 };
@@ -84,7 +86,7 @@ function ColumnListEditor({
   );
 }
 
-export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
+export default function TaskForm({ task, onChange, onDelete, autoNumber }: TaskFormProps) {
   const tableColumns = normalizeTableColumns(task.tableColumns);
   const marksType = task.marksType ?? "fixed";
   const isRange = marksType === "range";
@@ -110,7 +112,7 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
   return (
     <Card className="border-l-4 border-l-violet-500">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Task</CardTitle>
+        <CardTitle className="text-base">Task {task.taskNumber?.trim() || autoNumber}</CardTitle>
         <Button
           variant="ghost"
           size="icon"
@@ -121,7 +123,17 @@ export default function TaskForm({ task, onChange, onDelete }: TaskFormProps) {
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-[140px_1fr_1fr]">
+          <div className="space-y-2">
+            <Label>Task No.</Label>
+            <Input
+              value={task.taskNumber || ""}
+              onChange={(e) => onChange({ taskNumber: e.target.value })}
+              placeholder={autoNumber}
+              maxLength={20}
+            />
+            <p className="text-xs text-muted-foreground">Blank = {autoNumber}</p>
+          </div>
           <div className="space-y-2">
             <Label>Task Title *</Label>
             <Input
