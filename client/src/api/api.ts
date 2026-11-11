@@ -95,12 +95,53 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Clears login data on logout / expiry but keeps app preferences and unsaved
+// work (keys starting with "fpms.", e.g. the form builder's auto-saved draft)
+export function clearSessionStorage() {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => !key.startsWith("fpms."))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 let _sessionExpiredPending = false;
+
+// ── Session refresh ──────────────────────────────────────────────────────────
+// Firebase ID tokens expire after 1 hour. On an auth failure we trade the
+// stored refresh token for a new ID token and retry the request once; only if
+// that fails is the user sent to the login page. Concurrent failures share
+// one refresh call.
+let refreshInFlight: Promise<string | null> | null = null;
+
+function refreshSessionToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken) return Promise.resolve(null);
+
+  refreshInFlight = axios
+    .post(`${backendUrl}/api/auth/refresh-token`, { refreshToken })
+    .then((res) => {
+      const token: string | undefined = res.data?.token;
+      if (!token) return null;
+      localStorage.setItem("token", token);
+      if (res.data?.refreshToken) localStorage.setItem("refreshToken", res.data.refreshToken);
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      return token;
+    })
+    .catch(() => null)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
 
 const redirectToSessionExpired = () => {
   if (_sessionExpiredPending) return;
   _sessionExpiredPending = true;
-  localStorage.clear();
+  clearSessionStorage();
   delete api.defaults.headers.common["Authorization"];
   window.location.replace("/login?reason=session_expired");
 };
@@ -109,7 +150,7 @@ const redirectToSessionExpired = () => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const config = error.config as typeof error.config & { _retried?: boolean };
+    const config = error.config as typeof error.config & { _retried?: boolean; _authRetried?: boolean };
     const status = error.response?.status;
     const serverMessage: string = error.response?.data?.message || "";
 
@@ -137,6 +178,15 @@ api.interceptors.response.use(
           serverMessage === "Invalid or expired token"
         ))
       );
+
+    if (isAuthFailure && config && !config._authRetried) {
+      config._authRetried = true;
+      const token = await refreshSessionToken();
+      if (token) {
+        // The request interceptor re-reads the new token from localStorage
+        return api(config);
+      }
+    }
 
     if (isAuthFailure) {
       redirectToSessionExpired();

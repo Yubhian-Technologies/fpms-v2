@@ -4,6 +4,7 @@ import admin from "firebase-admin";
 import { getSuperadminConfig, invalidateSuperadminCache } from "../config/superadminCache.js";
 import { yearScopeFromReq } from "../config/academicYear.js";
 import { withTaskNumbers } from "../utils/taskTable.js";
+import { sortFormDocs } from "../utils/formOrder.js";
 
 const SUPERADMIN_DOC_ID = process.env.SUPERADMIN_DOC_ID || "root";
 const formsCollectionRef = () => db.collection("fpmsForms");
@@ -1133,6 +1134,42 @@ const resolveRoleFromFirebase = async (decodedToken, email) => {
   };
 };
 
+// Exchanges a Firebase refresh token for a new ID token (they expire after 1 hour),
+// so long sessions such as building a form are not logged out mid-work.
+export const refreshSession = async (req, res) => {
+  try {
+    const refreshToken = String(req.body?.refreshToken || "").trim();
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: "Refresh token is required" });
+    }
+
+    const apiKey = process.env.FIREBASE_WEB_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ success: false, message: "Service temporarily unavailable" });
+    }
+
+    const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }).toString(),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.id_token) {
+      // Revoked refresh token, disabled or deleted account → sign in again
+      return res.status(401).json({ success: false, message: "Session expired. Please sign in again." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      token: data.id_token,
+      refreshToken: data.refresh_token,
+    });
+  } catch (error) {
+    console.error("refreshSession error:", error);
+    return res.status(500).json({ success: false, message: "Could not refresh session" });
+  }
+};
+
 export const unifiedLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -1234,6 +1271,8 @@ export const unifiedLogin = async (req, res) => {
     return res.status(200).json({
       success: true,
       token: firebaseData.idToken,
+      // Firebase ID tokens expire after 1 hour; the client trades this for a new one
+      refreshToken: firebaseData.refreshToken,
       user: {
         id: decodedToken.uid,
         name: decodedToken.name || normalizedEmail.split("@")[0] || "User",
@@ -2146,12 +2185,9 @@ export const getApplicableForms = async (req, res) => {
       });
     }
 
-    // Selected year's forms only; sorted in memory (year filter + orderBy would need an index)
+    // Selected year's forms only, in Form Order
     const formsSnapshot = await (await yearScopeFromReq(req)).forms().get();
-    const toMillis = (v) => (v?.toMillis ? v.toMillis() : new Date(v || 0).getTime() || 0);
-    const formDocs = [...formsSnapshot.docs].sort(
-      (a, b) => toMillis(b.data().updatedAt) - toMillis(a.data().updatedAt),
-    );
+    const formDocs = sortFormDocs(formsSnapshot.docs);
 
     const forms = await Promise.all(
       formDocs.map(async (doc) => {

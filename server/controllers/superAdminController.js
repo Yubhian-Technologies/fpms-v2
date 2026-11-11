@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import { auth, db } from "../config/firebase.js";
 import { invalidateSuperadminCache } from "../config/superadminCache.js";
 import { normalizeTableColumns } from "../utils/taskTable.js";
+import { normalizeDisplayOrder, sortFormDocs } from "../utils/formOrder.js";
 import {
   getYearScope,
   yearScopeFromReq,
@@ -256,6 +257,7 @@ const normalizeFormPayload = (payload) => {
 
   return {
     formTitle: String(payload?.formTitle || "").trim(),
+    displayOrder: normalizeDisplayOrder(payload?.displayOrder),
     applicableRoles: toStringArray(payload?.applicableRoles),
     criteria,
     totalMarks,
@@ -351,6 +353,7 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
   return {
     id: formDoc.id,
     formTitle: formData.formTitle || "",
+    displayOrder: normalizeDisplayOrder(formData.displayOrder),
     applicableRoles: toStringArray(formData.applicableRoles),
     totalMarks: Number(formData.totalMarks || 0),
     status: formData.status || "draft",
@@ -383,6 +386,7 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
   await formRef.set(
     {
       formTitle: normalized.formTitle,
+      displayOrder: normalized.displayOrder,
       academicYear: existing.exists
         ? existing.data()?.academicYear || yearScope.current
         : yearScope.current,
@@ -1161,17 +1165,14 @@ export const getForms = async (req, res) => {
   try {
     const scope = await yearScopeFromReq(req);
     const snapshot = await scope.forms().get();
-    // Sorted in memory: academicYear filter + orderBy would need a composite index
-    const toMillis = (v) => (v?.toMillis ? v.toMillis() : new Date(v || 0).getTime() || 0);
-    const docs = [...snapshot.docs].sort(
-      (a, b) => toMillis(b.data().updatedAt) - toMillis(a.data().updatedAt),
-    );
+    const docs = sortFormDocs(snapshot.docs);
 
     const forms = docs.map((doc) => {
       const data = doc.data() || {};
       return {
         id: doc.id,
         formTitle: data.formTitle || "",
+        displayOrder: normalizeDisplayOrder(data.displayOrder),
         applicableRoles: toStringArray(data.applicableRoles),
         totalMarks: Number(data.totalMarks || 0),
         criteriaCount: Number(data.criteriaCount || 0),

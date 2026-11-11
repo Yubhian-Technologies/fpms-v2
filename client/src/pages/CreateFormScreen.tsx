@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
@@ -74,6 +74,7 @@ interface RoleOption {
 interface SavedFormSummary {
   id: string;
   formTitle: string;
+  displayOrder?: number;
   applicableRoles: string[];
   totalMarks: number;
   criteriaCount: number;
@@ -122,6 +123,35 @@ const recalculateForm = (form: FPMSForm): FPMSForm => {
   };
 };
 
+// Unsaved builder work is kept in the browser so a reload, crash or logout
+// doesn't lose it. One draft per user; cleared when the form is saved.
+interface StoredBuilderDraft {
+  editingFormId: string | null;
+  draft: FPMSForm;
+  savedAt: number;
+}
+
+const draftStorageKey = (userId: string) => `fpms.formBuilderDraft.${userId}`;
+
+const readStoredDraft = (key: string): StoredBuilderDraft | null => {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.draft ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredDraft = (key: string, value: StoredBuilderDraft | null) => {
+  try {
+    if (value) localStorage.setItem(key, JSON.stringify(value));
+    else localStorage.removeItem(key);
+  } catch {
+    /* storage full or unavailable — auto-save is best effort */
+  }
+};
+
 export default function CreateFormScreen() {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -141,6 +171,47 @@ export default function CreateFormScreen() {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(
     null,
   );
+
+  const draftKey = draftStorageKey(String((user as any)?.id || (user as any)?.uid || user?.email || "superadmin"));
+  // Set by edits made in the builder; loading or saving a form resets it
+  const isDirtyRef = useRef(false);
+  const [restorable, setRestorable] = useState<StoredBuilderDraft | null>(null);
+  const [lastAutoSaved, setLastAutoSaved] = useState<number | null>(null);
+
+  // Offer unsaved work from a previous visit once the builder has loaded
+  useEffect(() => {
+    if (!isInitialLoading) setRestorable(readStoredDraft(draftKey));
+  }, [isInitialLoading, draftKey]);
+
+  // Auto-save edits shortly after typing stops
+  useEffect(() => {
+    if (!isDirtyRef.current) return;
+    const timer = setTimeout(() => {
+      const savedAt = Date.now();
+      writeStoredDraft(draftKey, { editingFormId, draft, savedAt });
+      setLastAutoSaved(savedAt);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [draft, editingFormId, draftKey]);
+
+  const clearStoredDraft = () => {
+    isDirtyRef.current = false;
+    writeStoredDraft(draftKey, null);
+    setLastAutoSaved(null);
+  };
+
+  const restoreStoredDraft = () => {
+    if (!restorable) return;
+    isDirtyRef.current = true;
+    setEditingFormId(restorable.editingFormId);
+    setDraft(recalculateForm(restorable.draft));
+    setRestorable(null);
+  };
+
+  const discardStoredDraft = () => {
+    writeStoredDraft(draftKey, null);
+    setRestorable(null);
+  };
 
   const roleNames = useMemo(
     () => Array.from(new Set(roleOptions.map((role) => role.name))),
@@ -204,6 +275,8 @@ export default function CreateFormScreen() {
   };
 
   const updateDraft = (updater: (prev: FPMSForm) => FPMSForm) => {
+    isDirtyRef.current = true;
+    setRestorable(null);
     setDraft((prev) => recalculateForm(updater(prev)));
   };
 
@@ -489,6 +562,7 @@ export default function CreateFormScreen() {
         await api.post("/api/superadmin/forms", finalForm);
       }
 
+      clearStoredDraft();
       await fetchSavedForms(true);
       startNewForm();
 
@@ -508,6 +582,7 @@ export default function CreateFormScreen() {
   };
 
   const startNewForm = () => {
+    clearStoredDraft();
     setEditingFormId(null);
     setDraft(createEmptyForm());
   };
@@ -518,6 +593,7 @@ export default function CreateFormScreen() {
       const found = response.data?.data as FPMSForm | undefined;
       if (!found) return;
 
+      isDirtyRef.current = false;
       setEditingFormId(found.id);
       setDraft(recalculateForm(found));
     } catch (error: any) {
@@ -628,6 +704,24 @@ export default function CreateFormScreen() {
         </div>
       ) : (
         <div className="space-y-6 pb-12">
+          {restorable && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span>
+                You have unsaved work
+                {restorable.draft.formTitle ? <> on <strong>{restorable.draft.formTitle}</strong></> : null}
+                {" "}from {new Date(restorable.savedAt).toLocaleString()}.
+              </span>
+              <div className="ml-auto flex gap-2">
+                <Button size="sm" onClick={restoreStoredDraft}>
+                  Restore
+                </Button>
+                <Button size="sm" variant="outline" onClick={discardStoredDraft}>
+                  Discard
+                </Button>
+              </div>
+            </div>
+          )}
+
           <FormSummary
             formTitle={draft.formTitle}
             roles={draft.applicableRoles}
@@ -645,18 +739,37 @@ export default function CreateFormScreen() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Form Title *</Label>
-                <Input
-                  value={draft.formTitle}
-                  onChange={(e) =>
-                    updateDraft((prev) => ({
-                      ...prev,
-                      formTitle: e.target.value,
-                    }))
-                  }
-                  placeholder="Enter form title"
-                />
+              <div className="grid gap-4 md:grid-cols-[1fr_180px]">
+                <div className="space-y-2">
+                  <Label>Form Title *</Label>
+                  <Input
+                    value={draft.formTitle}
+                    onChange={(e) =>
+                      updateDraft((prev) => ({
+                        ...prev,
+                        formTitle: e.target.value,
+                      }))
+                    }
+                    placeholder="Enter form title"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Form Order</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={draft.displayOrder || ""}
+                    onChange={(e) =>
+                      updateDraft((prev) => ({
+                        ...prev,
+                        displayOrder: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                      }))
+                    }
+                    placeholder="e.g. 1"
+                  />
+                  <p className="text-xs text-muted-foreground">Position in the sidebar and lists</p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -724,6 +837,12 @@ export default function CreateFormScreen() {
                   )}
                   {isSavingForm ? "Saving..." : "Save Form"}
                 </Button>
+                {lastAutoSaved && (
+                  <span className="self-center text-xs text-muted-foreground">
+                    Draft auto-saved in this browser at{" "}
+                    {new Date(lastAutoSaved).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -793,6 +912,7 @@ export default function CreateFormScreen() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium">
+                        {form.displayOrder ? `${form.displayOrder}. ` : ""}
                         {form.formTitle || "Untitled Form"}
                       </p>
                       <p className="text-xs text-muted-foreground">
