@@ -18,6 +18,7 @@ import {
   getWorkflowReviewQueue,
   reviewWorkflowSubmission,
   unifiedLogin,
+  refreshSession,
   getApplicableForms,
   getCriteriaModulesTasks,
   getCommitteeDashboard,
@@ -41,6 +42,7 @@ const authRouter = express.Router();
 
 authRouter.post("/login", committeeLogin);
 authRouter.post("/unified-login", unifiedLogin);
+authRouter.post("/refresh-token", refreshSession);
 authRouter.get("/forms", getApplicableForms);
 authRouter.get("/forms/:formId/criteria/:criteriaId", getCriteriaModulesTasks);
 authRouter.post("/admin-add", committeeAuth, addAdmin);

@@ -67,6 +67,8 @@ export interface Criteria {
 export interface FPMSForm {
   id: string;
   formTitle: string;
+  /** Position in the sidebar and every form list (1, 2, 3…); 0 = not set */
+  displayOrder?: number;
   applicableRoles: string[];
   totalMarks: number;
   criteria: Criteria[];

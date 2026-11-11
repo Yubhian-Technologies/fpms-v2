@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "@/api/api";
+import { api, clearSessionStorage } from "@/api/api";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
 
@@ -91,6 +91,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       if (unified.data?.success) {
         localStorage.setItem("token", unified.data.token);
+        if (unified.data.refreshToken) {
+          localStorage.setItem("refreshToken", unified.data.refreshToken);
+        }
         localStorage.setItem("user", JSON.stringify(unified.data.user));
 
         api.defaults.headers.common["Authorization"] =
@@ -148,7 +151,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
-    localStorage.clear();
+    clearSessionStorage();
     delete api.defaults.headers.common["Authorization"];
     setUser(null);
   };

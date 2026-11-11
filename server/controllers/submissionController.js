@@ -17,6 +17,7 @@ import {
   duplicatesMessage,
   withTaskNumbers,
 } from "../utils/taskTable.js";
+import { sortFormDocs } from "../utils/formOrder.js";
 
 // Returns current assessment phase based on college config dates
 const getCollegePhase = (collegeDef) => {
@@ -1938,9 +1939,7 @@ export const getFormOrder = async (req, res) => {
   try {
     const scope = await yearScopeFromReq(req);
     const snap = await scope.forms().get();
-    // Sorted in memory: academicYear filter + orderBy would need a composite index
-    const toMillis = (v) => (v?.toMillis ? v.toMillis() : new Date(v || 0).getTime() || 0);
-    const docs = [...snap.docs].sort((a, b) => toMillis(b.data().updatedAt) - toMillis(a.data().updatedAt));
+    const docs = sortFormDocs(snap.docs);
     const forms = docs.map((doc, idx) => ({
       id: doc.id,
       formTitle: String(doc.data().formTitle || ""),
