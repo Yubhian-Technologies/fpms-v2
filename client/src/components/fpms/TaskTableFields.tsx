@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { Paperclip, Plus, Trash2, X } from "lucide-react";
 import { resolveEvidenceLink } from "@/lib/utils";
-import { normalizeTableColumns, type TableColumn, type TaskTableRow } from "@/types/formBuilder";
+import {
+  MONTH_NAMES,
+  durationSourceColumns,
+  formatCellValue,
+  isCalculatedColumn,
+  normalizeTableColumns,
+  withCalculatedCells,
+  type TableColumn,
+  type TaskTableRow,
+} from "@/types/formBuilder";
 
 // A row while faculty edit it: a document is a File until it is uploaded on submit
 export interface EditableTableRow {
@@ -46,6 +55,66 @@ export const toTableData = (rows: EditableTableRow[]): TaskTableRow[] =>
   }));
 
 export const tableHasFilledRow = (rows: EditableTableRow[]) => rows.some(rowIsFilled);
+
+// From / To pairs feeding a days / years column must not be reversed
+const reversedRange = (columns: TableColumn[], row: EditableTableRow, index: number) => {
+  const source = durationSourceColumns(columns, index);
+  if (!source) return null;
+  const [from, to] = [row.cells[source[0]], row.cells[source[1]]];
+  return from && to && to < from
+    ? `"${columns[source[1]].label}" is before "${columns[source[0]].label}".`
+    : null;
+};
+
+// First problem with the dates in the table, for the submit check
+export const tableDateError = (columns: TableColumn[], rows: EditableTableRow[]) => {
+  for (const [r, row] of rows.entries()) {
+    for (const [c, column] of columns.entries()) {
+      if (!isCalculatedColumn(column)) continue;
+      const message = reversedRange(columns, row, c);
+      if (message) return `Row ${r + 1}: ${message}`;
+    }
+  }
+  return null;
+};
+
+// Month & Year as two dropdowns (the native month input is missing in Safari)
+function MonthYearInput({ value, onChange, invalid }: { value: string; onChange: (value: string) => void; invalid?: boolean }) {
+  const [year, month] = /^\d{4}-\d{2}$/.test(value) ? value.split("-") : ["", ""];
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: 17 }, (_, i) => String(thisYear + 1 - i));
+  if (year && !years.includes(year)) years.push(year);
+  const [draftMonth, setDraftMonth] = useState(month);
+  const [draftYear, setDraftYear] = useState(year);
+  const pick = (m: string, y: string) => {
+    setDraftMonth(m);
+    setDraftYear(y);
+    onChange(m && y ? `${y}-${m}` : "");
+  };
+  const selectClass = `w-full rounded border bg-white px-1.5 py-1.5 outline-none focus:ring-2 ${
+    invalid ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
+  }`;
+  return (
+    <div className="grid grid-cols-2 gap-1">
+      <select value={month || draftMonth} onChange={(e) => pick(e.target.value, year || draftYear)} className={selectClass}>
+        <option value="">Month</option>
+        {MONTH_NAMES.map((name, i) => (
+          <option key={name} value={String(i + 1).padStart(2, "0")}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <select value={year || draftYear} onChange={(e) => pick(month || draftMonth, e.target.value)} className={selectClass}>
+        <option value="">Year</option>
+        {years.map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 // Table uploads: PDF only, under 10 MB
 const MAX_DOC_BYTES = 10 * 1024 * 1024;
@@ -100,7 +169,10 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
   };
 
   const setCell = (r: number, c: number, value: string) =>
-    updateRow(r, (row) => ({ ...row, cells: row.cells.map((v, ci) => (ci === c ? value : v)) }));
+    updateRow(r, (row) => ({
+      ...row,
+      cells: withCalculatedCells(columns, row.cells.map((v, ci) => (ci === c ? value : v))),
+    }));
 
   const setDoc = (r: number, c: number, doc: string | File, hash: string) =>
     updateRow(r, (row) => ({
@@ -133,7 +205,7 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
                 return (
                   <th
                     key={i}
-                    className={`border-b border-r border-slate-300 px-3 py-2.5 font-semibold last:border-r-0 ${col.document !== "none" ? "min-w-[200px]" : "min-w-[160px]"}`}
+                    className={`border-b border-r border-slate-300 px-3 py-2.5 font-semibold last:border-r-0 ${col.document !== "none" ? "min-w-[200px]" : isCalculatedColumn(col) ? "min-w-[90px]" : "min-w-[160px]"}`}
                   >
                     {col.label}
                     {col.document === "required" && <span className="ml-0.5 text-red-600">*</span>}
@@ -157,13 +229,16 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
                   <td className="border-r px-3 py-2.5 tabular-nums">{r + 1}</td>
                   {order.map((c) => {
                     const column = columns[c];
-                    const error = fileErrors[`${r}:${c}`] || errors?.[`${r}:${c}`];
+                    const error =
+                      fileErrors[`${r}:${c}`] ||
+                      errors?.[`${r}:${c}`] ||
+                      (isCalculatedColumn(column) ? reversedRange(columns, row, c) : null);
                     const doc = row.docs[c];
                     const isDocColumn = column.document !== "none";
                     if (readOnly) {
                       return (
                         <td key={c} className="space-y-1 border-r px-3 py-2.5 last:border-r-0">
-                          {row.cells[c] && <div className="whitespace-pre-wrap">{row.cells[c]}</div>}
+                          {row.cells[c] && <div className="whitespace-pre-wrap">{formatCellValue(column, row.cells[c])}</div>}
                           {typeof doc === "string" && doc && <DocumentLink doc={doc} />}
                           {!row.cells[c] && !doc && <div>—</div>}
                         </td>
@@ -172,15 +247,52 @@ export function TaskTableInput({ columns, rows, onChange, readOnly, errors, onLi
                     return (
                       <td key={c} className="space-y-1.5 border-r p-1.5">
                         {!isDocColumn ? (
-                          <input
-                            value={row.cells[c]}
-                            onChange={(e) => setCell(r, c, e.target.value)}
-                            onBlur={() => column.maxUses && onLimitedCellCommit?.(rows)}
-                            placeholder={column.label}
-                            className={`w-full rounded border bg-white px-2 py-1.5 outline-none placeholder:text-slate-300 focus:ring-2 ${
-                              error ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
-                            }`}
-                          />
+                          isCalculatedColumn(column) ? (
+                            <div
+                              title="Calculated from the dates"
+                              className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-600 tabular-nums"
+                            >
+                              {formatCellValue(column, row.cells[c]) || "—"}
+                            </div>
+                          ) : column.kind === "month" ? (
+                            <MonthYearInput
+                              value={row.cells[c]}
+                              invalid={Boolean(error)}
+                              onChange={(value) => {
+                                const next = setCell(r, c, value);
+                                if (column.maxUses) onLimitedCellCommit?.(next);
+                              }}
+                            />
+                          ) : column.kind === "select" ? (
+                            <select
+                              value={row.cells[c]}
+                              onChange={(e) => {
+                                const next = setCell(r, c, e.target.value);
+                                if (column.maxUses) onLimitedCellCommit?.(next);
+                              }}
+                              className={`w-full rounded border bg-white px-1.5 py-1.5 outline-none focus:ring-2 ${
+                                error ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
+                              }`}
+                            >
+                              <option value="">Select…</option>
+                              {column.options.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={column.kind === "date" ? "date" : "text"}
+                              value={row.cells[c]}
+                              onChange={(e) => setCell(r, c, e.target.value)}
+                              onBlur={() => column.maxUses && onLimitedCellCommit?.(rows)}
+                              placeholder={column.label}
+                              className={`w-full rounded border bg-white px-2 py-1.5 outline-none placeholder:text-slate-300 focus:ring-2 ${
+                                error ? "border-red-400 focus:ring-red-100" : "border-slate-200 focus:border-indigo-400 focus:ring-indigo-100"
+                              }`}
+                            />
+                          )
                         ) : doc ? (
                           <div className={`flex items-center gap-2 rounded border bg-white px-2 py-1.5 text-xs ${error ? "border-red-400" : "border-slate-200"}`}>
                             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

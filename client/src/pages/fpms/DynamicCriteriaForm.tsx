@@ -33,6 +33,7 @@ import {
   buildTableRows,
   toTableData,
   tableHasFilledRow,
+  tableDateError,
   type EditableTableRow,
   type TableCellErrors,
 } from "@/components/fpms/TaskTableFields";
@@ -707,8 +708,10 @@ export default function DynamicCriteriaForm() {
           tableColumns.some((column, i) => column.document === "required" && !row.docs[i]),
       );
 
-      const missingExtras =
-        missingDocRow !== -1
+      const dateError = tableDateError(tableColumns, tableRows);
+      const missingExtras = dateError
+        ? { title: "Check the dates", description: dateError }
+        : missingDocRow !== -1
           ? { title: "Document required", description: `Row ${missingDocRow + 1}: upload the required document(s) in the table.` }
           : claimedNum <= 0
             ? null
