@@ -63,7 +63,13 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
   const [currentYear, setCurrentYear] = useState(DEFAULT_YEAR);
   const [years, setYears] = useState<AcademicYear[]>([{ id: DEFAULT_YEAR, status: "active" }]);
   const [backfilled, setBackfilled] = useState(false);
-  const [selectedYear, setSelectedYearState] = useState<string>(() => readStoredYear() || DEFAULT_YEAR);
+  // A past year the user deliberately picked; null = follow the current year.
+  // (Defaulting to a fixed year here used to leave fresh browsers stuck in
+  // last year's read-only history once a new year started.)
+  const [chosenYear, setChosenYear] = useState<string | null>(() => readStoredYear());
+  const [yearsLoaded, setYearsLoaded] = useState(false);
+  const selectedYear =
+    chosenYear && chosenYear !== currentYear && years.some((y) => y.id === chosenYear) ? chosenYear : currentYear;
 
   const reload = useCallback(async () => {
     try {
@@ -73,9 +79,7 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
       setCurrentYear(data.current);
       setYears(data.years?.length ? data.years : [{ id: data.current, status: "active" }]);
       setBackfilled(Boolean(data.backfilled));
-      setSelectedYearState((prev) =>
-        (data.years || []).some((y: AcademicYear) => y.id === prev) ? prev : data.current,
-      );
+      setYearsLoaded(true);
     } catch {
       /* keep defaults — the app behaves as single-year */
     }
@@ -87,12 +91,21 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
 
   const isHistory = selectedYear !== currentYear;
 
+  // A saved choice equal to the current year is no choice at all — drop it so it
+  // doesn't become a stale history view after the next year starts
+  useEffect(() => {
+    if (yearsLoaded && chosenYear === currentYear) {
+      setChosenYear(null);
+      storeYear(null);
+    }
+  }, [yearsLoaded, chosenYear, currentYear]);
+
   // Keep the API client in sync before children fetch
   setViewedAcademicYear(isHistory ? selectedYear : null);
 
   const setSelectedYear = useCallback(
     (year: string) => {
-      setSelectedYearState(year);
+      setChosenYear(year === currentYear ? null : year);
       storeYear(year === currentYear ? null : year);
       setViewedAcademicYear(year === currentYear ? null : year);
       queryClient.invalidateQueries();
