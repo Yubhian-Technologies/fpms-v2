@@ -23,6 +23,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Save, Eye, Trash2, Loader2, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { FPMSForm, Criteria, Module, Task } from "@/types/formBuilder";
+import {
+  displayTaskNumber,
+  durationSourceColumns,
+  isCalculatedColumn,
+  normalizeTableColumns,
+} from "@/types/formBuilder";
 import CriteriaForm from "@/components/CriteriaForm";
 import FormSummary from "@/components/FormSummary";
 import { api } from "@/api/api";
@@ -539,6 +545,31 @@ export default function CreateFormScreen() {
         variant: "destructive",
       });
       return false;
+    }
+
+    // Table columns faculty could not fill: a dropdown without choices, or a
+    // calculated Days / Years column without two Date columns above it
+    for (const criteriaItem of draft.criteria) {
+      for (const moduleItem of criteriaItem.modules) {
+        for (const [taskIndex, task] of moduleItem.tasks.entries()) {
+          const columns = normalizeTableColumns(task.tableColumns);
+          const broken = columns.find(
+            (column, i) =>
+              (column.document === "none" && column.kind === "select" && column.options.length === 0) ||
+              (isCalculatedColumn(column) && !durationSourceColumns(columns, i)),
+          );
+          if (broken) {
+            toast({
+              title: "Validation Error",
+              description: `Task ${displayTaskNumber(task, moduleItem.moduleNumber, taskIndex)}: column "${broken.label || "Untitled"}" ${
+                broken.kind === "select" ? "needs at least one dropdown choice" : "needs two Date columns above it"
+              }.`,
+              variant: "destructive",
+            });
+            return false;
+          }
+        }
+      }
     }
 
 

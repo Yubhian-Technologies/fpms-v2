@@ -4,7 +4,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Plus, Table2, Trash2, X } from "lucide-react";
-import { normalizeTableColumns, type Task, type TableColumn } from "@/types/formBuilder";
+import { useState } from "react";
+import {
+  durationSourceColumns,
+  isCalculatedColumn,
+  normalizeTableColumns,
+  type Task,
+  type TableColumn,
+} from "@/types/formBuilder";
 
 interface TaskFormProps {
   task: Task;
@@ -14,9 +21,46 @@ interface TaskFormProps {
   autoNumber: string;
 }
 
-const EMPTY_COLUMN: TableColumn = { label: "", document: "none", maxUses: 0 };
+const EMPTY_COLUMN: TableColumn = { label: "", kind: "text", options: [], document: "none", maxUses: 0 };
 
-// Table columns: label, type (text or document upload) and duplicate limit
+// One Type dropdown covers both what faculty enter and document uploads
+const COLUMN_TYPES: { value: string; label: string }[] = [
+  { value: "text", label: "Text" },
+  { value: "date", label: "Date (calendar)" },
+  { value: "month", label: "Month & Year" },
+  { value: "select", label: "Dropdown" },
+  { value: "days", label: "No. of Days (auto)" },
+  { value: "years", label: "Years (auto)" },
+  { value: "doc-required", label: "Document upload (required)" },
+  { value: "doc-optional", label: "Document upload (optional)" },
+];
+
+const columnTypeValue = (column: TableColumn) =>
+  column.document === "none" ? column.kind : `doc-${column.document}`;
+
+const columnTypePatch = (value: string): Partial<TableColumn> =>
+  value.startsWith("doc-")
+    ? { document: value.slice(4) as TableColumn["document"], kind: "text" }
+    : { document: "none", kind: value as TableColumn["kind"] };
+
+// Dropdown choices typed comma-separated; committed on blur so commas can be typed
+function OptionsInput({ options, onChange }: { options: string[]; onChange: (options: string[]) => void }) {
+  const [text, setText] = useState(options.join(", "));
+  return (
+    <Input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const next = [...new Set(text.split(",").map((o) => o.trim()).filter(Boolean))];
+        setText(next.join(", "));
+        onChange(next);
+      }}
+      placeholder="Choices, comma-separated, e.g. Ongoing, Completed"
+    />
+  );
+}
+
+// Table columns: label, type and duplicate limit
 function ColumnListEditor({
   columns,
   onChange,
@@ -29,53 +73,78 @@ function ColumnListEditor({
 
   return (
     <div className="space-y-2">
-      <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_190px_120px_40px]">
+      <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_210px_120px_40px]">
         <span>Column</span>
         <span>Type</span>
         <span>Duplicate limit</span>
         <span />
       </div>
-      {columns.map((column, i) => (
-        <div key={i} className="grid gap-2 rounded-md border p-2 md:grid-cols-[1fr_190px_120px_40px] md:border-0 md:p-0">
-          <Input
-            value={column.label}
-            onChange={(e) => update(i, { label: e.target.value })}
-            placeholder="e.g. Programme Title / Type"
-          />
-          <select
-            value={column.document}
-            onChange={(e) => update(i, { document: e.target.value as TableColumn["document"] })}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            title="Column type"
-          >
-            <option value="none">Text</option>
-            <option value="required">Document upload (required)</option>
-            <option value="optional">Document upload (optional)</option>
-          </select>
-          <Input
-            type="number"
-            min={0}
-            max={50}
-            value={column.maxUses}
-            onChange={(e) => update(i, { maxUses: Math.min(50, Math.max(0, Number(e.target.value) || 0)) })}
-            title="0 = no limit, 1 = unique, N = same value allowed N times in the college this year"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700"
-            onClick={() => onChange(columns.filter((_, ci) => ci !== i))}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
+      {columns.map((column, i) => {
+        const calculated = isCalculatedColumn(column);
+        const source = calculated ? durationSourceColumns(columns, i) : null;
+        return (
+          <div key={i} className="space-y-1.5 rounded-md border p-2 md:border-0 md:p-0">
+            <div className="grid gap-2 md:grid-cols-[1fr_210px_120px_40px]">
+              <Input
+                value={column.label}
+                onChange={(e) => update(i, { label: e.target.value })}
+                placeholder="e.g. Programme Title / Type"
+              />
+              <select
+                value={columnTypeValue(column)}
+                onChange={(e) => update(i, columnTypePatch(e.target.value))}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                title="Column type"
+              >
+                {COLUMN_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+              <Input
+                type="number"
+                min={0}
+                max={50}
+                value={column.maxUses}
+                disabled={calculated}
+                onChange={(e) => update(i, { maxUses: Math.min(50, Math.max(0, Number(e.target.value) || 0)) })}
+                title="0 = no limit, 1 = unique, N = same value allowed N times in the college this year"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => onChange(columns.filter((_, ci) => ci !== i))}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {column.document === "none" && column.kind === "select" && (
+              <div className="md:pr-[178px]">
+                <OptionsInput options={column.options} onChange={(options) => update(i, { options })} />
+                {column.options.length === 0 && (
+                  <p className="mt-1 text-xs text-red-600">Add at least one choice.</p>
+                )}
+              </div>
+            )}
+            {calculated && (
+              <p className={`text-xs ${source ? "text-muted-foreground" : "text-red-600"}`}>
+                {source
+                  ? `Calculated from "${columns[source[0]].label || "Date"}" to "${columns[source[1]].label || "Date"}".`
+                  : "Needs two Date columns above it (From and To)."}
+              </p>
+            )}
+          </div>
+        );
+      })}
       <Button type="button" variant="outline" size="sm" onClick={() => onChange([...columns, { ...EMPTY_COLUMN }])}>
         <Plus className="mr-1 h-3.5 w-3.5" /> Add column
       </Button>
       <p className="text-xs text-muted-foreground">
-        Document upload columns are shown at the end of the table. When the table has one, the separate task
+        No. of Days / Years are filled in automatically from the two Date columns above them (e.g. From Date, To Date).
+        Document upload columns are shown at the end of the table; when the table has one, the separate task
         Evidence upload is not shown to faculty.
       </p>
       <p className="text-xs text-muted-foreground">
