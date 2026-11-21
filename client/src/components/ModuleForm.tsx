@@ -52,7 +52,10 @@ export default function ModuleForm({
               </Button>
             </CollapsibleTrigger>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">Total: {module.totalMarks}</Badge>
+              <Badge variant="secondary">
+                Total: {module.totalMarks}
+                {Number(module.maxMarks) > 0 ? " (capped)" : ""}
+              </Badge>
               <Button
                 variant="ghost"
                 size="icon"
@@ -93,9 +96,33 @@ export default function ModuleForm({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Module Total Marks (Auto)</Label>
-              <Input value={module.totalMarks} readOnly className="bg-muted" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Module Total Marks (Auto)</Label>
+                <Input value={module.totalMarks} readOnly className="bg-muted" />
+                {Number(module.maxMarks) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Tasks add up to {module.tasks.reduce((sum, task) => sum + (Number(task.marks) || 0), 0)}; capped at{" "}
+                    {module.maxMarks}.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Max Counted Marks (optional)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={module.maxMarks || ""}
+                  onChange={(e) =>
+                    onModuleChange({ maxMarks: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                  placeholder="No cap"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Module cap: faculty can claim across all tasks, but at most this many marks count. E.g. tasks
+                  total 10, cap 8 → 10 counts as 8/8, 7 as 7/8.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-3">

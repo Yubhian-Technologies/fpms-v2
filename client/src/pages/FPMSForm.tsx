@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { cappedSum } from "@/lib/moduleCaps";
 
 const STEPS = FPMS_MODULES.map((m) => ({ id: m.id, name: m.name }));
 
@@ -70,7 +71,7 @@ export default function FPMSForm() {
     navigate('/dashboard');
   };
 
-  const totalScore = submission.modules.reduce((sum, m) => sum + m.score, 0);
+  const totalScore = submission.modules.reduce(cappedSum((m) => m.score), 0);
   const maxScore = FPMS_MODULES.reduce((sum, m) => sum + m.maxPoints, 0);
 
   return (

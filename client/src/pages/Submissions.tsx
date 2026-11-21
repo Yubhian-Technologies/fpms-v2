@@ -39,6 +39,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatRoleLabel } from "@/lib/utils";
 import { api } from "@/api/api";
 import { resolveEvidenceLink } from "@/lib/utils";
+import { cappedSum, getModuleCap } from "@/lib/moduleCaps";
 
 interface Submission {
   id: string;
@@ -230,15 +231,9 @@ export default function Submissions() {
   // Reviewer scores and remarks only visible to faculty after evaluation period ends
   const showReviewerInfo = showAchievement;
 
-  const totalClaimed = submissions.reduce(
-    (sum, sub) => sum + sub.claimedScore,
-    0,
-  );
-  const totalAwarded = submissions.reduce(
-    (sum, sub) => sum + (getEffectiveScore(sub) ?? 0),
-    0,
-  );
-  const totalMax = submissions.reduce((sum, sub) => sum + sub.maxMarks, 0);
+  const totalClaimed = submissions.reduce(cappedSum((sub) => sub.claimedScore), 0);
+  const totalAwarded = submissions.reduce(cappedSum((sub) => getEffectiveScore(sub) ?? 0), 0);
+  const totalMax = submissions.reduce(cappedSum((sub) => sub.maxMarks), 0);
   const achievementPercent = Math.max(
     0,
     Math.min(100, (totalAwarded / 300) * 100),
@@ -360,6 +355,26 @@ export default function Submissions() {
       }
     >,
   );
+
+  // Module caps: a capped module counts for at most its cap; criteria totals
+  // are the sum of their (capped) modules
+  Object.values(groupedDetailed).forEach((criteriaGroup) => {
+    criteriaGroup.totalClaimed = 0;
+    criteriaGroup.totalFinal = 0;
+    criteriaGroup.totalMax = 0;
+    Object.values(criteriaGroup.modules).forEach((moduleGroup) => {
+      const cap = getModuleCap(moduleGroup.tasks[0]?.moduleId);
+      if (cap) {
+        moduleGroup.totalClaimed = Math.min(moduleGroup.totalClaimed, cap);
+        moduleGroup.totalFinal = Math.min(moduleGroup.totalFinal, cap);
+        moduleGroup.totalMax = Math.min(moduleGroup.totalMax, cap);
+        moduleGroup.moduleTotalMarks = Math.min(moduleGroup.moduleTotalMarks || cap, cap);
+      }
+      criteriaGroup.totalClaimed += moduleGroup.totalClaimed;
+      criteriaGroup.totalFinal += moduleGroup.totalFinal;
+      criteriaGroup.totalMax += moduleGroup.totalMax;
+    });
+  });
 
   const handleAccept = async (submission: Submission) => {
     try {

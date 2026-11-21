@@ -132,11 +132,11 @@ function ProtectedRoute({
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
-  const { selectedYear } = useAcademicYear();
+  const { selectedYear, capsVersion } = useAcademicYear();
 
   return (
     // Keyed by year so every page remounts and refetches when the viewed year changes
-    <Routes key={selectedYear}>
+    <Routes key={`${selectedYear}|${capsVersion}`}>
       <Route path="/" element={<Index />} />
       <Route path="/register-superadmin" element={<AddSuperAdmin />} />
       <Route

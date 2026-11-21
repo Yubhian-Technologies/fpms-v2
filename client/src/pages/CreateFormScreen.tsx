@@ -102,9 +102,11 @@ const recalculateForm = (form: FPMSForm): FPMSForm => {
       }));
 
       const moduleTotal = tasks.reduce((sum, task) => sum + task.marks, 0);
+      const cap = Number(moduleItem.maxMarks) > 0 ? Number(moduleItem.maxMarks) : 0;
       return {
         ...moduleItem,
-        totalMarks: moduleTotal,
+        // A module cap limits what the module counts for in criteria / form totals
+        totalMarks: cap ? Math.min(moduleTotal, cap) : moduleTotal,
         tasks,
       };
     });

@@ -1,4 +1,5 @@
 import { db } from "../config/firebase.js";
+import { getModuleCaps, sumWithModuleCaps } from "../utils/moduleCaps.js";
 import {
   yearScopeFromReq,
   getCollegesForYear,
@@ -42,6 +43,7 @@ export const getCollegeFaculty = async (req, res) => {
     const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
 
     const scope = await yearScopeFromReq(req);
+    const moduleCaps = await getModuleCaps(scope);
     const [usersSnap, subsSnap, colleges, snapshots] = await Promise.all([
       db.collection("users")
         .where("college", "==", collegeName)
@@ -49,7 +51,7 @@ export const getCollegeFaculty = async (req, res) => {
         .get(),
       scope.submissions()
         .where("college", "==", collegeName)
-        .select("userId", "status", "claimedScore", "reviewerScore", "finalScore", "isAppealed", "appealerScore")
+        .select("userId", "moduleId", "status", "claimedScore", "reviewerScore", "finalScore", "isAppealed", "appealerScore")
         .get(),
       getCollegesForYear(scope),
       getFacultySnapshotsForYear(scope),
@@ -87,12 +89,15 @@ export const getCollegeFaculty = async (req, res) => {
         const phdKey = `${designKey}__${d.hasPhd ? "phd" : "nophd"}`;
         const targetScore = desigMap[phdKey] || desigMap[designKey] || 0;
 
-        const claimedScore = subs.reduce((sum, s) => sum + (Number(s.claimedScore) || 0), 0);
-        const reviewerScore = subs.reduce((sum, s) => sum + (s.reviewerScore != null ? Number(s.reviewerScore) : 0), 0);
-        const finalScore = subs.reduce((sum, s) => FINALIZED.has(s.status) ? sum + Number(s.finalScore ?? s.score ?? 0) : sum, 0);
+        const claimedScore = sumWithModuleCaps(subs, (s) => s.claimedScore, moduleCaps);
+        const reviewerScore = sumWithModuleCaps(subs, (s) => (s.reviewerScore != null ? s.reviewerScore : 0), moduleCaps);
+        const finalScore = sumWithModuleCaps(subs, (s) => (FINALIZED.has(s.status) ? s.finalScore ?? s.score ?? 0 : 0), moduleCaps);
         const isAppealed = subs.some((s) => s.status === "appealed");
-        const appealScore = subs.filter((s) => s.status === "appeal-resolved" && s.appealerScore != null)
-          .reduce((sum, s) => sum + Number(s.appealerScore), 0);
+        const appealScore = sumWithModuleCaps(
+          subs.filter((s) => s.status === "appeal-resolved" && s.appealerScore != null),
+          (s) => s.appealerScore,
+          moduleCaps,
+        );
         const percentage = targetScore > 0 ? Math.round((reviewerScore / targetScore) * 100) : null;
 
         const FINALIZED_SET = ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"];
@@ -147,6 +152,7 @@ export const getViewerStats = async (req, res) => {
     const normStr = (s) => String(s || "").trim().toLowerCase();
 
     const scope = await yearScopeFromReq(req);
+    const moduleCaps = await getModuleCaps(scope);
     const [colleges, snapshots] = await Promise.all([
       getCollegesForYear(scope),
       getFacultySnapshotsForYear(scope),
@@ -179,7 +185,7 @@ export const getViewerStats = async (req, res) => {
 
     const [usersSnap, subsSnap] = await Promise.all([
       db.collection("users").select("uid", "college", "role", "department", "designation", "name", "email", "hasPhd", "staffStatus", "level").get(),
-      scope.submissions().select("userId", "college", "status", "finalScore", "score").get(),
+      scope.submissions().select("userId", "moduleId", "college", "status", "finalScore", "score").get(),
     ]);
 
     const subsMap = new Map();
@@ -204,7 +210,7 @@ export const getViewerStats = async (req, res) => {
         const phdKey = `${nameKey}__${data.hasPhd ? "phd" : "nophd"}`;
         const target = desigMap[phdKey] || desigMap[nameKey] || 0;
         const userSubs = subsMap.get(data.uid) || [];
-        const score = userSubs.reduce((sum, s) => sum + getConfirmedScore(s), 0);
+        const score = sumWithModuleCaps(userSubs, getConfirmedScore, moduleCaps);
         const INACTIVE_STATUSES = new Set(["long-leave", "maternity-leave", "retainership", "other"]);
         const isActive = !INACTIVE_STATUSES.has(normStr(data.staffStatus || ""));
         return {

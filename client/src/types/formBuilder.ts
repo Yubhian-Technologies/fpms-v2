@@ -112,7 +112,10 @@ export interface Module {
   id: string;
   moduleNumber: number;
   moduleName: string;
+  /** Marks the module counts for: the task total, or the cap when one is set */
   totalMarks: number;
+  /** Module cap: at most this many marks count, whatever the tasks add up to. 0 / unset = no cap */
+  maxMarks?: number;
   tasks: Task[];
 }
 

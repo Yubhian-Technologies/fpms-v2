@@ -51,6 +51,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import LOGO from "@/assets/LOGO.png";
+import { cappedSum } from "@/lib/moduleCaps";
 
 type StaffStatus = "active" | "inactive" | "long-leave" | "maternity-leave" | "recently-joined" | "retainership" | "other";
 
@@ -822,9 +823,9 @@ export default function Faculty() {
       const subjectsStr = faculty.subjectsHandled?.length ? faculty.subjectsHandled.join(", ") : "—";
 
       const FINALIZED_INFO = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
-      const totalClaimed = submissions.reduce((s: number, sub: any) => s + (sub.claimedScore ?? 0), 0);
+      const totalClaimed = submissions.reduce(cappedSum((sub: any) => (sub.claimedScore ?? 0)), 0);
       const totalFinalInfo = submissions.reduce(
-        (s: number, sub: any) => s + (FINALIZED_INFO.has(sub.status) && sub.finalScore != null ? sub.finalScore : 0),
+        cappedSum((sub: any) => (FINALIZED_INFO.has(sub.status) && sub.finalScore != null ? sub.finalScore : 0)),
         0,
       );
 
@@ -869,7 +870,7 @@ export default function Faculty() {
       }
 
       for (const [criteriaName, subs] of Object.entries(criteriaGroups)) {
-        const criteriaTotal = subs.reduce((s, sub) => s + (sub.finalScore != null ? sub.finalScore : 0), 0);
+        const criteriaTotal = subs.reduce(cappedSum((sub: any) => (sub.finalScore != null ? sub.finalScore : 0)), 0);
         totalFinal += criteriaTotal;
 
         // group by moduleName within criteria

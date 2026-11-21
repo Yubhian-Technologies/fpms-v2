@@ -18,6 +18,7 @@ import {
   withTaskNumbers,
 } from "../utils/taskTable.js";
 import { sortFormDocs } from "../utils/formOrder.js";
+import { getModuleCaps, sumWithModuleCaps } from "../utils/moduleCaps.js";
 
 // Returns current assessment phase based on college config dates
 const getCollegePhase = (collegeDef) => {
@@ -1731,13 +1732,12 @@ export const getUserTotal = async (req, res) => {
 
     if (formId) query = query.where("formId", "==", formId);
 
-    const snapshot = await query.get();
-    let totalScore = 0;
-
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      totalScore += Number(data.finalScore || 0);
-    });
+    const [snapshot, moduleCaps] = await Promise.all([query.get(), getModuleCaps(scope)]);
+    const totalScore = sumWithModuleCaps(
+      snapshot.docs.map((doc) => doc.data()),
+      (data) => data.finalScore || 0,
+      moduleCaps,
+    );
 
     return res.status(200).json({
       success: true,
@@ -1931,6 +1931,18 @@ export const getCollegePhases = async (req, res) => {
   } catch (err) {
     console.error("getCollegePhases error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// { moduleId: cap } for the selected academic year — the browser applies module
+// caps when it totals scores (see client/src/lib/moduleCaps.ts)
+export const getModuleCapsForYear = async (req, res) => {
+  try {
+    const scope = await yearScopeFromReq(req);
+    return res.json({ success: true, data: await getModuleCaps(scope) });
+  } catch (err) {
+    console.error("getModuleCapsForYear error:", err);
+    return res.status(500).json({ success: false, message: "Could not load module caps" });
   }
 };
 

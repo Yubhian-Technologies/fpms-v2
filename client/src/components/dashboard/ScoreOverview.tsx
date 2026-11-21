@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, getConfirmedScore } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
+import { cappedSum, sumScores } from "@/lib/moduleCaps";
 
 interface ScoreCategory {
   name: string;
@@ -27,11 +28,11 @@ export function ScoreOverview({
 
   const categoriesMap: Record<string, ScoreCategory> = {};
 
+  const subsByCategory: Record<string, any[]> = {};
   submissions.forEach((sub: any) => {
     const critName = sub.criteriaName?.trim();
     if (!critName) return;
 
-    const displayScore = getConfirmedScore(sub);
     const isUsingClaimed = sub.status !== "accepted" && sub.status !== "appeal-resolved";
 
     const criteriaTotal = Number(sub.criteriaTotalMarks ?? sub.maxMarks ?? 0);
@@ -46,7 +47,8 @@ export function ScoreOverview({
       };
     }
 
-    categoriesMap[critName].score += displayScore;
+    // Summed below with module caps applied
+    (subsByCategory[critName] ||= []).push(sub);
     if (isUsingClaimed) {
       categoriesMap[critName].usingClaimed = true;
     }
@@ -56,9 +58,13 @@ export function ScoreOverview({
     }
   });
 
+  Object.entries(subsByCategory).forEach(([critName, subs]) => {
+    categoriesMap[critName].score = sumScores(subs, getConfirmedScore);
+  });
+
   const displayCategories = Object.values(categoriesMap);
 
-  const totalScore = displayCategories.reduce((sum, cat) => sum + cat.score, 0);
+  const totalScore = displayCategories.reduce(cappedSum((cat) => cat.score), 0);
   const maxTotalScore = displayCategories.reduce(
     (sum, cat) => sum + cat.maxScore,
     0,

@@ -10,6 +10,7 @@ import {
   Users,
   User,
 } from "lucide-react";
+import { sumScores } from "@/lib/moduleCaps";
 
 interface StatusCardProps {
   title: string;
@@ -97,7 +98,6 @@ export function StatusCards({
       totalTarget += target;
 
       subs.forEach((sub: any) => {
-        if (FINALIZED.has(sub.status)) totalScore += Number(sub.finalScore ?? 0);
         if (sub.status === "submitted") pendingReviewCount++;
         if (sub.status === "appealed") appealedCount++;
       });
@@ -105,10 +105,8 @@ export function StatusCards({
       if (subs.length > 0) submittedFaculty++;
       if (subs.some((sub: any) => sub.status === "reviewed")) needToAcceptCount++;
 
-      const confirmedScore = subs.reduce(
-        (sum: number, sub: any) => sum + (FINALIZED.has(sub.status) ? Number(sub.finalScore ?? 0) : 0),
-        0,
-      );
+      const confirmedScore = sumScores(subs, (sub: any) => (FINALIZED.has(sub.status) ? Number(sub.finalScore ?? 0) : 0));
+      totalScore += confirmedScore;
       if (target > 0 && confirmedScore >= target) targetAchievers++;
     });
 
