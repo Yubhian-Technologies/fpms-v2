@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, setViewedAcademicYear } from "@/api/api";
+import { setModuleCaps } from "@/lib/moduleCaps";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface AcademicYear {
@@ -17,6 +18,8 @@ interface AcademicYearContextType {
   isHistory: boolean;
   /** Records have been tagged with their year; year switching is available */
   backfilled: boolean;
+  /** Changes when module caps for the selected year load, so pages recompute totals */
+  capsVersion: string;
   reload: () => Promise<void>;
 }
 
@@ -54,6 +57,7 @@ const AcademicYearContext = createContext<AcademicYearContextType>({
   setSelectedYear: () => {},
   isHistory: false,
   backfilled: false,
+  capsVersion: "",
   reload: async () => {},
 });
 
@@ -91,6 +95,28 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
 
   const isHistory = selectedYear !== currentYear;
 
+  // Module caps of the selected year, used by every score total (lib/moduleCaps)
+  const [capsVersion, setCapsVersion] = useState("");
+  useEffect(() => {
+    if (!user || !yearsLoaded) return;
+    let cancelled = false;
+    api
+      .get("/api/submissions/module-caps", { params: { year: selectedYear === currentYear ? "" : selectedYear } })
+      .then((res) => {
+        if (cancelled) return;
+        const caps = res.data?.data || {};
+        setModuleCaps(caps);
+        // Only remount pages when there are caps to apply
+        setCapsVersion(Object.keys(caps).length ? `${selectedYear}:${JSON.stringify(caps)}` : "");
+      })
+      .catch(() => {
+        /* no caps → plain sums */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, yearsLoaded, selectedYear, currentYear]);
+
   // A saved choice equal to the current year is no choice at all — drop it so it
   // doesn't become a stale history view after the next year starts
   useEffect(() => {
@@ -114,8 +140,8 @@ export function AcademicYearProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ currentYear, years, selectedYear, setSelectedYear, isHistory, backfilled, reload }),
-    [currentYear, years, selectedYear, setSelectedYear, isHistory, backfilled, reload],
+    () => ({ currentYear, years, selectedYear, setSelectedYear, isHistory, backfilled, capsVersion, reload }),
+    [currentYear, years, selectedYear, setSelectedYear, isHistory, backfilled, capsVersion, reload],
   );
 
   return <AcademicYearContext.Provider value={value}>{children}</AcademicYearContext.Provider>;

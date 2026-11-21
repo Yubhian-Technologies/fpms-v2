@@ -32,6 +32,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { cappedSum } from "@/lib/moduleCaps";
 
 interface SubmissionItem {
   id: string;
@@ -498,9 +499,9 @@ export default function Review() {
               ? "Pending"
               : "In Progress";
           const criteriaMap = groupByCriteria(faculty.items);
-          const totalClaimed = faculty.items.reduce((s, i) => s + Number(i.claimedScore ?? 0), 0);
+          const totalClaimed = faculty.items.reduce(cappedSum((i) => Number(i.claimedScore ?? 0)), 0);
           const scoredItems = faculty.items.filter((i) => i.reviewerScore != null);
-          const totalAwarded = scoredItems.reduce((s, i) => s + Number(i.reviewerScore ?? 0), 0);
+          const totalAwarded = scoredItems.reduce(cappedSum((i) => Number(i.reviewerScore ?? 0)), 0);
           const totalFinal = faculty.items.reduce((s, i) => {
             const fs = i.finalScore != null ? Number(i.finalScore) : (i.reviewerScore != null ? Number(i.reviewerScore) : null);
             return fs != null ? s + fs : s;
@@ -569,8 +570,8 @@ export default function Review() {
                       const structureKey = cFormId && cCriteriaId ? `${cFormId}:${cCriteriaId}` : null;
                       const formStructure = structureKey ? formStructureCache[structureKey] : null;
                       const allCriteriaItems = [...pending, ...reviewed];
-                      const criteriaClaimed = allCriteriaItems.reduce((s, i) => s + Number(i.claimedScore ?? 0), 0);
-                      const criteriaAwarded = reviewed.reduce((s, i) => s + Number(i.reviewerScore ?? 0), 0);
+                      const criteriaClaimed = allCriteriaItems.reduce(cappedSum((i) => Number(i.claimedScore ?? 0)), 0);
+                      const criteriaAwarded = reviewed.reduce(cappedSum((i) => Number(i.reviewerScore ?? 0)), 0);
                       return (
                       <AccordionItem
                         key={criteria}

@@ -70,6 +70,7 @@ import { UserProfile } from "@/components/dashboard/UserProfile";
 import { FPMSFormOverview } from "@/components/fpms/FPMSFormOverview";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { getConfirmedScore } from "@/lib/utils";
+import { cappedSum } from "@/lib/moduleCaps";
 
 /* ---------------- STATUS CONFIG ---------------- */
 const statusConfig: Record<
@@ -498,8 +499,8 @@ export default function Dashboard() {
 
     setFilteredData(subs);
     setFilteredStaffList([...matchedStaff].sort((a, b) => {
-      const aR = (a.submissions || []).reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-      const bR = (b.submissions || []).reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+      const aR = (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+      const bR = (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
       return bR - aR;
     }));
   };
@@ -527,8 +528,7 @@ export default function Dashboard() {
     const summaryRows: any[][] = [["S.No", "Name of the Faculty", "Email", "Role", "Department", "Designation", "Submissions", "Score", "Target", "Status"]];
     let sno = 1;
     for (const { staff, subs } of seenFaculty.values()) {
-      const score = subs.reduce((sum: number, s: any) =>
-        sum + Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+      const score = subs.reduce(cappedSum((s: any) => Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0)), 0);
       const hasAccepted = subs.some((s: any) => ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(s.status));
       const hasAppealed = subs.some((s: any) => s.status === "appealed");
       const hasPending = subs.some((s: any) => s.status === "submitted");
@@ -1358,10 +1358,10 @@ export default function Dashboard() {
                                                       <div className="space-y-3">
                                                         {Object.entries(grouped).map(([crit, mods]) => {
                                                           const allTasks = mods.flatMap((m) => m.tasks);
-                                                          const critMax = allTasks.reduce((s: number, t: any) => s + (t.maxMarks != null ? Number(t.maxMarks) : 0), 0);
-                                                          const critClaimed = allTasks.reduce((s: number, t: any) => s + (t.claimedScore != null ? Number(t.claimedScore) : 0), 0);
-                                                          const critReviewer = allTasks.reduce((s: number, t: any) => s + (t.reviewerScore != null ? Number(t.reviewerScore) : 0), 0);
-                                                          const critFinal = allTasks.reduce((s: number, t: any) => s + (t.finalScore != null ? Number(t.finalScore) : 0), 0);
+                                                          const critMax = allTasks.reduce(cappedSum((t: any) => (t.maxMarks != null ? Number(t.maxMarks) : 0)), 0);
+                                                          const critClaimed = allTasks.reduce(cappedSum((t: any) => (t.claimedScore != null ? Number(t.claimedScore) : 0)), 0);
+                                                          const critReviewer = allTasks.reduce(cappedSum((t: any) => (t.reviewerScore != null ? Number(t.reviewerScore) : 0)), 0);
+                                                          const critFinal = allTasks.reduce(cappedSum((t: any) => (t.finalScore != null ? Number(t.finalScore) : 0)), 0);
                                                           return (
                                                           <div key={crit}>
                                                             <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
@@ -1374,12 +1374,12 @@ export default function Dashboard() {
                                                               </span>
                                                             </div>
                                                             {mods.map(({ module, tasks }) => {
-                                                              const totMax = tasks.reduce((s: number, t: any) => s + (t.maxMarks != null ? Number(t.maxMarks) : 0), 0);
-                                                              const totClaimed = tasks.reduce((s: number, t: any) => s + (t.claimedScore != null ? Number(t.claimedScore) : 0), 0);
-                                                              const totReviewer = tasks.reduce((s: number, t: any) => s + (t.reviewerScore != null ? Number(t.reviewerScore) : 0), 0);
+                                                              const totMax = tasks.reduce(cappedSum((t: any) => (t.maxMarks != null ? Number(t.maxMarks) : 0)), 0);
+                                                              const totClaimed = tasks.reduce(cappedSum((t: any) => (t.claimedScore != null ? Number(t.claimedScore) : 0)), 0);
+                                                              const totReviewer = tasks.reduce(cappedSum((t: any) => (t.reviewerScore != null ? Number(t.reviewerScore) : 0)), 0);
                                                               const hasAppeal = tasks.some((t: any) => t.appealerScore != null);
-                                                              const totAppeal = hasAppeal ? tasks.reduce((s: number, t: any) => s + (t.appealerScore != null ? Number(t.appealerScore) : 0), 0) : null;
-                                                              const totFinal = tasks.reduce((s: number, t: any) => s + (t.finalScore != null ? Number(t.finalScore) : 0), 0);
+                                                              const totAppeal = hasAppeal ? tasks.reduce(cappedSum((t: any) => (t.appealerScore != null ? Number(t.appealerScore) : 0)), 0) : null;
+                                                              const totFinal = tasks.reduce(cappedSum((t: any) => (t.finalScore != null ? Number(t.finalScore) : 0)), 0);
                                                               return (
                                                               <div key={module} className="mb-2 pl-2 border-l-2 border-indigo-200">
                                                                 <p className="text-[10px] font-medium text-muted-foreground mb-1">{module}</p>
@@ -1739,7 +1739,7 @@ export default function Dashboard() {
 
               const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
               const subs: any[] = staff.submissions || [];
-              const claimedTotal = subs.reduce((s: number, sub: any) => s + Number(sub.claimedScore ?? 0), 0);
+              const claimedTotal = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
               const finalTotal = subs.reduce((s: number, sub: any) => {
                 if (FINALIZED.has(sub.status)) return s + Number(sub.finalScore ?? sub.reviewerScore ?? 0);
                 return s + Number(sub.reviewerScore ?? 0);
@@ -1959,13 +1959,9 @@ export default function Dashboard() {
             const vStaffRow = (s: any) => {
               const subs = s.submissions || [];
               const target = s.designationTarget ? Number(s.designationTarget) : null;
-              const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-              const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-              const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
-                if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
-                  return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
-                return sum + Number(sub.reviewerScore ?? 0);
-              }, 0) : null;
+              const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+              const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+              const finalScore = subs.length > 0 ? subs.reduce(cappedSum((sub: any) => (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status) ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0) : null;
               const hasAppealResolved = subs.some((sub: any) => sub.status === "appeal-resolved");
               const appealScore = hasAppealResolved ? finalScore : null;
               const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
@@ -2021,8 +2017,8 @@ export default function Dashboard() {
 
             const vStaffTable = (rows: any[]) => {
               const sorted = [...rows].sort((a: any, b: any) => {
-                const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
-                const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+                const aR = (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                const bR = (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
                 return bR - aR;
               });
               return (
@@ -2092,7 +2088,7 @@ export default function Dashboard() {
                             const deptAppealed = deptAllStaff.filter((s: any) => (s.submissions || []).some((sub: any) => sub.status === "appealed")).length;
                             const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
                             const deptTargetReached = deptWithTarget.filter((s: any) => {
-                              const sc = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScoreV(sub), 0);
+                              const sc = (s.submissions || []).reduce(cappedSum((sub: any) => getConfirmedScoreV(sub)), 0);
                               return sc >= Number(s.designationTarget);
                             }).length;
                             const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
@@ -2169,13 +2165,9 @@ export default function Dashboard() {
                                     {deansV.map((s: any) => {
                                       const subs = s.submissions || [];
                                       const target = s.designationTarget ? Number(s.designationTarget) : null;
-                                      const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-                                      const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                                      const finalScoreV = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
-                                        if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
-                                          return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
-                                        return sum + Number(sub.reviewerScore ?? 0);
-                                      }, 0) : null;
+                                      const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+                                      const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                                      const finalScoreV = subs.length > 0 ? subs.reduce(cappedSum((sub: any) => (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status) ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0) : null;
                                       const appealScoreV = subs.some((sub: any) => sub.status === "appeal-resolved") ? finalScoreV : null;
                                       const pctV = target && target > 0 && finalScoreV != null ? Math.round((finalScoreV / target) * 100) : null;
                                       const hasAppealedV = subs.some((sub: any) => sub.status === "appealed");
@@ -2275,12 +2267,12 @@ export default function Dashboard() {
                                     drawH();
                                     const FINC = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
                                     const allStaff = [...(deptMapV[viewerSelectedDept!]?.hods || []), ...(deptMapV[viewerSelectedDept!]?.faculty || [])];
-                                    const sorted = [...allStaff].sort((a: any, b: any) => (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0) - (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0));
+                                    const sorted = [...allStaff].sort((a: any, b: any) => (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0) - (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0));
                                     const rows = sorted.map((s: any, idx: number) => {
                                       const subs = s.submissions || [];
-                                      const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-                                      const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                                      const final_ = subs.reduce((sum: number, sub: any) => FINC.has(sub.status) ? sum + Number(sub.finalScore ?? sub.reviewerScore ?? 0) : sum + Number(sub.reviewerScore ?? 0), 0);
+                                      const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+                                      const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                                      const final_ = subs.reduce(cappedSum((sub: any) => (FINC.has(sub.status) ? Number(sub.finalScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0);
                                       const target = s.designationTarget ? Number(s.designationTarget) : null;
                                       const pct = target && target > 0 ? Math.round((reviewer / target) * 100) + "%" : "—";
                                       const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
@@ -2376,6 +2368,7 @@ export default function Dashboard() {
     let totalMaxMarks = 0;
     let totalAppealed = 0;
     let totalCompleted = 0;
+    const statSubs: any[] = [];
     staffList
       .filter((staff: any) =>
         user?.role === "committee"
@@ -2385,13 +2378,16 @@ export default function Dashboard() {
       .forEach((staff: any) => {
         staff.submissions?.forEach((sub: any) => {
           totalSubmissions++;
-          totalFinalScore += getConfirmedScore(sub);
-          totalMaxMarks += sub.maxMarks ?? 0;
+          statSubs.push(sub);
           if (sub.status === "appealed") totalAppealed++;
           if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired" || sub.status === "auto-approved")
             totalCompleted++;
         });
       });
+
+    // Module caps apply per faculty, so totals are summed over all the subs at once
+    totalFinalScore = statSubs.reduce(cappedSum((sub: any) => getConfirmedScore(sub)), 0);
+    totalMaxMarks = statSubs.reduce(cappedSum((sub: any) => sub.maxMarks ?? 0), 0);
 
     // ─── PERSONAL STATS (only used when isHod === true) ───
     let personalClaimed = 0,
@@ -2400,11 +2396,11 @@ export default function Dashboard() {
       personalMax = 0;
     let personalCompleted = 0,
       personalAppealed = 0;
+    personalClaimed = submissions.reduce(cappedSum((sub: any) => sub.claimedScore ?? 0), 0);
+    personalReviewer = submissions.reduce(cappedSum((sub: any) => sub.reviewerScore ?? 0), 0);
+    personalFinal = submissions.reduce(cappedSum((sub: any) => getConfirmedScore(sub)), 0);
+    personalMax = submissions.reduce(cappedSum((sub: any) => sub.maxMarks ?? 0), 0);
     submissions.forEach((sub: any) => {
-      personalClaimed += sub.claimedScore ?? 0;
-      personalReviewer += sub.reviewerScore ?? 0;
-      personalFinal += getConfirmedScore(sub);
-      personalMax += sub.maxMarks ?? 0;
       if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired" || sub.status === "auto-approved")
         personalCompleted++;
       if (sub.status === "appealed") personalAppealed++;
@@ -2578,8 +2574,8 @@ export default function Dashboard() {
 
       const buildSummarySheet = (deptName: string, staffArr: any[]) => {
         const sorted = [...staffArr].sort((a, b) => {
-          const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
-          const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+          const aR = (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+          const bR = (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
           return bR - aR;
         });
         const rows: any[][] = [
@@ -2594,13 +2590,9 @@ export default function Dashboard() {
         let sno = 1;
         for (const s of sorted) {
           const subs = s.submissions || [];
-          const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-          const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-          const finalScore = subs.reduce((sum: number, sub: any) => {
-            if (FINALIZED_S.has(sub.status))
-              return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
-            return sum + Number(sub.reviewerScore ?? 0);
-          }, 0);
+          const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+          const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+          const finalScore = subs.reduce(cappedSum((sub: any) => (FINALIZED_S.has(sub.status) ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0);
           const hasAppealResolved = subs.some((sub: any) => sub.status === "appeal-resolved");
           const appealScore = hasAppealResolved ? finalScore : null;
           const target = Number(s.designationTarget || 0);
@@ -2692,7 +2684,7 @@ export default function Dashboard() {
           let sno = 1;
           for (const person of staffArr) {
             const subs: any[] = person.subs || [];
-            const totalScore = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
+            const totalScore = subs.reduce(cappedSum((sub: any) => Number(sub.finalScore ?? 0)), 0);
             if (subs.length === 0) {
               rows.push([sno++, person.name, person.designation || "—", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
               continue;
@@ -2712,7 +2704,7 @@ export default function Dashboard() {
 
             for (const [criteriaKey, critSubs] of criteriaEntries) {
               const isLastCriteria = criteriaKey === lastCriteriaKey;
-              const critFinal = critSubs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
+              const critFinal = critSubs.reduce(cappedSum((sub: any) => Number(sub.finalScore ?? 0)), 0);
               const critStart = rows.length;
               const subModMap = new Map<string, any[]>();
               for (const sub of critSubs) {
@@ -3006,20 +2998,20 @@ export default function Dashboard() {
         addPageHeader(dept.name);
 
         const sortedStaff = [...dept.staff].sort((a: any, b: any) => {
-          const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
-          const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+          const aR = (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+          const bR = (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
           return bR - aR;
         });
 
         const rows = sortedStaff.map((s: any, idx: number) => {
           const subs = s.submissions || [];
-          const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-          const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
+          const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+          const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
           const isFinalized = subs.length > 0 && subs.every((sub: any) =>
             ["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status)
           );
           const finalScore = isFinalized
-            ? subs.reduce((sum: number, sub: any) => sum + Number(sub.finalScore ?? sub.reviewerScore ?? 0), 0)
+            ? subs.reduce(cappedSum((sub: any) => Number(sub.finalScore ?? sub.reviewerScore ?? 0)), 0)
             : null;
           const target = Number(s.designationTarget || 0);
           const pct = finalScore != null && target > 0
@@ -3151,7 +3143,7 @@ export default function Dashboard() {
 
       const FINALIZED = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
       const subs: any[] = staff.submissions || [];
-      const claimedTotal = subs.reduce((s: number, sub: any) => s + Number(sub.claimedScore ?? 0), 0);
+      const claimedTotal = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
       const finalTotal = subs.reduce((s: number, sub: any) => {
         if (FINALIZED.has(sub.status)) return s + Number(sub.finalScore ?? sub.reviewerScore ?? 0);
         return s + Number(sub.reviewerScore ?? 0);
@@ -3410,16 +3402,16 @@ export default function Dashboard() {
 
       const FINALIZED_C = new Set(["accepted", "appeal-resolved", "auto-approved", "appeal-expired"]);
       const sorted = [...deptStaff].sort((a: any, b: any) => {
-        const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
-        const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+        const aR = (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+        const bR = (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
         return bR - aR;
       });
 
       const rows = sorted.map((s: any, idx: number) => {
         const subs = s.submissions || [];
-        const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-        const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-        const final_ = subs.reduce((sum: number, sub: any) => FINALIZED_C.has(sub.status) ? sum + Number(sub.finalScore ?? sub.reviewerScore ?? 0) : sum + Number(sub.reviewerScore ?? 0), 0);
+        const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+        const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+        const final_ = subs.reduce(cappedSum((sub: any) => (FINALIZED_C.has(sub.status) ? Number(sub.finalScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0);
         const target = s.designationTarget ? Number(s.designationTarget) : null;
         const pct = target && target > 0 ? Math.round((reviewer / target) * 100) + "%" : "—";
         const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
@@ -3584,8 +3576,7 @@ export default function Dashboard() {
       ];
       staffList.forEach((f: any, idx: number) => {
         const subs = f.submissions || [];
-        const score = subs.reduce((sum: number, s: any) =>
-          sum + Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+        const score = subs.reduce(cappedSum((s: any) => Number(s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0)), 0);
         rows.push([idx + 1, f.name || f.email || "—", f.designation || "—",
           subs.length, score, f.designationTarget || "—", getStatus(subs)]);
       });
@@ -3988,10 +3979,10 @@ export default function Dashboard() {
 
                     const staffRow = (s: any) => {
                       const subs = s.submissions || [];
-                      const claimedTotal = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-                      const reviewerTotal = subs.reduce((sum: number, sub: any) => sub.reviewerScore != null ? sum + Number(sub.reviewerScore) : sum, 0);
-                      const appealTotal = subs.reduce((sum: number, sub: any) => sub.appealerScore != null ? sum + Number(sub.appealerScore) : sum, 0);
-                      const finalTotal = subs.reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+                      const claimedTotal = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+                      const reviewerTotal = subs.reduce(cappedSum((sub: any) => (sub.reviewerScore != null ? Number(sub.reviewerScore) : 0)), 0);
+                      const appealTotal = subs.reduce(cappedSum((sub: any) => (sub.appealerScore != null ? Number(sub.appealerScore) : 0)), 0);
+                      const finalTotal = subs.reduce(cappedSum((sub: any) => getConfirmedScore(sub)), 0);
                       const hasAppeal = subs.some((sub: any) => sub.appealerScore != null);
                       const done = subs.filter(
                         (sub: any) => sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired",
@@ -4178,7 +4169,7 @@ export default function Dashboard() {
           const totalPending = totalAllSubs.filter((s: any) => s.status === "submitted").length;
           const totalTargetReached = nonCommitteeStaff.filter((s: any) => {
             if (!s.designationTarget) return false;
-            const score = (s.submissions || []).reduce((sum: number, sub: any) => sum + (sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
+            const score = (s.submissions || []).reduce(cappedSum((sub: any) => (sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0)), 0);
             return score >= Number(s.designationTarget);
           }).length;
 
@@ -4220,7 +4211,7 @@ export default function Dashboard() {
                   rows.push([sno++, person.name, "-", "-", "-", "-", "-", "-", "-", "-", "-"]);
                   continue;
                 }
-                const totalFinal = subs.reduce((s: number, sub: any) => s + Number(sub.finalScore ?? 0), 0);
+                const totalFinal = subs.reduce(cappedSum((sub: any) => Number(sub.finalScore ?? 0)), 0);
                 const criteriaMap = new Map<string, any[]>();
                 for (const sub of subs) {
                   const key = sub.criteriaName || sub.formTitle || "-";
@@ -4477,8 +4468,8 @@ export default function Dashboard() {
                             <tbody className="divide-y">
                               {filteredStaff.map((s: any, idx: number) => {
                                 const subs = s.submissions || [];
-                                const score = subs.reduce((sum: number, sub: any) => sum + (sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0), 0);
-                                const maxScore = subs.reduce((sum: number, sub: any) => sum + (sub.maxMarks ?? 0), 0);
+                                const score = subs.reduce(cappedSum((sub: any) => (sub.finalScore ?? sub.reviewerScore ?? sub.claimedScore ?? 0)), 0);
+                                const maxScore = subs.reduce(cappedSum((sub: any) => (sub.maxMarks ?? 0)), 0);
                                 const target = s.designationTarget ? Number(s.designationTarget) : null;
                                 const targetReached = target !== null && score >= target;
                                 const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
@@ -4681,7 +4672,7 @@ export default function Dashboard() {
           const allDeptStaff = allCollegeStaff.filter((s: any) => s.department && Number(s.level) !== 2);
           const totalWithTarget = allDeptStaff.filter((s: any) => s.designationTarget);
           const totalTargetsReached = totalWithTarget.filter((s: any) => {
-            const achieved = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+            const achieved = (s.submissions || []).reduce(cappedSum((sub: any) => getConfirmedScore(sub)), 0);
             return achieved >= Number(s.designationTarget);
           }).length;
 
@@ -4798,7 +4789,7 @@ export default function Dashboard() {
                   const deptAppealed = deptAllStaff.filter((s: any) => (s.submissions || []).some((sub: any) => sub.status === "appealed")).length;
                   const deptWithTarget = deptAllStaff.filter((s: any) => s.designationTarget);
                   const deptTargetsReached = deptWithTarget.filter((s: any) => {
-                    const achieved = (s.submissions || []).reduce((sum: number, sub: any) => sum + getConfirmedScore(sub), 0);
+                    const achieved = (s.submissions || []).reduce(cappedSum((sub: any) => getConfirmedScore(sub)), 0);
                     return achieved >= Number(s.designationTarget);
                   }).length;
                   const deptSubs = deptAllStaff.flatMap((s: any) => s.submissions || []);
@@ -4918,13 +4909,9 @@ export default function Dashboard() {
                           {deans.map((s: any) => {
                             const subs = s.submissions || [];
                             const target = s.designationTarget ? Number(s.designationTarget) : null;
-                            const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-                            const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                            const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
-                              if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
-                                return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
-                              return sum + Number(sub.reviewerScore ?? 0);
-                            }, 0) : null;
+                            const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+                            const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                            const finalScore = subs.length > 0 ? subs.reduce(cappedSum((sub: any) => (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status) ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0) : null;
                             const appealScore = subs.some((sub: any) => sub.status === "appeal-resolved") ? finalScore : null;
                             const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
                             const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
@@ -5015,13 +5002,9 @@ export default function Dashboard() {
                       const staffRow = (s: any) => {
                         const subs = s.submissions || [];
                         const target = s.designationTarget ? Number(s.designationTarget) : null;
-                        const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-                        const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                        const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
-                          if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
-                            return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
-                          return sum + Number(sub.reviewerScore ?? 0);
-                        }, 0) : null;
+                        const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+                        const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                        const finalScore = subs.length > 0 ? subs.reduce(cappedSum((sub: any) => (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status) ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0) : null;
                         const appealScore = subs.some((sub: any) => sub.status === "appeal-resolved") ? finalScore : null;
                         const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
                         const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
@@ -5086,8 +5069,8 @@ export default function Dashboard() {
                       };
                       const staffTable = (rows: any[]) => {
                         const sorted = [...rows].sort((a: any, b: any) => {
-                          const aR = (a.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
-                          const bR = (b.submissions || []).reduce((s: number, sub: any) => s + Number(sub.reviewerScore ?? 0), 0);
+                          const aR = (a.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                          const bR = (b.submissions || []).reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
                           return bR - aR;
                         });
                         return (
@@ -5161,7 +5144,7 @@ export default function Dashboard() {
               const submitted = staffList.filter((f: any) => (f.submissions?.length || 0) > 0).length;
               const targetReached = staffList.filter((f: any) => {
                 if (!f.designationTarget) return false;
-                const score = (f.submissions || []).reduce((sum: number, s: any) => sum + (s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
+                const score = (f.submissions || []).reduce(cappedSum((s: any) => (s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0)), 0);
                 return score >= Number(f.designationTarget);
               }).length;
               const pendingReview = staffList.filter((f: any) =>
@@ -5289,8 +5272,8 @@ export default function Dashboard() {
                           {filtered.map((faculty: any, idx: number) => {
                             const subs = faculty.submissions || [];
                             const totalSubs = subs.length;
-                            const finalScore = subs.reduce((sum: number, s: any) => sum + (s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0), 0);
-                            const maxScore = subs.reduce((sum: number, s: any) => sum + (s.maxMarks ?? 0), 0);
+                            const finalScore = subs.reduce(cappedSum((s: any) => (s.finalScore ?? s.reviewerScore ?? s.claimedScore ?? 0)), 0);
+                            const maxScore = subs.reduce(cappedSum((s: any) => (s.maxMarks ?? 0)), 0);
                             const target = faculty.designationTarget ? Number(faculty.designationTarget) : null;
                             const targetReached = target !== null && finalScore >= target;
                             const hasAccepted = subs.some((s: any) => s.status === "accepted" || s.status === "appeal-resolved" || s.status === "auto-approved" || s.status === "appeal-expired");
@@ -5470,13 +5453,9 @@ export default function Dashboard() {
                         {filteredStaffList.map((s: any, idx: number) => {
                           const subs = s.submissions || [];
                           const target = s.designationTarget ? Number(s.designationTarget) : null;
-                          const claimed = subs.reduce((sum: number, sub: any) => sum + Number(sub.claimedScore ?? 0), 0);
-                          const reviewer = subs.reduce((sum: number, sub: any) => sum + Number(sub.reviewerScore ?? 0), 0);
-                          const finalScore = subs.length > 0 ? subs.reduce((sum: number, sub: any) => {
-                            if (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status))
-                              return sum + Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0);
-                            return sum + Number(sub.reviewerScore ?? 0);
-                          }, 0) : null;
+                          const claimed = subs.reduce(cappedSum((sub: any) => Number(sub.claimedScore ?? 0)), 0);
+                          const reviewer = subs.reduce(cappedSum((sub: any) => Number(sub.reviewerScore ?? 0)), 0);
+                          const finalScore = subs.length > 0 ? subs.reduce(cappedSum((sub: any) => (["accepted", "appeal-resolved", "auto-approved", "appeal-expired"].includes(sub.status) ? Number(sub.finalScore ?? sub.appealerScore ?? sub.reviewerScore ?? 0) : Number(sub.reviewerScore ?? 0))), 0) : null;
                           const appealScore = subs.some((sub: any) => sub.status === "appeal-resolved") ? finalScore : null;
                           const pct = target && target > 0 && finalScore != null ? Math.round((finalScore / target) * 100) : null;
                           const hasAppealed = subs.some((sub: any) => sub.status === "appealed");
@@ -5900,11 +5879,11 @@ export default function Dashboard() {
   let totalMax = 0;
   let completedCount = 0;
   let appealedCount = 0;
+  totalClaimed = submissions.reduce(cappedSum((sub: any) => sub.claimedScore ?? 0), 0);
+  totalReviewer = submissions.reduce(cappedSum((sub: any) => sub.reviewerScore ?? 0), 0);
+  totalFinal = submissions.reduce(cappedSum((sub: any) => sub.finalScore ?? 0), 0);
+  totalMax = submissions.reduce(cappedSum((sub: any) => sub.maxMarks ?? 0), 0);
   submissions.forEach((sub: any) => {
-    totalClaimed += sub.claimedScore ?? 0;
-    totalReviewer += sub.reviewerScore ?? 0;
-    totalFinal += sub.finalScore ?? 0;
-    totalMax += sub.maxMarks ?? 0;
     if (sub.status === "accepted" || sub.status === "appeal-resolved" || sub.status === "auto-approved" || sub.status === "appeal-expired")
       completedCount++;
     if (sub.status === "appealed") appealedCount++;

@@ -3,6 +3,7 @@ import { auth, db } from "../config/firebase.js";
 import { invalidateSuperadminCache } from "../config/superadminCache.js";
 import { normalizeTableColumns } from "../utils/taskTable.js";
 import { normalizeDisplayOrder, sortFormDocs } from "../utils/formOrder.js";
+import { invalidateModuleCaps, moduleCapsOf, normalizeModuleCap } from "../utils/moduleCaps.js";
 import {
   getYearScope,
   yearScopeFromReq,
@@ -210,7 +211,10 @@ const normalizeFormPayload = (payload) => {
         };
       });
 
-      const totalMarks = tasks.reduce((sum, task) => sum + task.marks, 0);
+      const taskMarksTotal = tasks.reduce((sum, task) => sum + task.marks, 0);
+      // Module cap: at most `maxMarks` count, whatever the tasks add up to
+      const maxMarks = normalizeModuleCap(moduleItem?.maxMarks);
+      const totalMarks = maxMarks ? Math.min(taskMarksTotal, maxMarks) : taskMarksTotal;
 
       return {
         id: moduleId,
@@ -219,6 +223,7 @@ const normalizeFormPayload = (payload) => {
         moduleName,
         order: moduleIndex + 1,
         totalMarks,
+        maxMarks,
         tasks,
       };
     });
@@ -325,6 +330,7 @@ const composeFormResponse = (formDoc, criteriaDocs, moduleDocs, taskDocs) => {
       moduleNumber: Number(moduleData.moduleNumber || 0),
       moduleName: moduleData.moduleName || "",
       totalMarks: Number(moduleData.totalMarks || 0),
+      maxMarks: normalizeModuleCap(moduleData.maxMarks),
       order: Number(moduleData.order || 0),
       tasks,
     });
@@ -439,6 +445,7 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
           moduleNumber: moduleItem.moduleNumber,
           moduleName: moduleItem.moduleName,
           totalMarks: moduleItem.totalMarks,
+          maxMarks: moduleItem.maxMarks,
           taskCount: moduleItem.tasks.length,
           order: moduleItem.order,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -476,6 +483,9 @@ const saveFormHierarchy = async (formId, payload, superadminUid) => {
   });
 
   await applyBatchOps(writes);
+  // update() replaces the whole map (the merge above would keep removed caps)
+  await formRef.update({ moduleCaps: moduleCapsOf(normalized.criteria) });
+  invalidateModuleCaps();
 
   return { formRef, normalized };
 };

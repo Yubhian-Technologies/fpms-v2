@@ -18,6 +18,7 @@ import {
   getFormStructure,
   getFormCriteria,
   getFormOrder,
+  getModuleCapsForYear,
   getCollegePhases,
   getAllReviewedSubmissions,
   getCollegeAllFinalized,
@@ -75,6 +76,7 @@ router.get("/college-phases", getCollegePhases);
 
 // Form structure (for review/HOD display ordering)
 router.get("/form-order", getFormOrder);
+router.get("/module-caps", getModuleCapsForYear);
 router.get("/form-criteria/:formId", getFormCriteria);
 router.get("/form-structure/:formId/criteria/:criteriaId", getFormStructure);
 

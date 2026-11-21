@@ -38,6 +38,7 @@ import {
   type TableCellErrors,
 } from "@/components/fpms/TaskTableFields";
 import { normalizeTableColumns, type TableColumn } from "@/types/formBuilder";
+import { getModuleCap } from "@/lib/moduleCaps";
 
 interface TaskItem {
   id: string;
@@ -500,17 +501,26 @@ export default function DynamicCriteriaForm() {
     return payload.criteria.modules.flatMap((moduleItem) => moduleItem.tasks);
   }, [payload]);
 
-  const totalMaxMarks = useMemo(() => {
-    return allTasks.reduce((sum, task) => sum + Number(task.marks || 0), 0);
-  }, [allTasks]);
-
-  const totalClaimedMarks = useMemo(() => {
-    return allTasks.reduce((sum, task) => {
-      const value = Number(taskProgress[task.id]?.claimedScore || 0);
-      const bounded = clampClaimedScore(value, task);
-      return sum + bounded;
+  // Totals add up module by module so module caps apply (a capped module counts
+  // for at most its cap, whatever its tasks add up to)
+  const sumByModule = (value: (task: TaskItem) => number) =>
+    (payload?.criteria.modules || []).reduce((total, moduleItem) => {
+      const moduleSum = moduleItem.tasks.reduce((sum, task) => sum + value(task), 0);
+      const cap = getModuleCap(moduleItem.id);
+      return total + (cap ? Math.min(moduleSum, cap) : moduleSum);
     }, 0);
-  }, [allTasks, taskProgress]);
+
+  const totalMaxMarks = useMemo(
+    () => sumByModule((task) => Number(task.marks || 0)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [payload],
+  );
+
+  const totalClaimedMarks = useMemo(
+    () => sumByModule((task) => clampClaimedScore(Number(taskProgress[task.id]?.claimedScore || 0), task)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [payload, taskProgress],
+  );
 
   const completedTasks = useMemo(() => {
     return allTasks.filter(
@@ -546,19 +556,22 @@ export default function DynamicCriteriaForm() {
     [allTasks, taskStatuses],
   );
 
-  const totalFinalScore = useMemo(() => {
-    return allTasks.reduce((sum, task) => {
-      const status = taskStatuses[task.id];
-      if (status === "accepted" && taskReviewData[task.id]) {
-        return sum + Number(taskReviewData[task.id].reviewerScore || 0);
-      } else if (status === "appeal-resolved" && taskAppealData[task.id]) {
-        return sum + Number(taskAppealData[task.id].appealerScore || 0);
-      } else if (status === "auto-approved" && taskReviewData[task.id]) {
-        return sum + Number(taskReviewData[task.id].reviewerScore || 0);
-      }
-      return sum;
-    }, 0);
-  }, [allTasks, taskStatuses, taskReviewData, taskAppealData]);
+  const totalFinalScore = useMemo(
+    () =>
+      sumByModule((task) => {
+        const status = taskStatuses[task.id];
+        if (status === "accepted" && taskReviewData[task.id]) {
+          return Number(taskReviewData[task.id].reviewerScore || 0);
+        } else if (status === "appeal-resolved" && taskAppealData[task.id]) {
+          return Number(taskAppealData[task.id].appealerScore || 0);
+        } else if (status === "auto-approved" && taskReviewData[task.id]) {
+          return Number(taskReviewData[task.id].reviewerScore || 0);
+        }
+        return 0;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [payload, taskStatuses, taskReviewData, taskAppealData],
+  );
 
   const progressPercent = useMemo(() => {
     if (!allTasks.length) return 0;
@@ -593,11 +606,14 @@ export default function DynamicCriteriaForm() {
   const isModuleFrozen = (moduleItem: ModuleItem) =>
     moduleItem.tasks.every((task) => isTaskFrozen(task.id));
 
-  const getModuleClaimed = (moduleItem: ModuleItem) =>
-    moduleItem.tasks.reduce((sum, task) => {
+  const getModuleClaimed = (moduleItem: ModuleItem) => {
+    const claimed = moduleItem.tasks.reduce((sum, task) => {
       const value = Number(taskProgress[task.id]?.claimedScore || 0);
       return sum + clampClaimedScore(value, task);
     }, 0);
+    const cap = getModuleCap(moduleItem.id);
+    return cap ? Math.min(claimed, cap) : claimed;
+  };
 
   const getModuleStatus = (moduleItem: ModuleItem) => {
     const submittedCount = moduleItem.tasks.filter((task) => {
