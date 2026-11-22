@@ -24,6 +24,7 @@ import { Plus, Save, Eye, Trash2, Loader2, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { FPMSForm, Criteria, Module, Task } from "@/types/formBuilder";
 import {
+  moduleMaxMarks,
   displayTaskNumber,
   durationSourceColumns,
   isCalculatedColumn,
@@ -102,11 +103,10 @@ const recalculateForm = (form: FPMSForm): FPMSForm => {
       }));
 
       const moduleTotal = tasks.reduce((sum, task) => sum + task.marks, 0);
-      const cap = Number(moduleItem.maxMarks) > 0 ? Number(moduleItem.maxMarks) : 0;
       return {
         ...moduleItem,
-        // A module cap limits what the module counts for in criteria / form totals
-        totalMarks: cap ? Math.min(moduleTotal, cap) : moduleTotal,
+        // A module cap sets what the module counts for in criteria / form totals
+        totalMarks: moduleMaxMarks(moduleTotal, moduleItem.maxMarks, tasks.some((task) => task.marksType === "range")),
         tasks,
       };
     });

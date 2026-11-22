@@ -43,6 +43,7 @@ import { cappedSum, getModuleCap } from "@/lib/moduleCaps";
 
 interface Submission {
   id: string;
+  marksType?: "fixed" | "range";
   formId: string;
   formTitle: string;
   criteriaId: string;
@@ -368,7 +369,9 @@ export default function Submissions() {
         moduleGroup.totalClaimed = Math.min(moduleGroup.totalClaimed, cap);
         moduleGroup.totalFinal = Math.min(moduleGroup.totalFinal, cap);
         moduleGroup.totalMax = Math.min(moduleGroup.totalMax, cap);
-        moduleGroup.moduleTotalMarks = Math.min(moduleGroup.moduleTotalMarks || cap, cap);
+        moduleGroup.moduleTotalMarks = moduleGroup.tasks.some((task) => task.marksType === "range")
+          ? cap
+          : Math.min(moduleGroup.moduleTotalMarks || cap, cap);
       }
       criteriaGroup.totalClaimed += moduleGroup.totalClaimed;
       criteriaGroup.totalFinal += moduleGroup.totalFinal;

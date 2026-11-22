@@ -1267,7 +1267,7 @@ export default function DynamicCriteriaForm() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-muted-foreground">
-                      {moduleItem.tasks.some((t) => t.marksType === "range")
+                      {moduleItem.tasks.some((t) => t.marksType === "range") && !getModuleCap(moduleItem.id)
                         ? `points: ${moduleItem.totalMarks}`
                         : `max points: ${moduleItem.totalMarks}`}
                     </span>
