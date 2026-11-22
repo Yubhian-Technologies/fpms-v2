@@ -8,6 +8,14 @@ export const normalizeModuleCap = (value) => {
   return Number.isFinite(cap) && cap > 0 ? Math.round(Math.min(cap, 10000) * 100) / 100 : 0;
 };
 
+// What a module counts for. With a cap: the cap when any task is a Ref
+// (open-ended, no upper limit) task, else the smaller of the task total and the
+// cap — fixed tasks of 4+4+2 can never reach a cap of 12.
+export const moduleMaxMarks = (taskMarksTotal, cap, hasOpenEndedTask) => {
+  if (!cap) return taskMarksTotal;
+  return hasOpenEndedTask ? cap : Math.min(taskMarksTotal, cap);
+};
+
 // { moduleId: cap } for the modules of the given (normalized) criteria that have a cap
 export const moduleCapsOf = (criteria) => {
   const caps = {};

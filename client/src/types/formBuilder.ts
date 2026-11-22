@@ -101,6 +101,14 @@ export const formatCellValue = (column: TableColumn, value: string) => {
   return value;
 };
 
+// What a module counts for. With a cap: the cap when any task is a Ref (open-ended)
+// task, else the smaller of the task total and the cap. Same rule as the server.
+export const moduleMaxMarks = (taskMarksTotal: number, cap: number | undefined, hasOpenEndedTask: boolean) => {
+  const limit = Number(cap) > 0 ? Number(cap) : 0;
+  if (!limit) return taskMarksTotal;
+  return hasOpenEndedTask ? limit : Math.min(taskMarksTotal, limit);
+};
+
 // "3.1" + 2nd task → "3.1.2"; a typed Task No. wins
 export const autoTaskNumber = (moduleNumber: number | string, index: number) =>
   `${moduleNumber || "-"}.${index + 1}`;

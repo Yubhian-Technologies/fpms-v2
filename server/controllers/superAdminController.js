@@ -3,7 +3,7 @@ import { auth, db } from "../config/firebase.js";
 import { invalidateSuperadminCache } from "../config/superadminCache.js";
 import { normalizeTableColumns } from "../utils/taskTable.js";
 import { normalizeDisplayOrder, sortFormDocs } from "../utils/formOrder.js";
-import { invalidateModuleCaps, moduleCapsOf, normalizeModuleCap } from "../utils/moduleCaps.js";
+import { invalidateModuleCaps, moduleCapsOf, moduleMaxMarks, normalizeModuleCap } from "../utils/moduleCaps.js";
 import {
   getYearScope,
   yearScopeFromReq,
@@ -214,7 +214,7 @@ const normalizeFormPayload = (payload) => {
       const taskMarksTotal = tasks.reduce((sum, task) => sum + task.marks, 0);
       // Module cap: at most `maxMarks` count, whatever the tasks add up to
       const maxMarks = normalizeModuleCap(moduleItem?.maxMarks);
-      const totalMarks = maxMarks ? Math.min(taskMarksTotal, maxMarks) : taskMarksTotal;
+      const totalMarks = moduleMaxMarks(taskMarksTotal, maxMarks, tasks.some((task) => task.marksType === "range"));
 
       return {
         id: moduleId,

@@ -102,8 +102,9 @@ export default function ModuleForm({
                 <Input value={module.totalMarks} readOnly className="bg-muted" />
                 {Number(module.maxMarks) > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Tasks add up to {module.tasks.reduce((sum, task) => sum + (Number(task.marks) || 0), 0)}; capped at{" "}
-                    {module.maxMarks}.
+                    {module.tasks.some((task) => task.marksType === "range")
+                      ? `Has Ref tasks (no upper limit), so the module counts up to its cap of ${module.maxMarks}.`
+                      : `Tasks add up to ${module.tasks.reduce((sum, task) => sum + (Number(task.marks) || 0), 0)}; capped at ${module.maxMarks}.`}
                   </p>
                 )}
               </div>
