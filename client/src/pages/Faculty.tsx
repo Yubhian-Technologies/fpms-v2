@@ -313,7 +313,14 @@ export default function Faculty() {
       dateOfJoining: "",
       experience: "0",
       status: "active",
+      statusNote: "",
       hasPhd: designations[0]?.phd ?? false,
+      // Every field of the initial state — a missing list here crashed the
+      // Add Faculty dialog (subjectsHandled.length on undefined)
+      subjectsHandled: [],
+      subjectInput: "",
+      externalExperience: "",
+      overallExperience: "",
     });
     setShowPassword(false);
     setShowConfirmPassword(false);
